@@ -61,7 +61,40 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				success: {
+					DEFAULT: 'hsl(var(--success))',
+					foreground: 'hsl(var(--success-foreground))',
+					light: 'hsl(var(--success-light))'
+				},
+				warning: {
+					DEFAULT: 'hsl(var(--warning))',
+					foreground: 'hsl(var(--warning-foreground))',
+					light: 'hsl(var(--warning-light))'
+				},
+				danger: {
+					DEFAULT: 'hsl(var(--danger))',
+					foreground: 'hsl(var(--danger-foreground))',
+					light: 'hsl(var(--danger-light))'
+				},
+				pending: {
+					DEFAULT: 'hsl(var(--pending))',
+					light: 'hsl(var(--pending-light))'
+				},
+				paid: {
+					DEFAULT: 'hsl(var(--paid))',
+					light: 'hsl(var(--paid-light))'
+				},
+				overdue: {
+					DEFAULT: 'hsl(var(--overdue))',
+					light: 'hsl(var(--overdue-light))'
 				}
+			},
+			backgroundImage: {
+				'gradient-primary': 'var(--gradient-primary)',
+				'gradient-success': 'var(--gradient-success)',
+				'gradient-warning': 'var(--gradient-warning)',
+				'gradient-danger': 'var(--gradient-danger)'
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
