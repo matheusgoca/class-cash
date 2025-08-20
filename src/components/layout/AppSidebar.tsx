@@ -9,8 +9,10 @@ import {
   FileBarChart,
   Settings,
   ChevronDown,
-  School
+  School,
+  LogOut
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 import {
   Sidebar,
@@ -61,6 +63,7 @@ const menuItems = [
 ];
 
 export function AppSidebar() {
+  const { signOut, profile } = useAuth();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
@@ -91,7 +94,7 @@ export function AppSidebar() {
           {!collapsed && (
             <div className="flex flex-col">
               <span className="text-sm font-semibold">EduFinance</span>
-              <span className="text-xs text-muted-foreground">Sistema Escolar</span>
+              <span className="text-xs text-muted-foreground">{profile?.full_name || 'Usuário'}</span>
             </div>
           )}
         </div>
@@ -153,6 +156,16 @@ export function AppSidebar() {
               )}
             </SidebarMenuItem>
           ))}
+        </SidebarMenu>
+
+        {/* Logout Button */}
+        <SidebarMenu className="mt-auto border-t border-sidebar-border pt-4">
+          <SidebarMenuItem>
+            <SidebarMenuButton onClick={() => signOut()}>
+              <LogOut className="h-4 w-4" />
+              {!collapsed && <span>Sair</span>}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarContent>
     </Sidebar>
