@@ -1,18 +1,225 @@
+import React, { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogTrigger } from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
+import { Plus } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { ClassForm } from '@/components/classes/ClassForm';
+import { ClassTable } from '@/components/classes/ClassTable';
+
 const Classes = () => {
+  const [classes, setClasses] = useState([]);
+  const [teachers, setTeachers] = useState([]);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingClass, setEditingClass] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchClasses();
+    fetchTeachers();
+  }, []);
+
+  const fetchClasses = async () => {
+    try {
+      const { data: classData, error: classError } = await supabase
+        .from('classes')
+        .select(`
+          *,
+          teachers:teacher_id (
+            name,
+            subject
+          )
+        `)
+        .order('name');
+
+      if (classError) throw classError;
+
+      // Get student counts for each class
+      const { data: studentCounts, error: studentError } = await supabase
+        .from('students')
+        .select('class_id')
+        .eq('status', 'active');
+
+      if (studentError) throw studentError;
+
+      const counts = studentCounts.reduce((acc, student) => {
+        if (student.class_id) {
+          acc[student.class_id] = (acc[student.class_id] || 0) + 1;
+        }
+        return acc;
+      }, {});
+
+      const classesWithCounts = (classData || []).map(cls => ({
+        ...cls,
+        student_count: counts[cls.id] || 0,
+      }));
+
+      setClasses(classesWithCounts);
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: 'Erro ao carregar turmas: ' + error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const fetchTeachers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('teachers')
+        .select('*')
+        .eq('status', 'active')
+        .order('name');
+
+      if (error) throw error;
+      setTeachers(data || []);
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: 'Erro ao carregar professores: ' + error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleSubmit = async (formData) => {
+    setIsLoading(true);
+    try {
+      const dataToSubmit = {
+        ...formData,
+        teacher_id: formData.teacher_id || null,
+      };
+
+      if (editingClass) {
+        const { error } = await supabase
+          .from('classes')
+          .update(dataToSubmit)
+          .eq('id', editingClass.id);
+
+        if (error) throw error;
+
+        toast({
+          title: 'Sucesso',
+          description: 'Turma atualizada com sucesso!',
+        });
+      } else {
+        const { error } = await supabase
+          .from('classes')
+          .insert([dataToSubmit]);
+
+        if (error) throw error;
+
+        toast({
+          title: 'Sucesso',
+          description: 'Turma criada com sucesso!',
+        });
+      }
+
+      fetchClasses();
+      setIsFormOpen(false);
+      setEditingClass(null);
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: 'Erro ao salvar turma: ' + error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEdit = (classData) => {
+    setEditingClass(classData);
+    setIsFormOpen(true);
+  };
+
+  const handleDelete = async (classId) => {
+    try {
+      // Check if class has students
+      const { data: students, error: studentsError } = await supabase
+        .from('students')
+        .select('id')
+        .eq('class_id', classId);
+
+      if (studentsError) throw studentsError;
+
+      if (students && students.length > 0) {
+        toast({
+          title: 'Erro',
+          description: 'Não é possível excluir uma turma que possui alunos matriculados.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const { error } = await supabase
+        .from('classes')
+        .delete()
+        .eq('id', classId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Sucesso',
+        description: 'Turma excluída com sucesso!',
+      });
+
+      fetchClasses();
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: 'Erro ao excluir turma: ' + error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const filteredClasses = classes.filter(cls => 
+    cls.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Gestão de Turmas</h1>
-        <p className="text-muted-foreground">
-          Gerencie as turmas e suas configurações
-        </p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Gestão de Turmas</h1>
+          <p className="text-muted-foreground">
+            Gerencie as turmas e suas configurações
+          </p>
+        </div>
+        <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+          <DialogTrigger asChild>
+            <Button onClick={() => setEditingClass(null)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Nova Turma
+            </Button>
+          </DialogTrigger>
+          <ClassForm
+            classData={editingClass}
+            onSubmit={handleSubmit}
+            onCancel={() => {
+              setIsFormOpen(false);
+              setEditingClass(null);
+            }}
+            teachers={teachers}
+            isLoading={isLoading}
+          />
+        </Dialog>
       </div>
 
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
-        <h2 className="text-xl font-semibold mb-4">Lista de Turmas</h2>
-        <p className="text-muted-foreground">
-          Funcionalidade em desenvolvimento. Em breve você poderá cadastrar, editar e visualizar todas as turmas.
-        </p>
+        <ClassTable
+          classes={filteredClasses}
+          teachers={teachers}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+        />
       </div>
     </div>
   );
