@@ -83,14 +83,13 @@ export const ClassForm: React.FC<ClassFormProps> = ({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Professor Responsável</FormLabel>
-                <Select onValueChange={(value) => field.onChange(value === "none" ? null : value)} value={field.value || "none"}>
+                <Select onValueChange={(value) => field.onChange(value)} value={field.value || undefined}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione um professor" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="none">Nenhum professor</SelectItem>
                     {teachers.map((teacher) => (
                       <SelectItem key={teacher.id} value={teacher.id}>
                         {teacher.name} - {teacher.subject}

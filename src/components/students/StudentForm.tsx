@@ -102,14 +102,13 @@ export const StudentForm: React.FC<StudentFormProps> = ({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Turma</FormLabel>
-                <Select onValueChange={(value) => field.onChange(value === "none" ? null : value)} value={field.value || "none"}>
+                <Select onValueChange={(value) => field.onChange(value)} value={field.value || undefined}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione uma turma" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="none">Nenhuma turma</SelectItem>
                     {classes.map((cls) => (
                       <SelectItem key={cls.id} value={cls.id}>
                         {cls.name}
