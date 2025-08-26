@@ -71,7 +71,7 @@ export const StudentTable: React.FC<StudentTableProps> = ({
             <SelectValue placeholder="Filtrar por turma" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Todas as turmas</SelectItem>
+            <SelectItem value="all">Todas as turmas</SelectItem>
             {classes.map((cls) => (
               <SelectItem key={cls.id} value={cls.id}>
                 {cls.name}

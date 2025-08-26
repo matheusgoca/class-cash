@@ -142,7 +142,7 @@ const Students = () => {
 
   const filteredStudents = students.filter(student => {
     const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesClass = !classFilter || student.class_id === classFilter;
+    const matchesClass = !classFilter || classFilter === 'all' || student.class_id === classFilter;
     return matchesSearch && matchesClass;
   });
 
