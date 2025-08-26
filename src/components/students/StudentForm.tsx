@@ -10,9 +10,14 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 
 const studentSchema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
+  email: z.string().email('Email inválido').min(1, 'Email é obrigatório'),
+  phone: z.string().min(10, 'Telefone deve ter pelo menos 10 caracteres'),
   birth_date: z.string().min(1, 'Data de nascimento é obrigatória'),
+  enrollment_date: z.string().min(1, 'Data de matrícula é obrigatória'),
   guardian_contact: z.string().min(10, 'Contato do responsável deve ter pelo menos 10 caracteres'),
   class_id: z.string().nullable(),
+  full_tuition_value: z.number().min(0, 'Valor da mensalidade deve ser positivo'),
+  discount: z.number().min(0).max(100, 'Desconto deve estar entre 0 e 100%').optional(),
   status: z.enum(['active', 'inactive']),
 });
 
@@ -37,9 +42,14 @@ export const StudentForm: React.FC<StudentFormProps> = ({
     resolver: zodResolver(studentSchema),
     defaultValues: {
       name: student?.name || '',
+      email: student?.email || '',
+      phone: student?.phone || '',
       birth_date: student?.birth_date || '',
+      enrollment_date: student?.enrollment_date || new Date().toISOString().split('T')[0],
       guardian_contact: student?.guardian_contact || '',
       class_id: student?.class_id || null,
+      full_tuition_value: student?.full_tuition_value || 0,
+      discount: student?.discount || 0,
       status: student?.status || 'active',
     },
   });
@@ -70,10 +80,52 @@ export const StudentForm: React.FC<StudentFormProps> = ({
 
           <FormField
             control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Email</FormLabel>
+                <FormControl>
+                  <Input type="email" placeholder="email@exemplo.com" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="phone"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Telefone</FormLabel>
+                <FormControl>
+                  <Input placeholder="(11) 99999-9999" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
             name="birth_date"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Data de Nascimento</FormLabel>
+                <FormControl>
+                  <Input type="date" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="enrollment_date"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Data de Matrícula</FormLabel>
                 <FormControl>
                   <Input type="date" {...field} />
                 </FormControl>
@@ -116,6 +168,51 @@ export const StudentForm: React.FC<StudentFormProps> = ({
                     ))}
                   </SelectContent>
                 </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="full_tuition_value"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Valor da Mensalidade (R$)</FormLabel>
+                <FormControl>
+                  <Input 
+                    type="number" 
+                    min="0" 
+                    step="0.01"
+                    placeholder="500.00"
+                    {...field}
+                    value={field.value}
+                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="discount"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Desconto (%)</FormLabel>
+                <FormControl>
+                  <Input 
+                    type="number" 
+                    min="0" 
+                    max="100"
+                    step="0.01"
+                    placeholder="0"
+                    {...field}
+                    value={field.value}
+                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}

@@ -18,28 +18,34 @@ export type Database = {
         Row: {
           color: string
           created_at: string
+          description: string | null
           id: string
           max_capacity: number
           name: string
           teacher_id: string | null
+          tuition_per_student: number | null
           updated_at: string
         }
         Insert: {
           color?: string
           created_at?: string
+          description?: string | null
           id?: string
           max_capacity?: number
           name: string
           teacher_id?: string | null
+          tuition_per_student?: number | null
           updated_at?: string
         }
         Update: {
           color?: string
           created_at?: string
+          description?: string | null
           id?: string
           max_capacity?: number
           name?: string
           teacher_id?: string | null
+          tuition_per_student?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -87,9 +93,15 @@ export type Database = {
           birth_date: string
           class_id: string | null
           created_at: string
+          discount: number | null
+          email: string | null
+          enrollment_date: string | null
+          final_tuition_value: number | null
+          full_tuition_value: number | null
           guardian_contact: string
           id: string
           name: string
+          phone: string | null
           status: string
           updated_at: string
         }
@@ -97,9 +109,15 @@ export type Database = {
           birth_date: string
           class_id?: string | null
           created_at?: string
+          discount?: number | null
+          email?: string | null
+          enrollment_date?: string | null
+          final_tuition_value?: number | null
+          full_tuition_value?: number | null
           guardian_contact: string
           id?: string
           name: string
+          phone?: string | null
           status?: string
           updated_at?: string
         }
@@ -107,9 +125,15 @@ export type Database = {
           birth_date?: string
           class_id?: string | null
           created_at?: string
+          discount?: number | null
+          email?: string | null
+          enrollment_date?: string | null
+          final_tuition_value?: number | null
+          full_tuition_value?: number | null
           guardian_contact?: string
           id?: string
           name?: string
+          phone?: string | null
           status?: string
           updated_at?: string
         }

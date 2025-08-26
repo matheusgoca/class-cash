@@ -10,8 +10,10 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 
 const classSchema = z.object({
   name: z.string().min(2, 'Nome da turma deve ter pelo menos 2 caracteres'),
+  description: z.string().optional(),
   teacher_id: z.string().nullable(),
   max_capacity: z.number().min(1, 'Capacidade máxima deve ser pelo menos 1').max(50, 'Capacidade máxima não pode exceder 50'),
+  tuition_per_student: z.number().min(0, 'Valor da mensalidade deve ser positivo'),
   color: z.string().min(1, 'Cor é obrigatória'),
 });
 
@@ -47,8 +49,10 @@ export const ClassForm: React.FC<ClassFormProps> = ({
     resolver: zodResolver(classSchema),
     defaultValues: {
       name: classData?.name || '',
+      description: classData?.description || '',
       teacher_id: classData?.teacher_id || null,
       max_capacity: classData?.max_capacity || 30,
+      tuition_per_student: classData?.tuition_per_student || 0,
       color: classData?.color || '#3B82F6',
     },
   });
@@ -79,6 +83,20 @@ export const ClassForm: React.FC<ClassFormProps> = ({
 
           <FormField
             control={form.control}
+            name="description"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Descrição</FormLabel>
+                <FormControl>
+                  <Input placeholder="Descrição da turma (opcional)" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
             name="teacher_id"
             render={({ field }) => (
               <FormItem>
@@ -97,6 +115,28 @@ export const ClassForm: React.FC<ClassFormProps> = ({
                     ))}
                   </SelectContent>
                 </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="tuition_per_student"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Mensalidade por Aluno (R$)</FormLabel>
+                <FormControl>
+                  <Input 
+                    type="number" 
+                    min="0" 
+                    step="0.01"
+                    placeholder="500.00"
+                    {...field}
+                    value={field.value}
+                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}

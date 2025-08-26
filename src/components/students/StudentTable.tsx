@@ -12,9 +12,15 @@ import { ptBR } from 'date-fns/locale';
 interface Student {
   id: string;
   name: string;
+  email?: string;
+  phone?: string;
   birth_date: string;
+  enrollment_date?: string;
   guardian_contact: string;
   class_id?: string;
+  full_tuition_value?: number;
+  discount?: number;
+  final_tuition_value?: number;
   status: 'active' | 'inactive';
   classes?: { name: string };
 }
@@ -87,8 +93,10 @@ export const StudentTable: React.FC<StudentTableProps> = ({
           <TableHeader>
             <TableRow>
               <TableHead>Nome</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Telefone</TableHead>
               <TableHead>Data de Nascimento</TableHead>
-              <TableHead>Contato do Responsável</TableHead>
+              <TableHead>Mensalidade</TableHead>
               <TableHead>Turma</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Ações</TableHead>
@@ -96,19 +104,29 @@ export const StudentTable: React.FC<StudentTableProps> = ({
           </TableHeader>
           <TableBody>
             {students.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                  Nenhum aluno encontrado
-                </TableCell>
-              </TableRow>
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    Nenhum aluno encontrado
+                  </TableCell>
+                </TableRow>
             ) : (
               students.map((student) => (
                 <TableRow key={student.id}>
                   <TableCell className="font-medium">{student.name}</TableCell>
+                  <TableCell>{student.email || '-'}</TableCell>
+                  <TableCell>{student.phone || '-'}</TableCell>
                   <TableCell>
                     {format(new Date(student.birth_date), 'dd/MM/yyyy', { locale: ptBR })}
                   </TableCell>
-                  <TableCell>{student.guardian_contact}</TableCell>
+                  <TableCell>
+                    {student.final_tuition_value ? 
+                      new Intl.NumberFormat("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      }).format(student.final_tuition_value)
+                      : '-'
+                    }
+                  </TableCell>
                   <TableCell>{getClassName(student)}</TableCell>
                   <TableCell>
                     <Badge className={getStatusColor(student.status)}>
