@@ -160,8 +160,8 @@ export function ClassHealthCards() {
         .select(`
           *,
           teachers:teacher_id (
-            name,
-            subject
+            full_name,
+            specialization
           )
         `)
         .order('name');
@@ -222,7 +222,7 @@ export function ClassHealthCards() {
           id: cls.id,
           name: cls.name,
           color: cls.color,
-          teacher_name: cls.teachers?.name,
+          teacher_name: cls.teachers?.full_name,
           student_count: studentCount,
           max_capacity: cls.max_capacity,
           tuition_per_student: cls.tuition_per_student || 0,

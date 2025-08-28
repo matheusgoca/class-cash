@@ -14,7 +14,7 @@ interface Class {
   max_capacity: number;
   tuition_per_student?: number;
   color: string;
-  teachers?: { name: string; subject: string };
+  teachers?: { full_name: string; specialization: string };
   student_count?: number;
 }
 
@@ -36,11 +36,11 @@ export const ClassTable: React.FC<ClassTableProps> = ({
   onSearchChange,
 }) => {
   const getTeacherName = (cls: Class) => {
-    if (cls.teachers?.name) {
-      return `${cls.teachers.name} - ${cls.teachers.subject}`;
+    if (cls.teachers?.full_name) {
+      return `${cls.teachers.full_name} - ${cls.teachers.specialization}`;
     }
     const teacher = teachers.find(t => t.id === cls.teacher_id);
-    return teacher ? `${teacher.name} - ${teacher.subject}` : 'Sem professor';
+    return teacher ? `${teacher.full_name} - ${teacher.specialization}` : 'Sem professor';
   };
 
   const getStatusColor = (studentCount: number, maxCapacity: number) => {

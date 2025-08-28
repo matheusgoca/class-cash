@@ -28,8 +28,8 @@ const Classes = () => {
         .select(`
           *,
           teachers:teacher_id (
-            name,
-            subject
+            full_name,
+            specialization
           )
         `)
         .order('name');
@@ -72,7 +72,7 @@ const Classes = () => {
         .from('teachers')
         .select('*')
         .eq('status', 'active')
-        .order('name');
+        .order('full_name');
 
       if (error) throw error;
       setTeachers(data || []);
