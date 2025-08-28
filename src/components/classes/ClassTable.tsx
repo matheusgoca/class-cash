@@ -9,8 +9,10 @@ import { Edit2, Trash2, Search, Users } from 'lucide-react';
 interface Class {
   id: string;
   name: string;
+  description?: string;
   teacher_id?: string;
   max_capacity: number;
+  tuition_per_student?: number;
   color: string;
   teachers?: { name: string; subject: string };
   student_count?: number;
@@ -76,7 +78,8 @@ export const ClassTable: React.FC<ClassTableProps> = ({
               <TableHead>Turma</TableHead>
               <TableHead>Professor</TableHead>
               <TableHead>Alunos</TableHead>
-              <TableHead>Capacidade</TableHead>
+              <TableHead>Mensalidade</TableHead>
+              <TableHead>Receita Total</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
@@ -84,7 +87,7 @@ export const ClassTable: React.FC<ClassTableProps> = ({
           <TableBody>
             {classes.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                   Nenhuma turma encontrada
                 </TableCell>
               </TableRow>
@@ -106,10 +109,27 @@ export const ClassTable: React.FC<ClassTableProps> = ({
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Users className="h-4 w-4 text-muted-foreground" />
-                        {studentCount}
+                        {studentCount}/{cls.max_capacity}
                       </div>
                     </TableCell>
-                    <TableCell>{cls.max_capacity}</TableCell>
+                    <TableCell>
+                      {cls.tuition_per_student ? 
+                        new Intl.NumberFormat("pt-BR", {
+                          style: "currency",
+                          currency: "BRL",
+                        }).format(cls.tuition_per_student)
+                        : '-'
+                      }
+                    </TableCell>
+                    <TableCell>
+                      {cls.tuition_per_student ? 
+                        new Intl.NumberFormat("pt-BR", {
+                          style: "currency",
+                          currency: "BRL",
+                        }).format(cls.tuition_per_student * studentCount)
+                        : '-'
+                      }
+                    </TableCell>
                     <TableCell>
                       <Badge className={getStatusColor(studentCount, cls.max_capacity)}>
                         {getStatusText(studentCount, cls.max_capacity)}
