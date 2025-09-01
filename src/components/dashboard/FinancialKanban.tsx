@@ -1,37 +1,51 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { mockTuitions, mockStudents } from "@/data/mockData";
-import { Tuition, PaymentStatus } from "@/types";
+import { supabase } from "@/integrations/supabase/client";
 import { Calendar, DollarSign, User, CheckCircle } from "lucide-react";
+
+type PaymentStatus = 'pending' | 'paid' | 'overdue';
+
+interface TuitionData {
+  id: string;
+  student_id: string;
+  amount: number;
+  due_date: string;
+  paid_date?: string;
+  description: string;
+  status: PaymentStatus;
+  payment_method?: string;
+  students: {
+    name: string;
+  } | null;
+}
 
 const statusConfig = {
   pending: {
     title: "Pendentes",
-    color: "bg-pending-light border-pending",
+    color: "bg-yellow-50 border-yellow-200",
     badgeVariant: "secondary" as const,
   },
   paid: {
     title: "Pagos",
-    color: "bg-paid-light border-paid",
+    color: "bg-green-50 border-green-200",
     badgeVariant: "default" as const,
   },
   overdue: {
     title: "Atrasados",
-    color: "bg-overdue-light border-overdue",
+    color: "bg-red-50 border-red-200",
     badgeVariant: "destructive" as const,
   },
 };
 
 interface TuitionCardProps {
-  tuition: Tuition;
+  tuition: TuitionData;
   onStatusChange: (id: string, status: PaymentStatus) => void;
 }
 
 function TuitionCard({ tuition, onStatusChange }: TuitionCardProps) {
-  const student = mockStudents.find(s => s.id === tuition.studentId);
-  const isOverdue = new Date(tuition.dueDate) < new Date() && tuition.status === "pending";
+  const isOverdue = new Date(tuition.due_date) < new Date() && tuition.status === "pending";
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -50,7 +64,7 @@ function TuitionCard({ tuition, onStatusChange }: TuitionCardProps) {
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
             <User className="h-4 w-4 text-muted-foreground" />
-            <span className="font-medium text-sm">{student?.name}</span>
+            <span className="font-medium text-sm">{tuition.students?.name || 'Aluno não encontrado'}</span>
           </div>
           <Badge variant={statusConfig[tuition.status].badgeVariant}>
             {tuition.status === "pending" && isOverdue ? "Atrasado" : statusConfig[tuition.status].title.slice(0, -1)}
@@ -65,15 +79,15 @@ function TuitionCard({ tuition, onStatusChange }: TuitionCardProps) {
           
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Calendar className="h-4 w-4" />
-            <span>Venc: {formatDate(tuition.dueDate)}</span>
+            <span>Venc: {formatDate(tuition.due_date)}</span>
           </div>
 
           <p className="text-sm text-muted-foreground">{tuition.description}</p>
 
-          {tuition.paidDate && (
-            <div className="flex items-center gap-2 text-sm text-success">
+          {tuition.paid_date && (
+            <div className="flex items-center gap-2 text-sm text-green-600">
               <CheckCircle className="h-4 w-4" />
-              <span>Pago em {formatDate(tuition.paidDate)}</span>
+              <span>Pago em {formatDate(tuition.paid_date)}</span>
             </div>
           )}
         </div>
@@ -93,37 +107,98 @@ function TuitionCard({ tuition, onStatusChange }: TuitionCardProps) {
 }
 
 export function FinancialKanban() {
-  const [tuitions, setTuitions] = useState<Tuition[]>(mockTuitions);
+  const [tuitions, setTuitions] = useState<TuitionData[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleStatusChange = (id: string, newStatus: PaymentStatus) => {
-    setTuitions(prev => prev.map(tuition => {
-      if (tuition.id === id) {
-        return {
-          ...tuition,
-          status: newStatus,
-          paidDate: newStatus === "paid" ? new Date().toISOString() : undefined,
-          paymentMethod: newStatus === "paid" ? "Sistema" : undefined,
-        };
+  useEffect(() => {
+    fetchTuitions();
+  }, []);
+
+  const fetchTuitions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('tuitions')
+        .select(`
+          id,
+          student_id,
+          amount,
+          due_date,
+          paid_date,
+          description,
+          status,
+          payment_method,
+          students (
+            name
+          )
+        `)
+        .order('due_date', { ascending: false });
+
+      if (error) throw error;
+      
+      // Cast the data to ensure proper typing
+      const typedData: TuitionData[] = (data || []).map(item => ({
+        ...item,
+        status: item.status as PaymentStatus
+      }));
+      
+      setTuitions(typedData);
+    } catch (error) {
+      console.error('Error fetching tuitions:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStatusChange = async (id: string, newStatus: PaymentStatus) => {
+    try {
+      const updateData: any = { status: newStatus };
+      if (newStatus === "paid") {
+        updateData.paid_date = new Date().toISOString().split('T')[0];
+        updateData.payment_method = "Sistema";
+      } else {
+        updateData.paid_date = null;
+        updateData.payment_method = null;
       }
-      return tuition;
-    }));
+
+      const { error } = await supabase
+        .from('tuitions')
+        .update(updateData)
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // Update local state
+      setTuitions(prev => prev.map(tuition => {
+        if (tuition.id === id) {
+          return {
+            ...tuition,
+            status: newStatus,
+            paid_date: newStatus === "paid" ? new Date().toISOString().split('T')[0] : undefined,
+            payment_method: newStatus === "paid" ? "Sistema" : undefined,
+          };
+        }
+        return tuition;
+      }));
+    } catch (error) {
+      console.error('Error updating tuition status:', error);
+    }
   };
 
   // Separate tuitions by status, but check for overdue ones
   const categorizedTuitions = {
     pending: tuitions.filter(t => {
-      const isOverdue = new Date(t.dueDate) < new Date();
+      const isOverdue = new Date(t.due_date) < new Date();
       return t.status === "pending" && !isOverdue;
     }),
     overdue: tuitions.filter(t => {
-      const isOverdue = new Date(t.dueDate) < new Date();
-      return t.status === "pending" && isOverdue || t.status === "overdue";
+      const isOverdue = new Date(t.due_date) < new Date();
+      return (t.status === "pending" && isOverdue) || t.status === "overdue";
     }),
     paid: tuitions.filter(t => t.status === "paid"),
   };
 
-  const getTotalAmount = (tuitionList: Tuition[]) => {
-    return tuitionList.reduce((sum, t) => sum + t.amount, 0);
+  const getTotalAmount = (tuitionList: TuitionData[]) => {
+    return tuitionList.reduce((sum, t) => sum + Number(t.amount), 0);
   };
 
   const formatCurrency = (value: number) => {
@@ -132,6 +207,28 @@ export function FinancialKanban() {
       currency: "BRL",
     }).format(value);
   };
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {[1, 2, 3].map((i) => (
+          <Card key={i} className="animate-pulse">
+            <CardHeader>
+              <div className="h-6 bg-muted rounded w-24" />
+              <div className="h-4 bg-muted rounded w-32" />
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {[1, 2, 3].map((j) => (
+                  <div key={j} className="h-20 bg-muted rounded" />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -158,6 +255,9 @@ export function FinancialKanban() {
               onStatusChange={handleStatusChange}
             />
           ))}
+          {categorizedTuitions.pending.length === 0 && (
+            <p className="text-center text-muted-foreground py-4">Nenhuma mensalidade pendente</p>
+          )}
         </div>
       </div>
 
@@ -184,6 +284,9 @@ export function FinancialKanban() {
               onStatusChange={handleStatusChange}
             />
           ))}
+          {categorizedTuitions.overdue.length === 0 && (
+            <p className="text-center text-muted-foreground py-4">Nenhuma mensalidade atrasada</p>
+          )}
         </div>
       </div>
 
@@ -210,6 +313,9 @@ export function FinancialKanban() {
               onStatusChange={handleStatusChange}
             />
           ))}
+          {categorizedTuitions.paid.length === 0 && (
+            <p className="text-center text-muted-foreground py-4">Nenhuma mensalidade paga</p>
+          )}
         </div>
       </div>
     </div>
