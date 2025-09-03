@@ -61,8 +61,8 @@ const Reports = () => {
   const [filters, setFilters] = useState<ReportFilters>({
     startDate: "",
     endDate: "",
-    classId: "",
-    status: ""
+    classId: "all",
+    status: "all"
   });
 
   useEffect(() => {
@@ -461,12 +461,12 @@ const Reports = () => {
             
             <div>
               <Label>Turma</Label>
-              <Select value={filters.classId} onValueChange={(value) => setFilters(prev => ({ ...prev, classId: value }))}>
+              <Select value={filters.classId} onValueChange={(value) => setFilters(prev => ({ ...prev, classId: value === "all" ? "" : value }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Todas as turmas" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todas as turmas</SelectItem>
+                  <SelectItem value="all">Todas as turmas</SelectItem>
                   {classes.map((classItem) => (
                     <SelectItem key={classItem.id} value={classItem.id}>
                       {classItem.name}
@@ -478,12 +478,12 @@ const Reports = () => {
             
             <div>
               <Label>Status</Label>
-              <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}>
+              <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value === "all" ? "" : value }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Todos os status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos os status</SelectItem>
+                  <SelectItem value="all">Todos os status</SelectItem>
                   <SelectItem value="pending">Pendente</SelectItem>
                   <SelectItem value="paid">Pago</SelectItem>
                   <SelectItem value="overdue">Atrasado</SelectItem>
