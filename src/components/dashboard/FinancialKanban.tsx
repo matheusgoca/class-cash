@@ -24,18 +24,15 @@ interface TuitionData {
 const statusConfig = {
   pending: {
     title: "Pendentes",
-    color: "bg-yellow-50 border-yellow-200",
-    badgeVariant: "secondary" as const,
+    badgeClass: "bg-yellow-500 text-slate-900",
   },
   paid: {
     title: "Pagos",
-    color: "bg-green-50 border-green-200",
-    badgeVariant: "default" as const,
+    badgeClass: "bg-green-500 text-white",
   },
   overdue: {
     title: "Atrasados",
-    color: "bg-red-50 border-red-200",
-    badgeVariant: "destructive" as const,
+    badgeClass: "bg-red-500 text-white",
   },
 };
 
@@ -66,7 +63,7 @@ function TuitionCard({ tuition, onStatusChange }: TuitionCardProps) {
             <User className="h-4 w-4 text-muted-foreground" />
             <span className="font-medium text-sm">{tuition.students?.name || 'Aluno não encontrado'}</span>
           </div>
-          <Badge variant={statusConfig[tuition.status].badgeVariant}>
+          <Badge className={statusConfig[tuition.status].badgeClass}>
             {tuition.status === "pending" && isOverdue ? "Atrasado" : statusConfig[tuition.status].title.slice(0, -1)}
           </Badge>
         </div>
@@ -233,15 +230,15 @@ export function FinancialKanban() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       <div className="space-y-4">
-        <Card className={statusConfig.pending.color}>
+        <Card className="bg-slate-800 border border-slate-700 rounded-2xl shadow">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center justify-between text-lg">
-              <span>Pendentes</span>
-              <Badge variant="outline">
+              <span className="text-slate-200 font-medium">Pendentes</span>
+              <Badge className="bg-yellow-500 text-slate-900">
                 {categorizedTuitions.pending.length}
               </Badge>
             </CardTitle>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-slate-400 mt-2">
               Total: {formatCurrency(getTotalAmount(categorizedTuitions.pending))}
             </p>
           </CardHeader>
@@ -262,15 +259,15 @@ export function FinancialKanban() {
       </div>
 
       <div className="space-y-4">
-        <Card className={statusConfig.overdue.color}>
+        <Card className="bg-slate-800 border border-slate-700 rounded-2xl shadow">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center justify-between text-lg">
-              <span>Atrasados</span>
-              <Badge variant="destructive">
+              <span className="text-slate-200 font-medium">Atrasados</span>
+              <Badge className="bg-red-500 text-white">
                 {categorizedTuitions.overdue.length}
               </Badge>
             </CardTitle>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-slate-400 mt-2">
               Total: {formatCurrency(getTotalAmount(categorizedTuitions.overdue))}
             </p>
           </CardHeader>
@@ -291,15 +288,15 @@ export function FinancialKanban() {
       </div>
 
       <div className="space-y-4">
-        <Card className={statusConfig.paid.color}>
+        <Card className="bg-slate-800 border border-slate-700 rounded-2xl shadow">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center justify-between text-lg">
-              <span>Pagos</span>
-              <Badge variant="default">
+              <span className="text-slate-200 font-medium">Pagos</span>
+              <Badge className="bg-green-500 text-white">
                 {categorizedTuitions.paid.length}
               </Badge>
             </CardTitle>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-slate-400 mt-2">
               Total: {formatCurrency(getTotalAmount(categorizedTuitions.paid))}
             </p>
           </CardHeader>
