@@ -58,6 +58,45 @@ export type Database = {
           },
         ]
       }
+      contracts: {
+        Row: {
+          class_id: string | null
+          created_at: string
+          discount: number
+          end_date: string
+          id: string
+          monthly_amount: number
+          start_date: string
+          status: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          class_id?: string | null
+          created_at?: string
+          discount?: number
+          end_date?: string
+          id?: string
+          monthly_amount?: number
+          start_date?: string
+          status?: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          class_id?: string | null
+          created_at?: string
+          discount?: number
+          end_date?: string
+          id?: string
+          monthly_amount?: number
+          start_date?: string
+          status?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -187,12 +226,16 @@ export type Database = {
         Row: {
           amount: number
           category: string
+          contract_id: string | null
           created_at: string
           description: string
+          discount_applied: number | null
           due_date: string
+          final_amount: number | null
           id: string
           paid_date: string | null
           payment_method: string | null
+          penalty_amount: number | null
           status: string
           student_id: string
           updated_at: string
@@ -200,12 +243,16 @@ export type Database = {
         Insert: {
           amount: number
           category?: string
+          contract_id?: string | null
           created_at?: string
           description: string
+          discount_applied?: number | null
           due_date: string
+          final_amount?: number | null
           id?: string
           paid_date?: string | null
           payment_method?: string | null
+          penalty_amount?: number | null
           status?: string
           student_id: string
           updated_at?: string
@@ -213,17 +260,28 @@ export type Database = {
         Update: {
           amount?: number
           category?: string
+          contract_id?: string | null
           created_at?: string
           description?: string
+          discount_applied?: number | null
           due_date?: string
+          final_amount?: number | null
           id?: string
           paid_date?: string | null
           payment_method?: string | null
+          penalty_amount?: number | null
           status?: string
           student_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "tuitions_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tuitions_student_id_fkey"
             columns: ["student_id"]
@@ -238,6 +296,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_contract_tuitions: {
+        Args: { contract_uuid: string }
+        Returns: undefined
+      }
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: string
