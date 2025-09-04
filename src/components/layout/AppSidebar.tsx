@@ -51,6 +51,7 @@ const menuItems = [
     title: "Financeiro",
     icon: DollarSign,
     items: [
+      { title: "Contratos", url: "/contratos", icon: FileBarChart },
       { title: "Mensalidades", url: "/mensalidades", icon: DollarSign },
       { title: "Relatórios", url: "/relatorios", icon: FileBarChart },
     ],

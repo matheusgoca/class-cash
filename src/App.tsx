@@ -11,6 +11,7 @@ import Index from "./pages/Index";
 import Students from "./pages/Students";
 import Teachers from "./pages/Teachers";
 import Classes from "./pages/Classes";
+import Contracts from "./pages/Contracts";
 import Tuitions from "./pages/Tuitions";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
@@ -65,6 +66,16 @@ const App = () => (
                   <ProtectedRoute>
                     <Layout>
                       <Classes />
+                    </Layout>
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/contratos" 
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <Contracts />
                     </Layout>
                   </ProtectedRoute>
                 } 

@@ -16,13 +16,22 @@ interface TuitionData {
   due_date: string;
   paid_date: string | null;
   description: string;
-  status: "pending" | "paid" | "overdue";
+  status: "pending" | "paid" | "overdue" | "cancelled";
   payment_method: string | null;
+  student_id: string;
+  contract_id: string | null;
+  discount_applied: number;
+  penalty_amount: number;
+  final_amount: number;
   students: {
     name: string;
     classes?: {
       name: string;
     } | null;
+  } | null;
+  contracts: {
+    monthly_amount: number;
+    discount: number;
   } | null;
 }
 
@@ -64,6 +73,8 @@ export function TuitionTable({ data, loading, onEdit, onRefresh }: TuitionTableP
         return <Badge className="bg-green-500 text-white">Pago</Badge>;
       case "overdue":
         return <Badge className="bg-red-500 text-white">Atrasado</Badge>;
+      case "cancelled":
+        return <Badge className="bg-gray-500 text-white">Cancelado</Badge>;
       default:
         return <Badge variant="secondary">{tuition.status}</Badge>;
     }
@@ -147,8 +158,8 @@ export function TuitionTable({ data, loading, onEdit, onRefresh }: TuitionTableP
         bVal = b.students?.classes?.name || '';
         break;
       case 'amount':
-        aVal = a.amount;
-        bVal = b.amount;
+        aVal = a.final_amount || a.amount;
+        bVal = b.final_amount || b.amount;
         break;
       case 'status':
         aVal = a.status;
@@ -289,7 +300,21 @@ export function TuitionTable({ data, loading, onEdit, onRefresh }: TuitionTableP
                     <TableCell>
                       {tuition.students?.classes?.name || 'N/A'}
                     </TableCell>
-                    <TableCell>{formatCurrency(tuition.amount)}</TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        <div className="font-medium">{formatCurrency(tuition.final_amount || tuition.amount)}</div>
+                        {tuition.discount_applied > 0 && (
+                          <div className="text-muted-foreground text-xs">
+                            Base: {formatCurrency(tuition.amount)} | Desc: {formatCurrency(tuition.discount_applied)}
+                          </div>
+                        )}
+                        {tuition.penalty_amount > 0 && (
+                          <div className="text-red-600 text-xs">
+                            Multa: {formatCurrency(tuition.penalty_amount)}
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>{getStatusBadge(tuition)}</TableCell>
                     <TableCell>{formatDate(tuition.due_date)}</TableCell>
                     <TableCell>
@@ -300,7 +325,7 @@ export function TuitionTable({ data, loading, onEdit, onRefresh }: TuitionTableP
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        {canMarkAsPaid && (
+                        {canMarkAsPaid && tuition.status !== "cancelled" && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -311,35 +336,15 @@ export function TuitionTable({ data, loading, onEdit, onRefresh }: TuitionTableP
                           </Button>
                         )}
                         
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => onEdit(tuition)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Tem certeza que deseja excluir esta mensalidade? Esta ação não pode ser desfeita.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleDelete(tuition)} className="bg-red-600 hover:bg-red-700">
-                                Excluir
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                        {tuition.status !== "paid" && tuition.status !== "cancelled" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => onEdit(tuition)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
