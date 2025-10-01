@@ -67,9 +67,13 @@ const Students = () => {
   const handleSubmit = async (formData) => {
     setIsLoading(true);
     try {
+      // Calculate final_tuition_value server-side (authoritative)
+      const finalTuitionValue = formData.full_tuition_value * (1 - (formData.discount || 0) / 100);
+      
       const dataToSubmit = {
         ...formData,
         class_id: formData.class_id || null,
+        final_tuition_value: finalTuitionValue,
       };
 
       if (editingStudent) {

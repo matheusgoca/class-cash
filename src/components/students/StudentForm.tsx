@@ -54,6 +54,11 @@ export const StudentForm: React.FC<StudentFormProps> = ({
     },
   });
 
+  // Watch full_tuition_value and discount to calculate final value
+  const fullTuitionValue = form.watch('full_tuition_value');
+  const discount = form.watch('discount');
+  const finalTuitionValue = fullTuitionValue * (1 - (discount || 0) / 100);
+
   return (
     <DialogContent className="sm:max-w-[425px]">
       <DialogHeader>
@@ -239,6 +244,20 @@ export const StudentForm: React.FC<StudentFormProps> = ({
               </FormItem>
             )}
           />
+
+          {/* Calculated Final Value (readonly) */}
+          <div className="rounded-lg bg-muted p-4 space-y-2">
+            <p className="text-sm font-medium">Valor Final da Mensalidade</p>
+            <p className="text-2xl font-bold">
+              {new Intl.NumberFormat("pt-BR", {
+                style: "currency",
+                currency: "BRL",
+              }).format(finalTuitionValue)}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Calculado automaticamente: Valor base - {discount || 0}% de desconto
+            </p>
+          </div>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onCancel}>
