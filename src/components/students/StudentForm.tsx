@@ -47,7 +47,7 @@ export const StudentForm: React.FC<StudentFormProps> = ({
       birth_date: student?.birth_date || '',
       enrollment_date: student?.enrollment_date || new Date().toISOString().split('T')[0],
       guardian_contact: student?.guardian_contact || '',
-      class_id: student?.class_id || null,
+      class_id: student?.enrollment_class_id || null,
       full_tuition_value: student?.full_tuition_value || 0,
       discount: student?.discount || 0,
       status: student?.status || 'active',

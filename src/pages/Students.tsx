@@ -25,19 +25,39 @@ const Students = () => {
 
   const fetchStudents = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch all students
+      const { data: studentsData, error: studentsError } = await supabase
         .from('students')
-        .select(`
-          *,
-          classes:class_id (
-            name
-          )
-        `)
+        .select('*')
         .order('name');
 
-      if (error) throw error;
-      setStudents(data || []);
-    } catch (error) {
+      if (studentsError) throw studentsError;
+
+      // Fetch enrollments with class info
+      const { data: enrollmentsData, error: enrollmentsError } = await supabase
+        .from('enrollments' as any)
+        .select(`
+          student_id,
+          classes (
+            id,
+            name
+          )
+        `) as any;
+
+      if (enrollmentsError) throw enrollmentsError;
+
+      // Merge student data with enrollment data
+      const studentsWithClasses = (studentsData || []).map(student => {
+        const enrollment = (enrollmentsData || []).find((e: any) => e.student_id === student.id);
+        return {
+          ...student,
+          enrollment_class_id: enrollment?.classes?.id,
+          enrollment_class_name: enrollment?.classes?.name,
+        };
+      });
+
+      setStudents(studentsWithClasses);
+    } catch (error: any) {
       toast({
         title: 'Erro',
         description: 'Erro ao carregar alunos: ' + error.message,
@@ -70,30 +90,77 @@ const Students = () => {
       // Calculate final_tuition_value server-side (authoritative)
       const finalTuitionValue = formData.full_tuition_value * (1 - (formData.discount || 0) / 100);
       
+      // Remove class_id from student data
+      const { class_id, ...studentData } = formData;
       const dataToSubmit = {
-        ...formData,
-        class_id: formData.class_id || null,
+        ...studentData,
         final_tuition_value: finalTuitionValue,
       };
 
       if (editingStudent) {
-        const { error } = await supabase
+        // Update student
+        const { error: studentError } = await supabase
           .from('students')
           .update(dataToSubmit)
           .eq('id', editingStudent.id);
 
-        if (error) throw error;
+        if (studentError) throw studentError;
+
+        // Handle enrollment
+        if (class_id) {
+          // Check if enrollment exists
+          const { data: existingEnrollment } = await supabase
+            .from('enrollments' as any)
+            .select('id')
+            .eq('student_id', editingStudent.id)
+            .maybeSingle() as any;
+
+          if (existingEnrollment) {
+            // Update existing enrollment
+            const { error: enrollmentError } = await supabase
+              .from('enrollments' as any)
+              .update({ class_id })
+              .eq('student_id', editingStudent.id) as any;
+
+            if (enrollmentError) throw enrollmentError;
+          } else {
+            // Create new enrollment
+            const { error: enrollmentError } = await supabase
+              .from('enrollments' as any)
+              .insert({ student_id: editingStudent.id, class_id }) as any;
+
+            if (enrollmentError) throw enrollmentError;
+          }
+        } else {
+          // Remove enrollment if class_id is null
+          await supabase
+            .from('enrollments' as any)
+            .delete()
+            .eq('student_id', editingStudent.id) as any;
+        }
 
         toast({
           title: 'Sucesso',
           description: 'Aluno atualizado com sucesso!',
         });
       } else {
-        const { error } = await supabase
+        // Create new student
+        const { data: newStudent, error: studentError } = await supabase
           .from('students')
-          .insert([dataToSubmit]);
+          .insert([dataToSubmit])
+          .select()
+          .single();
 
-        if (error) throw error;
+        if (studentError) throw studentError;
+
+        // Create enrollment if class_id provided
+        if (class_id && newStudent) {
+          const { error: enrollmentError } = await supabase
+            .from('enrollments' as any)
+            .insert({ student_id: newStudent.id, class_id }) as any;
+
+          if (enrollmentError) throw enrollmentError;
+        }
 
         toast({
           title: 'Sucesso',
@@ -104,7 +171,7 @@ const Students = () => {
       fetchStudents();
       setIsFormOpen(false);
       setEditingStudent(null);
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: 'Erro',
         description: 'Erro ao salvar aluno: ' + error.message,
@@ -135,7 +202,7 @@ const Students = () => {
       });
 
       fetchStudents();
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: 'Erro',
         description: 'Erro ao excluir aluno: ' + error.message,
@@ -146,7 +213,7 @@ const Students = () => {
 
   const filteredStudents = students.filter(student => {
     const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesClass = !classFilter || classFilter === 'all' || student.class_id === classFilter;
+    const matchesClass = !classFilter || classFilter === 'all' || student.enrollment_class_id === classFilter;
     return matchesSearch && matchesClass;
   });
 

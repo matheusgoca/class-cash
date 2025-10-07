@@ -17,12 +17,12 @@ interface Student {
   birth_date: string;
   enrollment_date?: string;
   guardian_contact: string;
-  class_id?: string;
+  enrollment_class_id?: string;
+  enrollment_class_name?: string;
   full_tuition_value?: number;
   discount?: number;
   final_tuition_value?: number;
   status: 'active' | 'inactive';
-  classes?: { name: string };
 }
 
 interface StudentTableProps {
@@ -52,11 +52,7 @@ export const StudentTable: React.FC<StudentTableProps> = ({
   };
 
   const getClassName = (student: Student) => {
-    if (student.classes?.name) {
-      return student.classes.name;
-    }
-    const cls = classes.find(c => c.id === student.class_id);
-    return cls?.name || 'Sem turma';
+    return student.enrollment_class_name || 'Sem turma';
   };
 
   return (

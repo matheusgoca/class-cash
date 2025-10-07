@@ -4,7 +4,6 @@ export interface Student {
   id: string;
   name: string;
   birth_date: string;
-  class_id: string | null;
   guardian_contact: string;
   status: "active" | "inactive";
   created_at: string;
@@ -15,7 +14,15 @@ export interface Student {
   full_tuition_value: number | null;
   discount: number | null;
   final_tuition_value: number | null;
-  classes?: { name: string };
+}
+
+export interface Enrollment {
+  id: string;
+  student_id: string;
+  class_id: string;
+  enrolled_at: string;
+  students?: Student;
+  classes?: Class;
 }
 
 export interface Teacher {
