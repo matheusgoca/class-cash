@@ -23,13 +23,18 @@ const Classes = () => {
 
   const fetchClasses = async () => {
     try {
-      const { data: classData, error: classError } = await supabase
+      const { data: classData, error: classError } = await (supabase as any)
         .from('classes')
         .select(`
           *,
-          teachers:teacher_id (
-            full_name,
-            specialization
+          class_teachers (
+            teacher_id,
+            teachers (
+              id,
+              full_name,
+              email,
+              status
+            )
           )
         `)
         .order('name');

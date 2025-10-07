@@ -143,7 +143,7 @@ export const ClassForm: React.FC<ClassFormProps> = ({
                   <SelectContent>
                     {teachers.map((teacher) => (
                       <SelectItem key={teacher.id} value={teacher.id}>
-                        {teacher.full_name} - {teacher.specialization}
+                        {teacher.full_name}
                       </SelectItem>
                     ))}
                   </SelectContent>

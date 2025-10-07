@@ -14,7 +14,10 @@ interface Class {
   max_capacity: number;
   tuition_per_student?: number;
   color: string;
-  teachers?: { full_name: string; specialization: string };
+  class_teachers?: Array<{
+    teacher_id: string;
+    teachers: { id: string; full_name: string; email: string; status: string };
+  }>;
   student_count?: number;
 }
 
@@ -36,11 +39,14 @@ export const ClassTable: React.FC<ClassTableProps> = ({
   onSearchChange,
 }) => {
   const getTeacherName = (cls: Class) => {
-    if (cls.teachers?.full_name) {
-      return `${cls.teachers.full_name} - ${cls.teachers.specialization}`;
+    if (cls.class_teachers && cls.class_teachers.length > 0) {
+      const teacherNames = cls.class_teachers
+        .map(ct => ct.teachers.full_name)
+        .join(', ');
+      return teacherNames;
     }
     const teacher = teachers.find(t => t.id === cls.teacher_id);
-    return teacher ? `${teacher.full_name} - ${teacher.specialization}` : 'Sem professor';
+    return teacher ? teacher.full_name : 'Sem professor';
   };
 
   const getStatusColor = (studentCount: number, maxCapacity: number) => {

@@ -11,7 +11,6 @@ interface Teacher {
   full_name: string;
   email: string;
   phone?: string;
-  specialization: string;
   salary: number;
   status: 'active' | 'inactive';
   created_at: string;
@@ -49,7 +48,7 @@ export const TeacherTable: React.FC<TeacherTableProps> = ({
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
         <Input
-          placeholder="Buscar por nome ou especialização..."
+          placeholder="Buscar por nome..."
           value={searchTerm}
           onChange={(e) => onSearchChange(e.target.value)}
           className="pl-10"
@@ -63,7 +62,6 @@ export const TeacherTable: React.FC<TeacherTableProps> = ({
             <TableRow>
               <TableHead>Nome</TableHead>
               <TableHead>Contato</TableHead>
-              <TableHead>Especialização</TableHead>
               <TableHead>Salário</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Ações</TableHead>
@@ -72,7 +70,7 @@ export const TeacherTable: React.FC<TeacherTableProps> = ({
           <TableBody>
             {teachers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                   Nenhum professor encontrado
                 </TableCell>
               </TableRow>
@@ -98,7 +96,6 @@ export const TeacherTable: React.FC<TeacherTableProps> = ({
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>{teacher.specialization}</TableCell>
                   <TableCell className="font-medium">
                     {formatCurrency(teacher.salary)}
                   </TableCell>

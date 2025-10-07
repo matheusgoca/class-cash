@@ -28,7 +28,6 @@ export interface Enrollment {
 export interface Teacher {
   id: string;
   email: string;
-  specialization: string;
   status: "active" | "inactive";
   created_at: string;
   updated_at: string;
@@ -49,7 +48,11 @@ export interface Class {
   tuition_per_student: number | null;
   grade: string | null;
   monthly_fee: number | null;
-  teachers?: { full_name: string; specialization: string };
+  level: string | null;
+  class_teachers?: Array<{
+    teacher_id: string;
+    teachers: { id: string; full_name: string; email: string; status: string };
+  }>;
   student_count?: number;
 }
 

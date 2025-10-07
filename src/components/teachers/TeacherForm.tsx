@@ -12,7 +12,6 @@ const teacherSchema = z.object({
   full_name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
   email: z.string().email('Email inválido'),
   phone: z.string().optional(),
-  specialization: z.string().min(1, 'Especialização é obrigatória'),
   salary: z.number().min(0, 'Salário deve ser maior ou igual a 0'),
   status: z.enum(['active', 'inactive']),
 });
@@ -26,23 +25,6 @@ interface TeacherFormProps {
   isLoading?: boolean;
 }
 
-const specializations = [
-  'Matemática',
-  'Português',
-  'História',
-  'Geografia',
-  'Ciências',
-  'Biologia',
-  'Física',
-  'Química',
-  'Inglês',
-  'Educação Física',
-  'Artes',
-  'Filosofia',
-  'Sociologia',
-  'Literatura',
-  'Informática',
-];
 
 export const TeacherForm: React.FC<TeacherFormProps> = ({
   teacher,
@@ -56,7 +38,6 @@ export const TeacherForm: React.FC<TeacherFormProps> = ({
       full_name: teacher?.full_name || '',
       email: teacher?.email || '',
       phone: teacher?.phone || '',
-      specialization: teacher?.specialization || '',
       salary: teacher?.salary || 0,
       status: teacher?.status || 'active',
     },
@@ -116,31 +97,6 @@ export const TeacherForm: React.FC<TeacherFormProps> = ({
                     {...field} 
                   />
                 </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="specialization"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Especialização</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione uma especialização" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {specializations.map((spec) => (
-                      <SelectItem key={spec} value={spec}>
-                        {spec}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
                 <FormMessage />
               </FormItem>
             )}
