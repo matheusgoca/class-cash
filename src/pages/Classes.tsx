@@ -36,17 +36,17 @@ const Classes = () => {
 
       if (classError) throw classError;
 
-      // Get student counts for each class
-      const { data: studentCounts, error: studentError } = await supabase
-        .from('students')
-        .select('class_id')
-        .eq('status', 'active');
+      // Get student counts for each class via enrollments
+      const { data: enrollments, error: enrollmentError } = await (supabase as any)
+        .from('enrollments')
+        .select('class_id, students!inner(status)')
+        .eq('students.status', 'active');
 
-      if (studentError) throw studentError;
+      if (enrollmentError) throw enrollmentError;
 
-      const counts = studentCounts.reduce((acc, student) => {
-        if (student.class_id) {
-          acc[student.class_id] = (acc[student.class_id] || 0) + 1;
+      const counts = (enrollments || []).reduce((acc: any, enrollment: any) => {
+        if (enrollment.class_id) {
+          acc[enrollment.class_id] = (acc[enrollment.class_id] || 0) + 1;
         }
         return acc;
       }, {});
@@ -139,15 +139,15 @@ const Classes = () => {
 
   const handleDelete = async (classId) => {
     try {
-      // Check if class has students
-      const { data: students, error: studentsError } = await supabase
-        .from('students')
+      // Check if class has students via enrollments
+      const { data: enrollments, error: enrollmentsError } = await (supabase as any)
+        .from('enrollments')
         .select('id')
         .eq('class_id', classId);
 
-      if (studentsError) throw studentsError;
+      if (enrollmentsError) throw enrollmentsError;
 
-      if (students && students.length > 0) {
+      if (enrollments && enrollments.length > 0) {
         toast({
           title: 'Erro',
           description: 'Não é possível excluir uma turma que possui alunos matriculados.',
