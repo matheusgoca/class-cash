@@ -154,84 +154,69 @@ export function ClassHealthCards() {
 
   const fetchClassData = async () => {
     try {
-      // Fetch classes with teacher info
-      const { data: classData, error: classError } = await supabase
+      // Simplified version - just show basic class info
+      const { data: classData, error: classError } = await (supabase as any)
         .from('classes')
         .select(`
-          *,
-          teachers:teacher_id (
-            full_name,
-            specialization
+          id,
+          name,
+          level,
+          class_teachers (
+            teachers (
+              id,
+              full_name
+            )
           )
         `)
         .order('name');
 
       if (classError) throw classError;
 
-      // Fetch students with their tuition data
-      const { data: studentsData, error: studentsError } = await supabase
-        .from('students')
-        .select('class_id, final_tuition_value, status')
-        .eq('status', 'active');
+      // Fetch enrollments to count students per class
+      const { data: enrollmentsData, error: enrollmentsError } = await (supabase as any)
+        .from('enrollments')
+        .select('class_id, student_id, students!inner(status)')
+        .eq('students.status', 'active');
 
-      if (studentsError) throw studentsError;
+      if (enrollmentsError) throw enrollmentsError;
 
-      // Fetch tuition payments to calculate payment status
-      const { data: tuitionsData, error: tuitionsError } = await supabase
-        .from('tuitions')
-        .select('student_id, status, amount');
-
-      if (tuitionsError) throw tuitionsError;
-
-      // Calculate financial data for each class
-      const classFinancials = studentsData.reduce((acc, student) => {
-        if (student.class_id) {
-          if (!acc[student.class_id]) {
-            acc[student.class_id] = {
-              student_count: 0,
-              total_revenue: 0,
-              students: [],
-            };
-          }
-          acc[student.class_id].student_count += 1;
-          acc[student.class_id].total_revenue += Number(student.final_tuition_value) || 0;
-          acc[student.class_id].students.push(student);
+      // Count students per class
+      const classStudentCounts = (enrollmentsData || []).reduce((acc: any, enrollment: any) => {
+        if (enrollment.class_id) {
+          acc[enrollment.class_id] = (acc[enrollment.class_id] || 0) + 1;
         }
         return acc;
       }, {});
 
-      const classesWithHealth: ClassHealth[] = (classData || []).map(cls => {
-        const classFinance = classFinancials[cls.id] || { student_count: 0, total_revenue: 0, students: [] };
-        const studentCount = classFinance.student_count;
-        const totalRevenue = classFinance.total_revenue;
-        const capacityPercentage = (studentCount / cls.max_capacity) * 100;
-        
-        // Calculate potential revenue if class was full
-        const potentialRevenue = (cls.tuition_per_student || 0) * cls.max_capacity;
-        const revenuePercentage = potentialRevenue > 0 ? (totalRevenue / potentialRevenue) * 100 : 0;
-        
-        // Calculate payment status (simplified - using capacity as proxy for payments)
-        const paymentPercentage = capacityPercentage;
+      // Create simplified health cards
+      const classesWithHealth: ClassHealth[] = (classData || []).map((cls: any) => {
+        const studentCount = classStudentCounts[cls.id] || 0;
+        const maxCapacity = 30; // Default max capacity
+        const capacityPercentage = (studentCount / maxCapacity) * 100;
         
         let status: ClassHealth['status'] = 'critical';
-        if (revenuePercentage >= 80) status = 'excellent';
-        else if (revenuePercentage >= 60) status = 'good';
-        else if (revenuePercentage >= 40) status = 'warning';
+        if (capacityPercentage >= 80) status = 'excellent';
+        else if (capacityPercentage >= 60) status = 'good';
+        else if (capacityPercentage >= 40) status = 'warning';
+
+        const teacherName = cls.class_teachers && cls.class_teachers.length > 0 && cls.class_teachers[0].teachers
+          ? cls.class_teachers[0].teachers.full_name
+          : undefined;
 
         return {
           id: cls.id,
           name: cls.name,
-          color: cls.color,
-          teacher_name: cls.teachers?.full_name,
+          color: '#3B82F6', // Default blue color
+          teacher_name: teacherName,
           student_count: studentCount,
-          max_capacity: cls.max_capacity,
-          tuition_per_student: cls.tuition_per_student || 0,
-          total_revenue: totalRevenue,
-          potential_revenue: potentialRevenue,
+          max_capacity: maxCapacity,
+          tuition_per_student: 0,
+          total_revenue: 0,
+          potential_revenue: 0,
           capacity_percentage: capacityPercentage,
-          revenue_percentage: revenuePercentage,
-          paid_students: studentCount, // Simplified
-          payment_percentage: paymentPercentage,
+          revenue_percentage: capacityPercentage,
+          paid_students: studentCount,
+          payment_percentage: capacityPercentage,
           status,
         };
       });

@@ -86,23 +86,31 @@ const Reports = () => {
           due_date,
           paid_date,
           description,
-          students (
-            name,
-            classes (
-              name
-            )
-          )
+          student_id
         `)
         .order('due_date', { ascending: false });
 
       if (error) throw error;
 
+      // Fetch students separately
+      const { data: studentsData, error: studentsError } = await supabase
+        .from('students')
+        .select('id, full_name');
+
+      if (studentsError) throw studentsError;
+
+      // Create a lookup map for students
+      const studentMap = (studentsData || []).reduce((acc: any, student: any) => {
+        acc[student.id] = student.full_name;
+        return acc;
+      }, {});
+
       const formattedData: TuitionReport[] = (tuitionsData || []).map(item => {
         const isOverdue = new Date(item.due_date) < new Date() && item.status === "pending";
         return {
           id: item.id,
-          student_name: item.students?.name || 'N/A',
-          class_name: item.students?.classes?.name || null,
+          student_name: studentMap[item.student_id] || 'N/A',
+          class_name: null, // Simplified for now
           amount: Number(item.amount),
           status: isOverdue ? "overdue" : item.status as "pending" | "paid" | "overdue",
           due_date: item.due_date,

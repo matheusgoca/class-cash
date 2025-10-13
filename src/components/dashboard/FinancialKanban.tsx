@@ -113,7 +113,7 @@ export function FinancialKanban() {
 
   const fetchTuitions = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: tuitionsData, error } = await supabase
         .from('tuitions')
         .select(`
           id,
@@ -123,19 +123,30 @@ export function FinancialKanban() {
           paid_date,
           description,
           status,
-          payment_method,
-          students (
-            name
-          )
+          payment_method
         `)
         .order('due_date', { ascending: false });
 
       if (error) throw error;
+
+      // Fetch students separately
+      const { data: studentsData, error: studentsError } = await supabase
+        .from('students')
+        .select('id, full_name');
+
+      if (studentsError) throw studentsError;
+
+      // Create lookup map
+      const studentMap = (studentsData || []).reduce((acc: any, student: any) => {
+        acc[student.id] = student.full_name;
+        return acc;
+      }, {});
       
-      // Cast the data to ensure proper typing
-      const typedData: TuitionData[] = (data || []).map(item => ({
+      // Merge the data
+      const typedData: TuitionData[] = (tuitionsData || []).map(item => ({
         ...item,
-        status: item.status as PaymentStatus
+        status: item.status as PaymentStatus,
+        students: { name: studentMap[item.student_id] || 'N/A' }
       }));
       
       setTuitions(typedData);
