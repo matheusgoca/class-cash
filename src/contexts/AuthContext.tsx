@@ -7,7 +7,7 @@ interface Profile {
   user_id: string;
   full_name: string;
   email: string;
-  role: 'admin' | 'financial' | 'teacher';
+  role?: 'admin' | 'financial' | 'teacher'; // Optional for backward compatibility during migration
 }
 
 interface AuthContextType {
