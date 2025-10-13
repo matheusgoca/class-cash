@@ -26,8 +26,7 @@ export function FinancialMetrics() {
       // Fetch all students
       const { data: students, error: studentsError } = await (supabase as any)
         .from('students')
-        .select('id, status')
-        .eq('status', 'active');
+        .select('id');
 
       if (studentsError) throw studentsError;
 

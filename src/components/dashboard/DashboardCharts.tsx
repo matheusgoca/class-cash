@@ -25,8 +25,7 @@ export function DashboardCharts() {
       // Fetch enrollments to count students per class
       const { data: enrollmentsData, error: enrollmentsError } = await (supabase as any)
         .from('enrollments')
-        .select('class_id, students!inner(status)')
-        .eq('students.status', 'active');
+        .select('class_id');
 
       if (enrollmentsError) throw enrollmentsError;
 

@@ -44,8 +44,7 @@ const Classes = () => {
       // Get student counts for each class via enrollments
       const { data: enrollments, error: enrollmentError } = await (supabase as any)
         .from('enrollments')
-        .select('class_id, students!inner(status)')
-        .eq('students.status', 'active');
+        .select('class_id');
 
       if (enrollmentError) throw enrollmentError;
 
