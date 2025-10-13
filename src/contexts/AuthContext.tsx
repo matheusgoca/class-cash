@@ -38,14 +38,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      // Fetch profile data
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('user_id', userId)
         .single();
       
-      if (error) throw error;
-      setProfile(data as Profile);
+      if (profileError) throw profileError;
+      
+      // Fetch role from user_roles table (secure method)
+      const { data: roleData, error: roleError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .order('role', { ascending: true })
+        .limit(1)
+        .single();
+      
+      if (roleError) {
+        console.error('Error fetching user role:', roleError);
+        // Fallback to profile role if user_roles fetch fails (backward compatibility)
+        setProfile(profileData as Profile);
+      } else {
+        // Use role from user_roles table
+        setProfile({
+          ...profileData,
+          role: roleData.role
+        } as Profile);
+      }
     } catch (error) {
       console.error('Error fetching profile:', error);
       setProfile(null);

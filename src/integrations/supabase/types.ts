@@ -14,39 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
-      classes: {
+      class_teachers: {
         Row: {
-          color: string
-          created_at: string
-          description: string | null
+          class_id: string | null
+          created_at: string | null
           id: string
-          max_capacity: number
-          name: string
           teacher_id: string | null
-          tuition_per_student: number | null
-          updated_at: string
         }
         Insert: {
-          color?: string
-          created_at?: string
-          description?: string | null
+          class_id?: string | null
+          created_at?: string | null
           id?: string
-          max_capacity?: number
-          name: string
           teacher_id?: string | null
-          tuition_per_student?: number | null
-          updated_at?: string
         }
         Update: {
-          color?: string
-          created_at?: string
-          description?: string | null
+          class_id?: string | null
+          created_at?: string | null
           id?: string
-          max_capacity?: number
+          teacher_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_teachers_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_teachers_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      classes: {
+        Row: {
+          created_at: string | null
+          id: string
+          level: string
+          name: string
+          teacher_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          level: string
+          name: string
+          teacher_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          level?: string
           name?: string
           teacher_id?: string | null
-          tuition_per_student?: number | null
-          updated_at?: string
         }
         Relationships: [
           {
@@ -97,6 +121,80 @@ export type Database = {
         }
         Relationships: []
       }
+      enrollments: {
+        Row: {
+          class_id: string | null
+          enrolled_at: string | null
+          id: string
+          student_id: string | null
+        }
+        Insert: {
+          class_id?: string | null
+          enrolled_at?: string | null
+          id?: string
+          student_id?: string | null
+        }
+        Update: {
+          class_id?: string | null
+          enrolled_at?: string | null
+          id?: string
+          student_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enrollments_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enrollments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string | null
+          due_date: string
+          enrollment_id: string | null
+          id: string
+          paid_date: string | null
+          status: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          due_date: string
+          enrollment_id?: string | null
+          id?: string
+          paid_date?: string | null
+          status?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          due_date?: string
+          enrollment_id?: string | null
+          id?: string
+          paid_date?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "enrollments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -130,95 +228,54 @@ export type Database = {
       students: {
         Row: {
           birth_date: string
-          class_id: string | null
-          created_at: string
-          discount: number | null
-          email: string | null
-          enrollment_date: string | null
-          final_tuition_value: number | null
-          full_tuition_value: number | null
-          guardian_contact: string
+          created_at: string | null
+          full_name: string
           id: string
-          name: string
-          phone: string | null
-          status: string
-          updated_at: string
+          name: string | null
         }
         Insert: {
           birth_date: string
-          class_id?: string | null
-          created_at?: string
-          discount?: number | null
-          email?: string | null
-          enrollment_date?: string | null
-          final_tuition_value?: number | null
-          full_tuition_value?: number | null
-          guardian_contact: string
+          created_at?: string | null
+          full_name: string
           id?: string
-          name: string
-          phone?: string | null
-          status?: string
-          updated_at?: string
+          name?: string | null
         }
         Update: {
           birth_date?: string
-          class_id?: string | null
-          created_at?: string
-          discount?: number | null
-          email?: string | null
-          enrollment_date?: string | null
-          final_tuition_value?: number | null
-          full_tuition_value?: number | null
-          guardian_contact?: string
+          created_at?: string | null
+          full_name?: string
           id?: string
-          name?: string
-          phone?: string | null
-          status?: string
-          updated_at?: string
+          name?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "students_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "classes"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       teachers: {
         Row: {
-          created_at: string
+          created_at: string | null
           email: string
           full_name: string
           id: string
-          phone: string | null
-          salary: number
-          specialization: string
-          status: string
-          updated_at: string
+          name: string | null
+          status: string | null
+          updated_at: string | null
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
           email: string
           full_name: string
           id?: string
-          phone?: string | null
-          salary?: number
-          specialization: string
-          status?: string
-          updated_at?: string
+          name?: string | null
+          status?: string | null
+          updated_at?: string | null
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
           email?: string
           full_name?: string
           id?: string
-          phone?: string | null
-          salary?: number
-          specialization?: string
-          status?: string
-          updated_at?: string
+          name?: string | null
+          status?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -282,14 +339,28 @@ export type Database = {
             referencedRelation: "contracts"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "tuitions_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "students"
-            referencedColumns: ["id"]
-          },
         ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
       }
     }
     Views: {
@@ -304,9 +375,20 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_user_role: {
+        Args: { _user_id: string }
+        Returns: string
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "financial" | "teacher"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -433,6 +515,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "financial", "teacher"],
+    },
   },
 } as const
