@@ -62,7 +62,7 @@ export const ClassForm: React.FC<ClassFormProps> = ({
   });
 
   return (
-    <DialogContent className="sm:max-w-[425px]">
+    <DialogContent className="sm:max-w-[600px]">
       <DialogHeader>
         <DialogTitle>
           {classData ? 'Editar Turma' : 'Nova Turma'}

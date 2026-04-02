@@ -125,9 +125,9 @@ const Teachers = () => {
     }
   };
 
-  const filteredTeachers = teachers.filter(teacher => 
+  const filteredTeachers = teachers.filter(teacher =>
     teacher.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    teacher.specialization.toLowerCase().includes(searchTerm.toLowerCase())
+    (teacher.specialization || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (

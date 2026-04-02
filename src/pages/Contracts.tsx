@@ -20,7 +20,8 @@ interface ContractData {
   created_at: string;
   updated_at: string;
   students: {
-    name: string;
+    name: string | null;
+    full_name: string;
   } | null;
   classes: {
     name: string;
@@ -64,7 +65,7 @@ const Contracts = () => {
           created_at,
           updated_at,
           students (
-            name
+            full_name
           ),
           classes (
             name

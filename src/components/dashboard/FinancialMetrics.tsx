@@ -33,7 +33,7 @@ export function FinancialMetrics() {
       // Fetch all teachers
       const { data: teachers, error: teachersError } = await (supabase as any)
         .from('teachers')
-        .select('id, status')
+        .select('id, status, salary')
         .eq('status', 'active');
 
       if (teachersError) throw teachersError;
@@ -61,8 +61,8 @@ export function FinancialMetrics() {
         )
       ).reduce((sum, t) => sum + Number(t.amount), 0) || 0;
 
-      // Calculate teacher salaries (simplified - set to 0 since salary column doesn't exist)
-      const totalSalaries = 0;
+      // Calculate teacher salaries from salary column
+      const totalSalaries = teachers?.reduce((sum: number, t: any) => sum + (Number(t.salary) || 0), 0) || 0;
 
       // Calculate financial balance (revenue - salaries)
       const financialBalance = paidRevenue - totalSalaries;
@@ -149,6 +149,8 @@ export function FinancialMetrics() {
     },
   ];
 
+  const hasData = metrics.totalStudents > 0 || metrics.totalRevenue > 0;
+
   if (metrics.loading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -164,6 +166,16 @@ export function FinancialMetrics() {
             </CardContent>
           </Card>
         ))}
+      </div>
+    );
+  }
+
+  if (!hasData) {
+    return (
+      <div className="rounded-lg border border-dashed p-10 text-center text-muted-foreground">
+        <DollarSign className="mx-auto h-10 w-10 mb-3 opacity-30" />
+        <p className="text-base font-medium">Nenhum dado financeiro ainda</p>
+        <p className="text-sm mt-1">Cadastre alunos, crie contratos e gere mensalidades para ver as métricas aqui.</p>
       </div>
     );
   }

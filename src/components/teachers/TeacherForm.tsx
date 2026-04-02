@@ -44,7 +44,7 @@ export const TeacherForm: React.FC<TeacherFormProps> = ({
   });
 
   return (
-    <DialogContent className="sm:max-w-[425px]">
+    <DialogContent className="sm:max-w-[560px]">
       <DialogHeader>
         <DialogTitle>
           {teacher ? 'Editar Professor' : 'Novo Professor'}

@@ -18,13 +18,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { 
-  MoreHorizontal, 
-  Edit, 
-  Pause, 
-  Play, 
-  X, 
-  RotateCcw,
-  Loader2 
+  MoreHorizontal,
+  Edit,
+  Pause,
+  Play,
+  X,
+  Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
@@ -41,7 +40,7 @@ interface ContractData {
   created_at: string;
   updated_at: string;
   students: {
-    name: string;
+    full_name: string;
   } | null;
   classes: {
     name: string;
@@ -156,7 +155,7 @@ export function ContractTable({ data, loading, onEdit, onRefresh }: ContractTabl
             {data.map((contract) => (
               <TableRow key={contract.id}>
                 <TableCell className="font-medium">
-                  {contract.students?.name || "N/A"}
+                  {contract.students?.full_name || "N/A"}
                 </TableCell>
                 <TableCell>
                   {contract.classes?.name || "Sem turma"}
@@ -226,10 +225,6 @@ export function ContractTable({ data, loading, onEdit, onRefresh }: ContractTabl
                         </DropdownMenuItem>
                       )}
                       
-                      <DropdownMenuItem onClick={() => onEdit(contract)}>
-                        <RotateCcw className="mr-2 h-4 w-4" />
-                        Renovar
-                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>

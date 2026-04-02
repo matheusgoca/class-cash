@@ -16,6 +16,7 @@ import Tuitions from "./pages/Tuitions";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
+import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,85 +31,77 @@ const App = () => (
           <AuthProvider>
             <Routes>
               <Route path="/auth" element={<Auth />} />
-              <Route 
-                path="/" 
+              <Route
+                path="/onboarding"
                 element={
                   <ProtectedRoute>
-                    <Layout>
-                      <Index />
-                    </Layout>
+                    <Onboarding />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/alunos" 
+              <Route
+                path="/"
                 element={
                   <ProtectedRoute>
-                    <Layout>
-                      <Students />
-                    </Layout>
+                    <Layout><Index /></Layout>
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/professores" 
+              <Route
+                path="/alunos"
                 element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <Teachers />
-                    </Layout>
+                  <ProtectedRoute allowedRoles={['admin', 'financial', 'teacher']}>
+                    <Layout><Students /></Layout>
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/turmas" 
+              <Route
+                path="/professores"
                 element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <Classes />
-                    </Layout>
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <Layout><Teachers /></Layout>
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/contratos" 
+              <Route
+                path="/turmas"
                 element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <Contracts />
-                    </Layout>
+                  <ProtectedRoute allowedRoles={['admin', 'teacher']}>
+                    <Layout><Classes /></Layout>
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/mensalidades" 
+              <Route
+                path="/contratos"
                 element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <Tuitions />
-                    </Layout>
+                  <ProtectedRoute allowedRoles={['admin', 'financial']}>
+                    <Layout><Contracts /></Layout>
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/relatorios" 
+              <Route
+                path="/mensalidades"
                 element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <Reports />
-                    </Layout>
+                  <ProtectedRoute allowedRoles={['admin', 'financial']}>
+                    <Layout><Tuitions /></Layout>
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/configuracoes" 
+              <Route
+                path="/relatorios"
                 element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <Settings />
-                    </Layout>
+                  <ProtectedRoute allowedRoles={['admin', 'financial']}>
+                    <Layout><Reports /></Layout>
                   </ProtectedRoute>
-                } 
+                }
+              />
+              <Route
+                path="/configuracoes"
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <Layout><Settings /></Layout>
+                  </ProtectedRoute>
+                }
               />
               <Route path="*" element={<NotFound />} />
             </Routes>

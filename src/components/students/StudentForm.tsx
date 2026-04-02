@@ -2,18 +2,24 @@ import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { CalendarIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { cn } from '@/lib/utils';
 
 const studentSchema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
   email: z.string().email('Email inválido').min(1, 'Email é obrigatório'),
   phone: z.string().min(10, 'Telefone deve ter pelo menos 10 caracteres'),
-  birth_date: z.string().min(1, 'Data de nascimento é obrigatória'),
-  enrollment_date: z.string().min(1, 'Data de matrícula é obrigatória'),
+  birth_date: z.date({ message: 'Data de nascimento é obrigatória' }),
+  enrollment_date: z.date({ message: 'Data de matrícula é obrigatória' }),
   guardian_contact: z.string().min(10, 'Contato do responsável deve ter pelo menos 10 caracteres'),
   class_id: z.string().nullable(),
   full_tuition_value: z.number().min(0, 'Valor da mensalidade deve ser positivo'),
@@ -44,8 +50,8 @@ export const StudentForm: React.FC<StudentFormProps> = ({
       name: student?.name || '',
       email: student?.email || '',
       phone: student?.phone || '',
-      birth_date: student?.birth_date || '',
-      enrollment_date: student?.enrollment_date || new Date().toISOString().split('T')[0],
+      birth_date: student?.birth_date ? new Date(student.birth_date) : undefined,
+      enrollment_date: student?.enrollment_date ? new Date(student.enrollment_date) : new Date(),
       guardian_contact: student?.guardian_contact || '',
       class_id: student?.enrollment_class_id || null,
       full_tuition_value: student?.full_tuition_value || 0,
@@ -60,7 +66,7 @@ export const StudentForm: React.FC<StudentFormProps> = ({
   const finalTuitionValue = fullTuitionValue * (1 - (discount || 0) / 100);
 
   return (
-    <DialogContent className="sm:max-w-[425px]">
+    <DialogContent className="sm:max-w-[600px]">
       <DialogHeader>
         <DialogTitle>
           {student ? 'Editar Aluno' : 'Novo Aluno'}
@@ -117,9 +123,30 @@ export const StudentForm: React.FC<StudentFormProps> = ({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Data de Nascimento</FormLabel>
-                <FormControl>
-                  <Input type="date" {...field} />
-                </FormControl>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant="outline"
+                        className={cn('w-full justify-start text-left font-normal', !field.value && 'text-muted-foreground')}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {field.value ? format(field.value, 'dd/MM/yyyy', { locale: ptBR }) : 'Selecione a data'}
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={field.value}
+                      onSelect={field.onChange}
+                      captionLayout="dropdown-buttons"
+                      fromYear={1950}
+                      toYear={new Date().getFullYear()}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
                 <FormMessage />
               </FormItem>
             )}
@@ -131,9 +158,30 @@ export const StudentForm: React.FC<StudentFormProps> = ({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Data de Matrícula</FormLabel>
-                <FormControl>
-                  <Input type="date" {...field} />
-                </FormControl>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant="outline"
+                        className={cn('w-full justify-start text-left font-normal', !field.value && 'text-muted-foreground')}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {field.value ? format(field.value, 'dd/MM/yyyy', { locale: ptBR }) : 'Selecione a data'}
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={field.value}
+                      onSelect={field.onChange}
+                      captionLayout="dropdown-buttons"
+                      fromYear={2000}
+                      toYear={new Date().getFullYear() + 1}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
                 <FormMessage />
               </FormItem>
             )}

@@ -75,7 +75,7 @@ const Tuitions = () => {
           penalty_amount,
           final_amount,
           students (
-            name,
+            full_name,
             classes (
               name
             )

@@ -245,7 +245,7 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
             <SelectContent>
               {students.map((student) => (
                 <SelectItem key={student.id} value={student.id}>
-                  {student.name}
+                  {student.full_name}
                 </SelectItem>
               ))}
             </SelectContent>

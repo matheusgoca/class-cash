@@ -24,7 +24,7 @@ interface TuitionData {
   penalty_amount: number;
   final_amount: number;
   students: {
-    name: string;
+    full_name: string;
     classes?: {
       name: string;
     } | null;
@@ -150,8 +150,8 @@ export function TuitionTable({ data, loading, onEdit, onRefresh }: TuitionTableP
 
     switch (sortField) {
       case 'student_name':
-        aVal = a.students?.name || '';
-        bVal = b.students?.name || '';
+        aVal = a.students?.full_name || '';
+        bVal = b.students?.full_name || '';
         break;
       case 'class_name':
         aVal = a.students?.classes?.name || '';
@@ -295,7 +295,7 @@ export function TuitionTable({ data, loading, onEdit, onRefresh }: TuitionTableP
                 return (
                   <TableRow key={tuition.id}>
                     <TableCell className="font-medium">
-                      {tuition.students?.name || 'N/A'}
+                      {tuition.students?.full_name || 'N/A'}
                     </TableCell>
                     <TableCell>
                       {tuition.students?.classes?.name || 'N/A'}

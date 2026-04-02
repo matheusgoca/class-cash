@@ -6,13 +6,16 @@ import {
   GraduationCap,
   BookOpen,
   DollarSign,
-  FileBarChart,
   Settings,
   ChevronDown,
   School,
-  LogOut
+  LogOut,
+  FileText,
+  Receipt,
+  BarChart3,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRole, type AppRole } from "@/hooks/use-role";
 
 import {
   Sidebar,
@@ -29,10 +32,26 @@ import {
   SidebarHeader,
   useSidebar,
   SidebarTrigger,
+  SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
-const menuItems = [
+interface SubMenuItem {
+  title: string;
+  url: string;
+  icon: React.ElementType;
+  roles?: AppRole[];
+}
+
+interface MenuItem {
+  title: string;
+  url?: string;
+  icon: React.ElementType;
+  roles?: AppRole[];
+  items?: SubMenuItem[];
+}
+
+const menuItems: MenuItem[] = [
   {
     title: "Dashboard",
     url: "/",
@@ -42,29 +61,32 @@ const menuItems = [
     title: "Gestão",
     icon: School,
     items: [
-      { title: "Alunos", url: "/alunos", icon: Users },
-      { title: "Professores", url: "/professores", icon: GraduationCap },
-      { title: "Turmas", url: "/turmas", icon: BookOpen },
+      { title: "Alunos",      url: "/alunos",      icon: Users,         roles: ['admin', 'financial', 'teacher'] },
+      { title: "Professores", url: "/professores", icon: GraduationCap, roles: ['admin'] },
+      { title: "Turmas",      url: "/turmas",      icon: BookOpen,      roles: ['admin', 'teacher'] },
     ],
   },
   {
     title: "Financeiro",
     icon: DollarSign,
+    roles: ['admin', 'financial'],
     items: [
-      { title: "Contratos", url: "/contratos", icon: FileBarChart },
-      { title: "Mensalidades", url: "/mensalidades", icon: DollarSign },
-      { title: "Relatórios", url: "/relatorios", icon: FileBarChart },
+      { title: "Contratos",   url: "/contratos",   icon: FileText,  roles: ['admin', 'financial'] },
+      { title: "Mensalidades",url: "/mensalidades", icon: Receipt,   roles: ['admin', 'financial'] },
+      { title: "Relatórios",  url: "/relatorios",  icon: BarChart3, roles: ['admin', 'financial'] },
     ],
   },
   {
     title: "Configurações",
     url: "/configuracoes",
     icon: Settings,
+    roles: ['admin'],
   },
 ];
 
 export function AppSidebar() {
-  const { signOut, profile } = useAuth();
+  const { signOut, profile, school } = useAuth();
+  const { role, hasRole } = useRole();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
@@ -72,8 +94,8 @@ export function AppSidebar() {
   const [openGroups, setOpenGroups] = useState<string[]>(["Gestão", "Financeiro"]);
 
   const isActive = (path: string) => currentPath === path;
-  const getNavCls = (isActive: boolean) =>
-    isActive
+  const getNavCls = (active: boolean) =>
+    active
       ? "bg-primary text-primary-foreground font-medium"
       : "hover:bg-accent hover:text-accent-foreground";
 
@@ -85,6 +107,18 @@ export function AppSidebar() {
     );
   };
 
+  // When role is null (owner not yet assigned a role), show all items.
+  // Real access control is enforced at the route level by ProtectedRoute.
+  const canSee = (roles?: AppRole[]) => !roles || !role || hasRole(...roles);
+
+  const visibleItems = menuItems
+    .filter(item => canSee(item.roles))
+    .map(item => ({
+      ...item,
+      items: item.items?.filter(sub => canSee(sub.roles)),
+    }))
+    .filter(item => !item.items || item.items.length > 0);
+
   return (
     <Sidebar className={collapsed ? "w-16" : "w-64"} collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border p-4">
@@ -94,7 +128,7 @@ export function AppSidebar() {
           </div>
           {!collapsed && (
             <div className="flex flex-col">
-              <span className="text-sm font-semibold">EduFinance</span>
+              <span className="text-sm font-semibold">{school?.name || 'EduFinance'}</span>
               <span className="text-xs text-muted-foreground">{profile?.full_name || 'Usuário'}</span>
             </div>
           )}
@@ -104,7 +138,7 @@ export function AppSidebar() {
 
       <SidebarContent className="px-2 py-4">
         <SidebarMenu>
-          {menuItems.map((item) => (
+          {visibleItems.map((item) => (
             <SidebarMenuItem key={item.title}>
               {item.items ? (
                 <Collapsible
@@ -159,8 +193,8 @@ export function AppSidebar() {
           ))}
         </SidebarMenu>
 
-        {/* Logout Button */}
-        <SidebarMenu className="mt-auto border-t border-sidebar-border pt-4">
+        <SidebarSeparator className="mt-auto" />
+        <SidebarMenu className="pt-2">
           <SidebarMenuItem>
             <SidebarMenuButton onClick={() => signOut()}>
               <LogOut className="h-4 w-4" />

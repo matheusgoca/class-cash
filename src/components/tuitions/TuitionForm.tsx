@@ -179,7 +179,7 @@ export function TuitionForm({ tuition, onSubmit, onCancel }: TuitionFormProps) {
               <SelectContent>
                 {students.map((student) => (
                   <SelectItem key={student.id} value={student.id}>
-                    {student.name}
+                    {student.full_name}
                   </SelectItem>
                 ))}
               </SelectContent>

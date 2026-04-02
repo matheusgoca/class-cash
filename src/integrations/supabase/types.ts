@@ -7,8 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "13.0.4"
   }
@@ -52,25 +50,43 @@ export type Database = {
       }
       classes: {
         Row: {
+          color: string | null
           created_at: string | null
+          description: string | null
+          grade: string | null
           id: string
           level: string
+          max_capacity: number | null
+          monthly_fee: number | null
           name: string
           teacher_id: string | null
+          tuition_per_student: number | null
         }
         Insert: {
+          color?: string | null
           created_at?: string | null
-          id?: string
-          level: string
-          name: string
-          teacher_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
+          description?: string | null
+          grade?: string | null
           id?: string
           level?: string
+          max_capacity?: number | null
+          monthly_fee?: number | null
+          name: string
+          teacher_id?: string | null
+          tuition_per_student?: number | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          grade?: string | null
+          id?: string
+          level?: string
+          max_capacity?: number | null
+          monthly_fee?: number | null
           name?: string
           teacher_id?: string | null
+          tuition_per_student?: number | null
         }
         Relationships: [
           {
@@ -240,26 +256,61 @@ export type Database = {
       students: {
         Row: {
           birth_date: string
+          class_id: string | null
           created_at: string | null
+          discount: number | null
+          email: string | null
+          enrollment_date: string | null
+          final_tuition_value: number | null
           full_name: string
+          full_tuition_value: number | null
+          guardian_contact: string | null
           id: string
           name: string | null
+          phone: string | null
+          status: string | null
         }
         Insert: {
           birth_date: string
+          class_id?: string | null
           created_at?: string | null
+          discount?: number | null
+          email?: string | null
+          enrollment_date?: string | null
+          final_tuition_value?: number | null
           full_name: string
+          full_tuition_value?: number | null
+          guardian_contact?: string | null
           id?: string
           name?: string | null
+          phone?: string | null
+          status?: string | null
         }
         Update: {
           birth_date?: string
+          class_id?: string | null
           created_at?: string | null
+          discount?: number | null
+          email?: string | null
+          enrollment_date?: string | null
+          final_tuition_value?: number | null
           full_name?: string
+          full_tuition_value?: number | null
+          guardian_contact?: string | null
           id?: string
           name?: string | null
+          phone?: string | null
+          status?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "students_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       teachers: {
         Row: {
@@ -268,6 +319,9 @@ export type Database = {
           full_name: string
           id: string
           name: string | null
+          phone: string | null
+          salary: number | null
+          specialization: string | null
           status: string | null
           updated_at: string | null
         }
@@ -277,6 +331,9 @@ export type Database = {
           full_name: string
           id?: string
           name?: string | null
+          phone?: string | null
+          salary?: number | null
+          specialization?: string | null
           status?: string | null
           updated_at?: string | null
         }
@@ -286,6 +343,9 @@ export type Database = {
           full_name?: string
           id?: string
           name?: string | null
+          phone?: string | null
+          salary?: number | null
+          specialization?: string | null
           status?: string | null
           updated_at?: string | null
         }

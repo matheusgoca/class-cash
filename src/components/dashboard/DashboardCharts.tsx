@@ -1,128 +1,99 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, LineChart, Line, Legend,
+} from "recharts";
+
+const COLORS = ["#3B82F6","#10B981","#F59E0B","#EF4444","#8B5CF6","#F97316","#06B6D4","#84CC16","#EC4899","#14B8A6","#6366F1","#A78BFA"];
+
+const fmt = (v: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
 export function DashboardCharts() {
-  const [revenueData, setRevenueData] = useState([]);
-  const [studentDistribution, setStudentDistribution] = useState([]);
-  const [monthlyTrend, setMonthlyTrend] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [studentDist, setStudentDist]   = useState<any[]>([]);
+  const [monthlyTrend, setMonthlyTrend] = useState<any[]>([]);
+  const [loading, setLoading]           = useState(true);
 
-  useEffect(() => {
-    fetchChartData();
-  }, []);
+  useEffect(() => { fetchChartData(); }, []);
 
   const fetchChartData = async () => {
     try {
-      // Fetch classes
-      const { data: classData, error: classError } = await supabase
-        .from('classes')
-        .select('id, name');
+      // ── 1. Student distribution per class ──────────────────
+      const { data: classes } = await supabase.from("classes").select("id, name, color");
+      const { data: enrollments } = await (supabase as any).from("enrollments").select("class_id");
 
-      if (classError) throw classError;
-
-      // Fetch enrollments to count students per class
-      const { data: enrollmentsData, error: enrollmentsError } = await (supabase as any)
-        .from('enrollments')
-        .select('class_id');
-
-      if (enrollmentsError) throw enrollmentsError;
-
-      // Count students per class
-      const classStudentCounts = (enrollmentsData || []).reduce((acc: any, enrollment: any) => {
-        if (enrollment.class_id) {
-          acc[enrollment.class_id] = (acc[enrollment.class_id] || 0) + 1;
-        }
-        return acc;
-      }, {});
-
-      // Fetch tuition payments for revenue
-      const { data: tuitionsData, error: tuitionsError } = await supabase
-        .from('tuitions')
-        .select('amount, paid_date, status, student_id')
-        .eq('status', 'paid')
-        .not('paid_date', 'is', null);
-
-      if (tuitionsError) throw tuitionsError;
-
-      // Calculate stats per class (simplified)
-      const classStats = (classData || []).map((cls: any) => {
-        const studentCount = classStudentCounts[cls.id] || 0;
-        
-        return {
-          name: cls.name,
-          students: studentCount,
-          revenue: 0, // Simplified
-          color: '#3B82F6',
-        };
-      }).filter((cls: any) => cls.students > 0);
-
-      setStudentDistribution(classStats);
-
-      // Prepare revenue data for bar chart
-      const revenueChartData = classStats.map((cls: any) => ({
-        name: cls.name,
-        receita: cls.revenue,
-      }));
-      setRevenueData(revenueChartData);
-
-      // Calculate monthly revenue trend (last 6 months)
-      const monthlyRevenue = {};
-      const last6Months = [];
-      const now = new Date();
-      
-      for (let i = 5; i >= 0; i--) {
-        const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        const monthName = date.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
-        last6Months.push({ key: monthKey, name: monthName });
-        monthlyRevenue[monthKey] = 0;
+      const countByClass: Record<string, number> = {};
+      for (const e of enrollments || []) {
+        countByClass[e.class_id] = (countByClass[e.class_id] || 0) + 1;
       }
 
-      tuitionsData.forEach(tuition => {
-        if (tuition.paid_date) {
-          const date = new Date(tuition.paid_date);
-          const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-          if (monthlyRevenue.hasOwnProperty(monthKey)) {
-            monthlyRevenue[monthKey] += Number(tuition.amount);
-          }
-        }
-      });
+      const dist = (classes || [])
+        .map((c: any, i: number) => ({
+          name: c.name,
+          value: countByClass[c.id] || 0,
+          color: c.color || COLORS[i % COLORS.length],
+        }))
+        .filter((c: any) => c.value > 0);
 
-      const trendData = last6Months.map(month => ({
-        name: month.name,
-        receita: monthlyRevenue[month.key],
+      setStudentDist(dist);
+
+      // ── 2. Monthly revenue + cost trend (last 6 months) ────
+      const now = new Date();
+      const months: { key: string; name: string }[] = [];
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        months.push({
+          key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+          name: d.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" }),
+        });
+      }
+
+      // Paid tuitions (use final_amount when available)
+      const { data: tuitions } = await (supabase as any)
+        .from("tuitions")
+        .select("final_amount, amount, paid_date")
+        .eq("status", "paid")
+        .not("paid_date", "is", null);
+
+      const revenueByMonth: Record<string, number> = Object.fromEntries(months.map(m => [m.key, 0]));
+      for (const t of tuitions || []) {
+        const key = t.paid_date?.slice(0, 7);
+        if (key && key in revenueByMonth) {
+          revenueByMonth[key] += Number(t.final_amount ?? t.amount ?? 0);
+        }
+      }
+
+      // Monthly teacher salary cost (static — same every month)
+      const { data: teachers } = await (supabase as any)
+        .from("teachers")
+        .select("salary")
+        .eq("status", "active");
+
+      const totalSalary = (teachers || []).reduce((s: number, t: any) => s + Number(t.salary || 0), 0);
+
+      const trend = months.map(m => ({
+        name: m.name,
+        receita: revenueByMonth[m.key],
+        custo: totalSalary,
       }));
 
-      setMonthlyTrend(trendData);
-      setLoading(false);
-    } catch (error) {
-      console.error('Error fetching chart data:', error);
+      setMonthlyTrend(trend);
+    } catch (err) {
+      console.error("DashboardCharts error:", err);
+    } finally {
       setLoading(false);
     }
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value);
-  };
-
-  const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#F97316', '#06B6D4', '#84CC16'];
-
   if (loading) {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {[1, 2, 3].map((i) => (
+        {[1, 2, 3].map(i => (
           <Card key={i} className="animate-pulse">
-            <CardHeader>
-              <div className="h-6 bg-muted rounded w-48" />
-            </CardHeader>
-            <CardContent>
-              <div className="h-64 bg-muted rounded" />
-            </CardContent>
+            <CardHeader><div className="h-6 bg-muted rounded w-48" /></CardHeader>
+            <CardContent><div className="h-64 bg-muted rounded" /></CardContent>
           </Card>
         ))}
       </div>
@@ -131,25 +102,8 @@ export function DashboardCharts() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Revenue by Class */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Receita por Turma</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={revenueData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis tickFormatter={(value) => formatCurrency(value)} />
-              <Tooltip formatter={(value) => [formatCurrency(Number(value)), 'Receita']} />
-              <Bar dataKey="receita" fill="#3B82F6" />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
 
-      {/* Student Distribution */}
+      {/* Distribuição de alunos por turma */}
       <Card>
         <CardHeader>
           <CardTitle>Distribuição de Alunos por Turma</CardTitle>
@@ -158,48 +112,69 @@ export function DashboardCharts() {
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
-                data={studentDistribution}
+                data={studentDist}
                 cx="50%"
                 cy="50%"
-                labelLine={false}
+                outerRadius={90}
+                dataKey="value"
                 label={({ name, value }) => `${name}: ${value}`}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="students"
+                labelLine={false}
               >
-                {studentDistribution.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color || COLORS[index % COLORS.length]} />
+                {studentDist.map((entry, i) => (
+                  <Cell key={i} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip formatter={(v: any) => [`${v} alunos`]} />
             </PieChart>
           </ResponsiveContainer>
         </CardContent>
       </Card>
 
-      {/* Monthly Revenue Trend */}
+      {/* Receita vs Custo — últimos 6 meses */}
+      <Card className="lg:col-span-1">
+        <CardHeader>
+          <CardTitle>Receita vs Custo (Últimos 6 Meses)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={monthlyTrend} barGap={4}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis tickFormatter={v => fmt(v)} width={90} />
+              <Tooltip formatter={(v: any, name: string) => [fmt(Number(v)), name === "receita" ? "Receita" : "Custo"]} />
+              <Legend formatter={v => v === "receita" ? "Receita" : "Custo (salários)"} />
+              <Bar dataKey="receita" fill="#10B981" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="custo"   fill="#EF4444" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+
+      {/* Evolução da receita */}
       <Card className="lg:col-span-2">
         <CardHeader>
-          <CardTitle>Evolução da Receita (Últimos 6 Meses)</CardTitle>
+          <CardTitle>Evolução da Receita Recebida (Últimos 6 Meses)</CardTitle>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={monthlyTrend}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
-              <YAxis tickFormatter={(value) => formatCurrency(value)} />
-              <Tooltip formatter={(value) => [formatCurrency(Number(value)), 'Receita']} />
-              <Line 
-                type="monotone" 
-                dataKey="receita" 
-                stroke="#3B82F6" 
+              <YAxis tickFormatter={v => fmt(v)} width={90} />
+              <Tooltip formatter={(v: any) => [fmt(Number(v)), "Receita"]} />
+              <Line
+                type="monotone"
+                dataKey="receita"
+                stroke="#3B82F6"
                 strokeWidth={2}
-                dot={{ fill: '#3B82F6' }}
+                dot={{ fill: "#3B82F6", r: 4 }}
+                activeDot={{ r: 6 }}
               />
             </LineChart>
           </ResponsiveContainer>
         </CardContent>
       </Card>
+
     </div>
   );
 }

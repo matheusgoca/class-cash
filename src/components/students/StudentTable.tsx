@@ -5,9 +5,11 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Edit2, Trash2, Search } from 'lucide-react';
+import { Edit2, Trash2, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+
+const PAGE_SIZE = 10;
 
 interface Student {
   id: string;
@@ -47,6 +49,11 @@ export const StudentTable: React.FC<StudentTableProps> = ({
   onClassFilterChange,
 }) => {
   const [deleteStudentId, setDeleteStudentId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+
+  const totalPages = Math.max(1, Math.ceil(students.length / PAGE_SIZE));
+  const paginated = students.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   const getStatusColor = (status: string) => {
     return status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
   };
@@ -106,9 +113,9 @@ export const StudentTable: React.FC<StudentTableProps> = ({
                   </TableCell>
                 </TableRow>
             ) : (
-              students.map((student) => (
+              paginated.map((student) => (
                 <TableRow key={student.id}>
-                  <TableCell className="font-medium">{student.name}</TableCell>
+                  <TableCell className="font-medium">{student.full_name}</TableCell>
                   <TableCell>{student.email || '-'}</TableCell>
                   <TableCell>{student.phone || '-'}</TableCell>
                   <TableCell>
@@ -143,6 +150,7 @@ export const StudentTable: React.FC<StudentTableProps> = ({
                           <Button
                             variant="ghost"
                             size="sm"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -151,7 +159,7 @@ export const StudentTable: React.FC<StudentTableProps> = ({
                           <AlertDialogHeader>
                             <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Tem certeza que deseja excluir o aluno "{student.name}"? Esta ação não pode ser desfeita.
+                              Tem certeza que deseja excluir o aluno "{student.full_name}"? Esta ação não pode ser desfeita.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
@@ -170,6 +178,22 @@ export const StudentTable: React.FC<StudentTableProps> = ({
           </TableBody>
         </Table>
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-2">
+          <p className="text-sm text-muted-foreground">
+            Página {page} de {totalPages} — {students.length} alunos
+          </p>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
