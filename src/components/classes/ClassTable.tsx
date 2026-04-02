@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Edit2, Trash2, Search, Users } from 'lucide-react';
+import { Edit2, Trash2, Search, Users, ChevronLeft, ChevronRight } from 'lucide-react';
+
+const PAGE_SIZE = 10;
 
 interface Class {
   id: string;
@@ -14,7 +16,10 @@ interface Class {
   max_capacity: number;
   tuition_per_student?: number;
   color: string;
-  teachers?: { full_name: string; specialization: string };
+  class_teachers?: Array<{
+    teacher_id: string;
+    teachers: { id: string; full_name: string; email: string; status: string };
+  }>;
   student_count?: number;
 }
 
@@ -35,12 +40,18 @@ export const ClassTable: React.FC<ClassTableProps> = ({
   searchTerm,
   onSearchChange,
 }) => {
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(classes.length / PAGE_SIZE));
+  const paginated = classes.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const getTeacherName = (cls: Class) => {
-    if (cls.teachers?.full_name) {
-      return `${cls.teachers.full_name} - ${cls.teachers.specialization}`;
+    if (cls.class_teachers && cls.class_teachers.length > 0) {
+      const teacherNames = cls.class_teachers
+        .map(ct => ct.teachers.full_name)
+        .join(', ');
+      return teacherNames;
     }
     const teacher = teachers.find(t => t.id === cls.teacher_id);
-    return teacher ? `${teacher.full_name} - ${teacher.specialization}` : 'Sem professor';
+    return teacher ? teacher.full_name : 'Sem professor';
   };
 
   const getStatusColor = (studentCount: number, maxCapacity: number) => {
@@ -92,7 +103,7 @@ export const ClassTable: React.FC<ClassTableProps> = ({
                 </TableCell>
               </TableRow>
             ) : (
-              classes.map((cls) => {
+              paginated.map((cls) => {
                 const studentCount = cls.student_count || 0;
                 return (
                   <TableRow key={cls.id}>
@@ -149,6 +160,7 @@ export const ClassTable: React.FC<ClassTableProps> = ({
                             <Button
                               variant="ghost"
                               size="sm"
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -181,6 +193,22 @@ export const ClassTable: React.FC<ClassTableProps> = ({
           </TableBody>
         </Table>
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-2">
+          <p className="text-sm text-muted-foreground">
+            Página {page} de {totalPages} — {classes.length} turmas
+          </p>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -2,9 +2,12 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/contexts/SchoolContext";
 import { Calendar, DollarSign, User, CheckCircle } from "lucide-react";
+import { format, startOfMonth, endOfMonth } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 type PaymentStatus = 'pending' | 'paid' | 'overdue';
 
@@ -18,7 +21,7 @@ interface TuitionData {
   status: PaymentStatus;
   payment_method?: string;
   students: {
-    name: string;
+    full_name: string;
   } | null;
 }
 
@@ -62,7 +65,7 @@ function TuitionCard({ tuition, onStatusChange }: TuitionCardProps) {
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
             <User className="h-4 w-4 text-muted-foreground" />
-            <span className="font-medium text-sm">{tuition.students?.name || 'Aluno não encontrado'}</span>
+            <span className="font-medium text-sm">{tuition.students?.full_name || 'Aluno não encontrado'}</span>
           </div>
           <Badge className={statusConfig[tuition.status].badgeClass}>
             {tuition.status === "pending" && isOverdue ? "Atrasado" : statusConfig[tuition.status].title.slice(0, -1)}
@@ -74,7 +77,7 @@ function TuitionCard({ tuition, onStatusChange }: TuitionCardProps) {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
             <span className="font-semibold text-lg">{formatCurrency(tuition.amount)}</span>
           </div>
-          
+
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Calendar className="h-4 w-4" />
             <span>Venc: {formatDate(tuition.due_date)}</span>
@@ -104,18 +107,31 @@ function TuitionCard({ tuition, onStatusChange }: TuitionCardProps) {
   );
 }
 
+const MONTH_OPTIONS = Array.from({ length: 12 }, (_, i) => {
+  const date = new Date(new Date().getFullYear(), i, 1);
+  return {
+    value: format(date, 'yyyy-MM'),
+    label: format(date, 'MMMM yyyy', { locale: ptBR }),
+  };
+});
+
 export function FinancialKanban() {
   const { schoolId } = useSchool();
   const [tuitions, setTuitions] = useState<TuitionData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
 
   useEffect(() => {
     if (schoolId) fetchTuitions();
-  }, [schoolId]);
+  }, [schoolId, selectedMonth]);
 
   const fetchTuitions = async () => {
     try {
-      const { data, error } = await supabase
+      const [year, month] = selectedMonth.split('-').map(Number);
+      const start = format(startOfMonth(new Date(year, month - 1)), 'yyyy-MM-dd');
+      const end = format(endOfMonth(new Date(year, month - 1)), 'yyyy-MM-dd');
+
+      const { data: tuitionsData, error } = await supabase
         .from('tuitions')
         .select(`
           id,
@@ -125,22 +141,36 @@ export function FinancialKanban() {
           paid_date,
           description,
           status,
-          payment_method,
-          students (
-            name
-          )
+          payment_method
         `)
         .eq('school_id', schoolId)
+        .gte('due_date', start)
+        .lte('due_date', end)
         .order('due_date', { ascending: false });
 
       if (error) throw error;
-      
-      // Cast the data to ensure proper typing
-      const typedData: TuitionData[] = (data || []).map(item => ({
+
+      // Fetch students separately
+      const { data: studentsData, error: studentsError } = await supabase
+        .from('students')
+        .select('id, full_name')
+        .eq('school_id', schoolId);
+
+      if (studentsError) throw studentsError;
+
+      // Create lookup map
+      const studentMap = (studentsData || []).reduce((acc: any, student: any) => {
+        acc[student.id] = student.full_name;
+        return acc;
+      }, {});
+
+      // Merge the data
+      const typedData: TuitionData[] = (tuitionsData || []).map(item => ({
         ...item,
-        status: item.status as PaymentStatus
+        status: item.status as PaymentStatus,
+        students: { full_name: studentMap[item.student_id] || 'N/A' }
       }));
-      
+
       setTuitions(typedData);
     } catch (error) {
       console.error('Error fetching tuitions:', error);
@@ -231,22 +261,38 @@ export function FinancialKanban() {
   }
 
   return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <span className="text-sm font-medium text-muted-foreground">Filtrar por mês:</span>
+        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {MONTH_OPTIONS.map(opt => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label.charAt(0).toUpperCase() + opt.label.slice(1)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       <div className="space-y-4">
-        <Card className="bg-slate-800 border border-slate-700 rounded-2xl shadow">
+        <Card className="rounded-2xl shadow">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center justify-between text-lg">
-              <span className="text-slate-200 font-medium">Pendentes</span>
+              <span className="font-medium">Pendentes</span>
               <Badge className="bg-yellow-500 text-slate-900">
                 {categorizedTuitions.pending.length}
               </Badge>
             </CardTitle>
-            <p className="text-slate-400 mt-2">
+            <p className="text-muted-foreground mt-2">
               Total: {formatCurrency(getTotalAmount(categorizedTuitions.pending))}
             </p>
           </CardHeader>
         </Card>
-        
+
         <div className="space-y-3">
           {categorizedTuitions.pending.map(tuition => (
             <TuitionCard
@@ -262,20 +308,20 @@ export function FinancialKanban() {
       </div>
 
       <div className="space-y-4">
-        <Card className="bg-slate-800 border border-slate-700 rounded-2xl shadow">
+        <Card className="rounded-2xl shadow">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center justify-between text-lg">
-              <span className="text-slate-200 font-medium">Atrasados</span>
+              <span className="font-medium">Atrasados</span>
               <Badge className="bg-red-500 text-white">
                 {categorizedTuitions.overdue.length}
               </Badge>
             </CardTitle>
-            <p className="text-slate-400 mt-2">
+            <p className="text-muted-foreground mt-2">
               Total: {formatCurrency(getTotalAmount(categorizedTuitions.overdue))}
             </p>
           </CardHeader>
         </Card>
-        
+
         <div className="space-y-3">
           {categorizedTuitions.overdue.map(tuition => (
             <TuitionCard
@@ -291,20 +337,20 @@ export function FinancialKanban() {
       </div>
 
       <div className="space-y-4">
-        <Card className="bg-slate-800 border border-slate-700 rounded-2xl shadow">
+        <Card className="rounded-2xl shadow">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center justify-between text-lg">
-              <span className="text-slate-200 font-medium">Pagos</span>
+              <span className="font-medium">Pagos</span>
               <Badge className="bg-green-500 text-white">
                 {categorizedTuitions.paid.length}
               </Badge>
             </CardTitle>
-            <p className="text-slate-400 mt-2">
+            <p className="text-muted-foreground mt-2">
               Total: {formatCurrency(getTotalAmount(categorizedTuitions.paid))}
             </p>
           </CardHeader>
         </Card>
-        
+
         <div className="space-y-3">
           {categorizedTuitions.paid.map(tuition => (
             <TuitionCard
@@ -318,6 +364,7 @@ export function FinancialKanban() {
           )}
         </div>
       </div>
+    </div>
     </div>
   );
 }

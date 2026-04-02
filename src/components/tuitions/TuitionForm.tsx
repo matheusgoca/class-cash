@@ -61,20 +61,18 @@ export function TuitionForm({ tuition, onSubmit, onCancel }: TuitionFormProps) {
   const fetchStudents = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('students')
-        .select(`
-          id,
-          name,
-          classes (
-            name
-          )
-        `)
+        .select('id, full_name')
         .eq('status', 'active')
-        .order('name');
+        .order('full_name');
 
       if (error) throw error;
-      setStudents(data || []);
+      setStudents((data || []).map((s: any) => ({ 
+        id: s.id, 
+        name: s.full_name,
+        classes: undefined
+      })));
     } catch (error) {
       console.error('Error fetching students:', error);
       toast({
@@ -181,7 +179,7 @@ export function TuitionForm({ tuition, onSubmit, onCancel }: TuitionFormProps) {
               <SelectContent>
                 {students.map((student) => (
                   <SelectItem key={student.id} value={student.id}>
-                    {student.name} {student.classes?.name && `(${student.classes.name})`}
+                    {student.full_name}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -8,11 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { CalendarIcon, Download, FileText, FileSpreadsheet, ArrowUpDown } from "lucide-react";
+import { Download, FileText, FileSpreadsheet, ArrowUpDown } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
+import { ClassProfitability } from "@/components/reports/ClassProfitability";
 
 interface TuitionReport {
   id: string;
@@ -86,23 +87,31 @@ const Reports = () => {
           due_date,
           paid_date,
           description,
-          students (
-            name,
-            classes (
-              name
-            )
-          )
+          student_id
         `)
         .order('due_date', { ascending: false });
 
       if (error) throw error;
 
+      // Fetch students separately
+      const { data: studentsData, error: studentsError } = await supabase
+        .from('students')
+        .select('id, full_name');
+
+      if (studentsError) throw studentsError;
+
+      // Create a lookup map for students
+      const studentMap = (studentsData || []).reduce((acc: any, student: any) => {
+        acc[student.id] = student.full_name;
+        return acc;
+      }, {});
+
       const formattedData: TuitionReport[] = (tuitionsData || []).map(item => {
         const isOverdue = new Date(item.due_date) < new Date() && item.status === "pending";
         return {
           id: item.id,
-          student_name: item.students?.name || 'N/A',
-          class_name: item.students?.classes?.name || null,
+          student_name: studentMap[item.student_id] || 'N/A',
+          class_name: null, // Simplified for now
           amount: Number(item.amount),
           status: isOverdue ? "overdue" : item.status as "pending" | "paid" | "overdue",
           due_date: item.due_date,
@@ -363,51 +372,54 @@ const Reports = () => {
         </p>
       </div>
 
+      {/* Rentabilidade por turma */}
+      <ClassProfitability />
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-slate-800 border border-slate-700 rounded-2xl shadow">
+        <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-slate-200 font-medium text-sm">Total</CardTitle>
+            <CardTitle className="font-medium text-sm text-muted-foreground">Total</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-slate-100">{summary.total}</div>
-            <p className="text-slate-400 text-sm">{formatCurrency(summary.totalAmount)}</p>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-slate-800 border border-slate-700 rounded-2xl shadow">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-slate-200 font-medium text-sm flex items-center justify-between">
-              Pendentes
-              <Badge className="bg-yellow-500 text-slate-900 text-xs">{summary.pending}</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-slate-100">{formatCurrency(summary.pendingAmount)}</div>
+            <div className="text-2xl font-bold">{summary.total}</div>
+            <p className="text-muted-foreground text-sm">{formatCurrency(summary.totalAmount)}</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-800 border border-slate-700 rounded-2xl shadow">
+        <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-slate-200 font-medium text-sm flex items-center justify-between">
+            <CardTitle className="font-medium text-sm text-muted-foreground flex items-center justify-between">
+              Pendentes
+              <Badge className="bg-yellow-500 text-white text-xs">{summary.pending}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(summary.pendingAmount)}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="font-medium text-sm text-muted-foreground flex items-center justify-between">
               Pagos
               <Badge className="bg-green-500 text-white text-xs">{summary.paid}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-slate-100">{formatCurrency(summary.paidAmount)}</div>
+            <div className="text-2xl font-bold">{formatCurrency(summary.paidAmount)}</div>
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-800 border border-slate-700 rounded-2xl shadow">
+        <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-slate-200 font-medium text-sm flex items-center justify-between">
+            <CardTitle className="font-medium text-sm text-muted-foreground flex items-center justify-between">
               Atrasados
               <Badge className="bg-red-500 text-white text-xs">{summary.overdue}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-slate-100">{formatCurrency(summary.overdueAmount)}</div>
+            <div className="text-2xl font-bold">{formatCurrency(summary.overdueAmount)}</div>
           </CardContent>
         </Card>
       </div>

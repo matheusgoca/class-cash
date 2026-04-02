@@ -22,7 +22,8 @@ interface TuitionData {
   penalty_amount: number;
   final_amount: number;
   students: {
-    name: string;
+    name: string | null;
+    full_name?: string;
     classes?: { name: string } | null;
   } | null;
   contracts: {
@@ -61,11 +62,29 @@ const Tuitions = () => {
       const { data, error } = await supabase
         .from('tuitions')
         .select(`
-          id, student_id, contract_id, amount, due_date, paid_date,
-          description, status, payment_method, discount_applied,
-          penalty_amount, final_amount,
-          students ( name, classes ( name ) ),
-          contracts ( monthly_amount, discount )
+          id,
+          student_id,
+          contract_id,
+          amount,
+          due_date,
+          paid_date,
+          description,
+          status,
+          payment_method,
+          discount_applied,
+          penalty_amount,
+          final_amount,
+          students (
+            name,
+            full_name,
+            classes (
+              name
+            )
+          ),
+          contracts (
+            monthly_amount,
+            discount
+          )
         `)
         .eq('school_id', schoolId)
         .order('due_date', { ascending: false });

@@ -99,15 +99,15 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
 
   const fetchStudents = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('students')
-        .select('id, name')
+        .select('id, name, full_name')
         .eq('school_id', schoolId)
         .eq('status', 'active')
-        .order('name');
+        .order('full_name');
 
       if (error) throw error;
-      setStudents(data || []);
+      setStudents((data || []).map((s: any) => ({ id: s.id, name: s.full_name })));
     } catch (error) {
       console.error('Error fetching students:', error);
       toast({

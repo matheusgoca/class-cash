@@ -1,91 +1,158 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { useSchool } from '@/contexts/SchoolContext';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { School, BookOpen, GraduationCap, Building2, Lightbulb } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { School } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
 
-const Onboarding = () => {
-  const { user } = useAuth();
-  const { refetch } = useSchool();
-  const navigate = useNavigate();
-  const { toast } = useToast();
-  const [schoolName, setSchoolName] = useState('');
+const SEGMENTS = [
+  { value: 'infantil',    label: 'Educação Infantil', icon: Lightbulb,     description: 'Berçário ao Pré' },
+  { value: 'fundamental', label: 'Ensino Fundamental', icon: BookOpen,      description: '1º ao 9º Ano' },
+  { value: 'medio',       label: 'Ensino Médio',       icon: GraduationCap, description: '1ª à 3ª Série' },
+  { value: 'tecnico',     label: 'Curso Técnico',      icon: Building2,     description: 'Cursos profissionalizantes' },
+];
+
+const schema = z.object({
+  name:     z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
+  segments: z.array(z.string()).min(1, 'Selecione pelo menos um segmento'),
+});
+
+type FormData = z.infer<typeof schema>;
+
+export default function Onboarding() {
+  const navigate    = useNavigate();
+  const { toast }   = useToast();
+  const { user, refreshSchool } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user || !schoolName.trim()) return;
+  const form = useForm<FormData>({
+    resolver: zodResolver(schema),
+    defaultValues: { name: '', segments: [] },
+  });
 
+  const selectedSegments = form.watch('segments');
+
+  const toggleSegment = (value: string) => {
+    const current = form.getValues('segments');
+    const next = current.includes(value)
+      ? current.filter(s => s !== value)
+      : [...current, value];
+    form.setValue('segments', next, { shouldValidate: true });
+  };
+
+  const handleSubmit = async (data: FormData) => {
+    if (!user) return;
     setIsLoading(true);
     try {
-      const { data: school, error: schoolError } = await supabase
+      const { error } = await (supabase as any)
         .from('schools')
-        .insert([{ name: schoolName.trim(), owner_user_id: user.id }])
-        .select()
-        .single();
+        .insert({
+          name:          data.name,
+          segments:      data.segments,
+          owner_user_id: user.id,
+        });
 
-      if (schoolError) throw schoolError;
+      if (error) throw error;
 
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ school_id: school.id })
-        .eq('user_id', user.id);
-
-      if (profileError) throw profileError;
-
-      await refetch();
-      navigate('/');
+      await refreshSchool();
+      toast({ title: 'Escola criada!', description: `Bem-vindo ao ${data.name}` });
+      navigate('/dashboard');
     } catch (error: any) {
-      toast({
-        title: 'Erro',
-        description: error.message || 'Erro ao criar escola',
-        variant: 'destructive',
-      });
+      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <div className="bg-primary rounded-full p-3">
-              <School className="h-8 w-8 text-primary-foreground" />
+    <div className="min-h-screen bg-background flex items-center justify-center p-6">
+      <div className="w-full max-w-lg space-y-8">
+
+        <div className="text-center space-y-2">
+          <div className="flex justify-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg">
+              <School className="h-7 w-7" />
             </div>
           </div>
-          <CardTitle className="text-2xl">Bem-vindo ao Class Cash</CardTitle>
-          <CardDescription>
-            Para começar, precisamos configurar a sua escola.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="schoolName">Nome da escola</Label>
-              <Input
-                id="schoolName"
-                placeholder="Ex: Escola Estadual Dom Pedro"
-                value={schoolName}
-                onChange={(e) => setSchoolName(e.target.value)}
-                required
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={isLoading || !schoolName.trim()}>
-              {isLoading ? 'Criando...' : 'Criar escola e continuar'}
+          <h1 className="text-3xl font-bold tracking-tight">Bem-vindo ao Class Cash</h1>
+          <p className="text-muted-foreground">
+            Vamos configurar sua escola para começar.
+          </p>
+        </div>
+
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-base font-medium">Nome da escola</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Ex: Colégio São Paulo"
+                      className="h-11 text-base"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="segments"
+              render={() => (
+                <FormItem>
+                  <FormLabel className="text-base font-medium">Segmentos atendidos</FormLabel>
+                  <p className="text-xs text-muted-foreground -mt-1">Selecione um ou mais</p>
+                  <div className="grid grid-cols-2 gap-3 mt-1">
+                    {SEGMENTS.map((seg) => {
+                      const Icon   = seg.icon;
+                      const active = selectedSegments.includes(seg.value);
+                      return (
+                        <button
+                          key={seg.value}
+                          type="button"
+                          onClick={() => toggleSegment(seg.value)}
+                          className={cn(
+                            'flex flex-col items-start gap-1 rounded-xl border-2 p-4 text-left transition-all',
+                            active
+                              ? 'border-primary bg-primary/5 shadow-sm'
+                              : 'border-border hover:border-primary/40 hover:bg-accent'
+                          )}
+                        >
+                          <Icon className={cn('h-5 w-5', active ? 'text-primary' : 'text-muted-foreground')} />
+                          <span className={cn('text-sm font-semibold', active ? 'text-primary' : '')}>{seg.label}</span>
+                          <span className="text-xs text-muted-foreground">{seg.description}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <Button type="submit" className="w-full h-11 text-base" disabled={isLoading}>
+              {isLoading ? 'Criando...' : 'Entrar no painel'}
             </Button>
           </form>
-        </CardContent>
-      </Card>
+        </Form>
+
+        <p className="text-center text-xs text-muted-foreground">
+          Você pode editar essas informações depois em Configurações.
+        </p>
+      </div>
     </div>
   );
-};
-
-export default Onboarding;
+}

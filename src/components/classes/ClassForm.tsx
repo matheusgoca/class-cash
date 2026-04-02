@@ -10,10 +10,12 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 
 const classSchema = z.object({
   name: z.string().min(2, 'Nome da turma deve ter pelo menos 2 caracteres'),
+  grade: z.string().nullable(),
   description: z.string().optional(),
   teacher_id: z.string().nullable(),
   max_capacity: z.number().min(1, 'Capacidade máxima deve ser pelo menos 1').max(50, 'Capacidade máxima não pode exceder 50'),
-  tuition_per_student: z.number().min(0, 'Valor da mensalidade deve ser positivo'),
+  monthly_fee: z.number().min(0, 'Mensalidade da turma deve ser positiva').optional(),
+  tuition_per_student: z.number().min(0, 'Valor da mensalidade deve ser positivo').optional(),
   color: z.string().min(1, 'Cor é obrigatória'),
 });
 
@@ -49,16 +51,18 @@ export const ClassForm: React.FC<ClassFormProps> = ({
     resolver: zodResolver(classSchema),
     defaultValues: {
       name: classData?.name || '',
+      grade: classData?.grade || null,
       description: classData?.description || '',
       teacher_id: classData?.teacher_id || null,
       max_capacity: classData?.max_capacity || 30,
+      monthly_fee: classData?.monthly_fee || 0,
       tuition_per_student: classData?.tuition_per_student || 0,
       color: classData?.color || '#3B82F6',
     },
   });
 
   return (
-    <DialogContent className="sm:max-w-[425px]">
+    <DialogContent className="sm:max-w-[600px]">
       <DialogHeader>
         <DialogTitle>
           {classData ? 'Editar Turma' : 'Nova Turma'}
@@ -76,6 +80,35 @@ export const ClassForm: React.FC<ClassFormProps> = ({
                 <FormControl>
                   <Input placeholder="Ex: 1º Ano A, 2º Ano B..." {...field} />
                 </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="grade"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Série/Ano</FormLabel>
+                <Select onValueChange={(value) => field.onChange(value)} value={field.value || undefined}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a série" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="1º Ano">1º Ano</SelectItem>
+                    <SelectItem value="2º Ano">2º Ano</SelectItem>
+                    <SelectItem value="3º Ano">3º Ano</SelectItem>
+                    <SelectItem value="4º Ano">4º Ano</SelectItem>
+                    <SelectItem value="5º Ano">5º Ano</SelectItem>
+                    <SelectItem value="6º Ano">6º Ano</SelectItem>
+                    <SelectItem value="7º Ano">7º Ano</SelectItem>
+                    <SelectItem value="8º Ano">8º Ano</SelectItem>
+                    <SelectItem value="9º Ano">9º Ano</SelectItem>
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
@@ -110,11 +143,33 @@ export const ClassForm: React.FC<ClassFormProps> = ({
                   <SelectContent>
                     {teachers.map((teacher) => (
                       <SelectItem key={teacher.id} value={teacher.id}>
-                        {teacher.full_name} - {teacher.specialization}
+                        {teacher.full_name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="monthly_fee"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Mensalidade da Turma (R$)</FormLabel>
+                <FormControl>
+                  <Input 
+                    type="number" 
+                    min="0" 
+                    step="0.01"
+                    placeholder="1500.00"
+                    {...field}
+                    value={field.value}
+                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}

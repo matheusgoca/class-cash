@@ -65,7 +65,7 @@ const App = () => (
                 <Route
                   path="/alunos"
                   element={
-                    <ProtectedRoute requireSchool>
+                    <ProtectedRoute requireSchool allowedRoles={['admin', 'financial', 'teacher']}>
                       <Layout>
                         <Students />
                       </Layout>
@@ -75,7 +75,7 @@ const App = () => (
                 <Route
                   path="/professores"
                   element={
-                    <ProtectedRoute requireSchool>
+                    <ProtectedRoute requireSchool allowedRoles={['admin']}>
                       <Layout>
                         <Teachers />
                       </Layout>
@@ -85,7 +85,7 @@ const App = () => (
                 <Route
                   path="/turmas"
                   element={
-                    <ProtectedRoute requireSchool>
+                    <ProtectedRoute requireSchool allowedRoles={['admin', 'teacher']}>
                       <Layout>
                         <Classes />
                       </Layout>
@@ -95,7 +95,7 @@ const App = () => (
                 <Route
                   path="/contratos"
                   element={
-                    <ProtectedRoute requireSchool>
+                    <ProtectedRoute requireSchool allowedRoles={['admin', 'financial']}>
                       <Layout>
                         <Contracts />
                       </Layout>
@@ -105,7 +105,7 @@ const App = () => (
                 <Route
                   path="/mensalidades"
                   element={
-                    <ProtectedRoute requireSchool>
+                    <ProtectedRoute requireSchool allowedRoles={['admin', 'financial']}>
                       <Layout>
                         <Tuitions />
                       </Layout>
@@ -115,7 +115,7 @@ const App = () => (
                 <Route
                   path="/relatorios"
                   element={
-                    <ProtectedRoute requireSchool>
+                    <ProtectedRoute requireSchool allowedRoles={['admin', 'financial']}>
                       <Layout>
                         <Reports />
                       </Layout>
@@ -125,7 +125,7 @@ const App = () => (
                 <Route
                   path="/configuracoes"
                   element={
-                    <ProtectedRoute requireSchool>
+                    <ProtectedRoute requireSchool allowedRoles={['admin']}>
                       <Layout>
                         <Settings />
                       </Layout>

@@ -20,8 +20,13 @@ interface ContractData {
   status: "active" | "suspended" | "cancelled";
   created_at: string;
   updated_at: string;
-  students: { name: string } | null;
-  classes: { name: string } | null;
+  students: {
+    name: string | null;
+    full_name: string;
+  } | null;
+  classes: {
+    name: string;
+  } | null;
 }
 
 interface ContractSummary {
@@ -51,10 +56,23 @@ const Contracts = () => {
       const { data, error } = await supabase
         .from('contracts')
         .select(`
-          id, student_id, class_id, start_date, end_date,
-          monthly_amount, discount, status, created_at, updated_at,
-          students ( name ),
-          classes ( name )
+          id,
+          student_id,
+          class_id,
+          start_date,
+          end_date,
+          monthly_amount,
+          discount,
+          status,
+          created_at,
+          updated_at,
+          students (
+            name,
+            full_name
+          ),
+          classes (
+            name
+          )
         `)
         .eq('school_id', schoolId)
         .order('created_at', { ascending: false });

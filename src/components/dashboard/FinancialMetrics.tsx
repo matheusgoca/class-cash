@@ -25,8 +25,8 @@ export function FinancialMetrics() {
 
   const fetchMetrics = async () => {
     try {
-      // Fetch all students with their tuition values
-      const { data: students, error: studentsError } = await supabase
+      // Fetch all students
+      const { data: students, error: studentsError } = await (supabase as any)
         .from('students')
         .select('id, final_tuition_value, status')
         .eq('school_id', schoolId)
@@ -34,17 +34,17 @@ export function FinancialMetrics() {
 
       if (studentsError) throw studentsError;
 
-      // Fetch all teachers with their salaries
-      const { data: teachers, error: teachersError } = await supabase
+      // Fetch all teachers
+      const { data: teachers, error: teachersError } = await (supabase as any)
         .from('teachers')
-        .select('id, salary, status')
+        .select('id, status, salary')
         .eq('school_id', schoolId)
         .eq('status', 'active');
 
       if (teachersError) throw teachersError;
 
       // Fetch all tuition records
-      const { data: tuitions, error: tuitionsError } = await supabase
+      const { data: tuitions, error: tuitionsError } = await (supabase as any)
         .from('tuitions')
         .select('amount, status, due_date, paid_date')
         .eq('school_id', schoolId);
@@ -52,23 +52,23 @@ export function FinancialMetrics() {
       if (tuitionsError) throw tuitionsError;
 
       const currentDate = new Date();
-      
+
       // Calculate revenue metrics from tuition records
       const totalRevenue = tuitions?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
       const paidRevenue = tuitions?.filter(t => t.status === "paid")
         .reduce((sum, t) => sum + Number(t.amount), 0) || 0;
-      
+
       const pendingRevenue = tuitions?.filter(t => t.status === "pending")
         .reduce((sum, t) => sum + Number(t.amount), 0) || 0;
-      
-      const overdueRevenue = tuitions?.filter(t => 
+
+      const overdueRevenue = tuitions?.filter(t =>
         t.status === "overdue" || (
           t.status === "pending" && new Date(t.due_date) < currentDate
         )
       ).reduce((sum, t) => sum + Number(t.amount), 0) || 0;
 
-      // Calculate teacher salaries
-      const totalSalaries = teachers?.reduce((sum, t) => sum + Number(t.salary), 0) || 0;
+      // Calculate teacher salaries from salary column
+      const totalSalaries = teachers?.reduce((sum: number, t: any) => sum + (Number(t.salary) || 0), 0) || 0;
 
       // Calculate financial balance (revenue - salaries)
       const financialBalance = paidRevenue - totalSalaries;
@@ -98,7 +98,7 @@ export function FinancialMetrics() {
     }).format(value);
   };
 
-  const defaultRate = metrics.totalRevenue > 0 
+  const defaultRate = metrics.totalRevenue > 0
     ? ((metrics.pendingRevenue + metrics.overdueRevenue) / metrics.totalRevenue * 100).toFixed(1)
     : "0.0";
 
@@ -106,7 +106,7 @@ export function FinancialMetrics() {
     {
       title: "Receita Recebida",
       value: formatCurrency(metrics.paidRevenue),
-      description: metrics.totalRevenue > 0 
+      description: metrics.totalRevenue > 0
         ? `${((metrics.paidRevenue / metrics.totalRevenue) * 100).toFixed(1)}% do total`
         : "0% do total",
       icon: DollarSign,
@@ -155,6 +155,8 @@ export function FinancialMetrics() {
     },
   ];
 
+  const hasData = metrics.totalStudents > 0 || metrics.totalRevenue > 0;
+
   if (metrics.loading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -170,6 +172,16 @@ export function FinancialMetrics() {
             </CardContent>
           </Card>
         ))}
+      </div>
+    );
+  }
+
+  if (!hasData) {
+    return (
+      <div className="rounded-lg border border-dashed p-10 text-center text-muted-foreground">
+        <DollarSign className="mx-auto h-10 w-10 mb-3 opacity-30" />
+        <p className="text-base font-medium">Nenhum dado financeiro ainda</p>
+        <p className="text-sm mt-1">Cadastre alunos, crie contratos e gere mensalidades para ver as métricas aqui.</p>
       </div>
     );
   }
@@ -211,21 +223,21 @@ export function FinancialMetrics() {
               <div className="flex justify-between text-sm">
                 <span>Receita vs Gastos</span>
                 <span className="font-medium">
-                  {metrics.totalSalaries > 0 
+                  {metrics.totalSalaries > 0
                     ? `${((metrics.paidRevenue / metrics.totalSalaries) * 100).toFixed(1)}%`
                     : '100%'
                   }
                 </span>
               </div>
-              <Progress 
-                value={metrics.totalSalaries > 0 ? (metrics.paidRevenue / metrics.totalSalaries) * 100 : 100} 
-                className="h-2" 
+              <Progress
+                value={metrics.totalSalaries > 0 ? (metrics.paidRevenue / metrics.totalSalaries) * 100 : 100}
+                className="h-2"
               />
               <p className="text-xs text-muted-foreground">
                 Receita recebida vs salários pagos
               </p>
             </div>
-            
+
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Eficiência de Pagamentos</span>
@@ -233,9 +245,9 @@ export function FinancialMetrics() {
                   {(100 - parseFloat(defaultRate)).toFixed(1)}%
                 </span>
               </div>
-              <Progress 
-                value={100 - parseFloat(defaultRate)} 
-                className="h-2" 
+              <Progress
+                value={100 - parseFloat(defaultRate)}
+                className="h-2"
               />
               <p className="text-xs text-muted-foreground">
                 Pagamentos em dia vs total
@@ -245,7 +257,7 @@ export function FinancialMetrics() {
             <div className="space-y-2">
               <div className="text-center p-4 rounded-lg border">
                 <div className="text-2xl font-bold">
-                  {metrics.totalStudents > 0 && metrics.totalTeachers > 0 
+                  {metrics.totalStudents > 0 && metrics.totalTeachers > 0
                     ? (metrics.totalStudents / metrics.totalTeachers).toFixed(1)
                     : '0'
                   }
