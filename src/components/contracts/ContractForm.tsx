@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
+import { useSchool } from "@/contexts/SchoolContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,6 +45,7 @@ interface Class {
 
 export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps) {
   const { toast } = useToast();
+  const { schoolId } = useSchool();
   const [loading, setLoading] = useState(false);
   const [students, setStudents] = useState<Student[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
@@ -100,6 +102,7 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
       const { data, error } = await supabase
         .from('students')
         .select('id, name')
+        .eq('school_id', schoolId)
         .eq('status', 'active')
         .order('name');
 
@@ -122,6 +125,7 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
       const { data, error } = await supabase
         .from('classes')
         .select('id, name')
+        .eq('school_id', schoolId)
         .order('name');
 
       if (error) throw error;
@@ -150,6 +154,7 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
         monthly_amount: data.monthly_amount,
         discount: data.discount,
         status: data.status,
+        school_id: schoolId,
       };
 
       if (contract) {
@@ -204,6 +209,7 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
         monthly_amount: contract.monthly_amount,
         discount: contract.discount,
         status: 'active' as const,
+        school_id: schoolId,
       };
 
       const { error } = await supabase

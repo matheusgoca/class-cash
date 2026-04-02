@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogTrigger } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useSchool } from '@/contexts/SchoolContext';
 import { StudentForm } from '@/components/students/StudentForm';
 import { StudentTable } from '@/components/students/StudentTable';
 
 const Students = () => {
+  const { schoolId } = useSchool();
   const [students, setStudents] = useState([]);
   const [classes, setClasses] = useState([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -19,9 +20,11 @@ const Students = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchStudents();
-    fetchClasses();
-  }, []);
+    if (schoolId) {
+      fetchStudents();
+      fetchClasses();
+    }
+  }, [schoolId]);
 
   const fetchStudents = async () => {
     try {
@@ -33,6 +36,7 @@ const Students = () => {
             name
           )
         `)
+        .eq('school_id', schoolId)
         .order('name');
 
       if (error) throw error;
@@ -51,6 +55,7 @@ const Students = () => {
       const { data, error } = await supabase
         .from('classes')
         .select('*')
+        .eq('school_id', schoolId)
         .order('name');
 
       if (error) throw error;
@@ -70,6 +75,7 @@ const Students = () => {
       const dataToSubmit = {
         ...formData,
         class_id: formData.class_id || null,
+        school_id: schoolId,
       };
 
       if (editingStudent) {
@@ -80,10 +86,7 @@ const Students = () => {
 
         if (error) throw error;
 
-        toast({
-          title: 'Sucesso',
-          description: 'Aluno atualizado com sucesso!',
-        });
+        toast({ title: 'Sucesso', description: 'Aluno atualizado com sucesso!' });
       } else {
         const { error } = await supabase
           .from('students')
@@ -91,10 +94,7 @@ const Students = () => {
 
         if (error) throw error;
 
-        toast({
-          title: 'Sucesso',
-          description: 'Aluno criado com sucesso!',
-        });
+        toast({ title: 'Sucesso', description: 'Aluno criado com sucesso!' });
       }
 
       fetchStudents();
@@ -125,11 +125,7 @@ const Students = () => {
 
       if (error) throw error;
 
-      toast({
-        title: 'Sucesso',
-        description: 'Aluno excluído com sucesso!',
-      });
-
+      toast({ title: 'Sucesso', description: 'Aluno excluído com sucesso!' });
       fetchStudents();
     } catch (error) {
       toast({
@@ -141,7 +137,7 @@ const Students = () => {
   };
 
   const filteredStudents = students.filter(student => {
-    const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (student.name ?? '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesClass = !classFilter || classFilter === 'all' || student.class_id === classFilter;
     return matchesSearch && matchesClass;
   });
@@ -187,8 +183,6 @@ const Students = () => {
           onClassFilterChange={setClassFilter}
         />
       </div>
-
-      {/* Delete confirmation would go here */}
     </div>
   );
 };

@@ -4,10 +4,12 @@ import { Dialog, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useSchool } from '@/contexts/SchoolContext';
 import { TeacherForm } from '@/components/teachers/TeacherForm';
 import { TeacherTable } from '@/components/teachers/TeacherTable';
 
 const Teachers = () => {
+  const { schoolId } = useSchool();
   const [teachers, setTeachers] = useState([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState(null);
@@ -16,14 +18,15 @@ const Teachers = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchTeachers();
-  }, []);
+    if (schoolId) fetchTeachers();
+  }, [schoolId]);
 
   const fetchTeachers = async () => {
     try {
       const { data, error } = await supabase
         .from('teachers')
         .select('*')
+        .eq('school_id', schoolId)
         .order('full_name');
 
       if (error) throw error;
@@ -40,29 +43,23 @@ const Teachers = () => {
   const handleSubmit = async (formData) => {
     setIsLoading(true);
     try {
+      const dataToSubmit = { ...formData, school_id: schoolId };
+
       if (editingTeacher) {
         const { error } = await supabase
           .from('teachers')
-          .update(formData)
+          .update(dataToSubmit)
           .eq('id', editingTeacher.id);
 
         if (error) throw error;
-
-        toast({
-          title: 'Sucesso',
-          description: 'Professor atualizado com sucesso!',
-        });
+        toast({ title: 'Sucesso', description: 'Professor atualizado com sucesso!' });
       } else {
         const { error } = await supabase
           .from('teachers')
-          .insert([formData]);
+          .insert([dataToSubmit]);
 
         if (error) throw error;
-
-        toast({
-          title: 'Sucesso',
-          description: 'Professor criado com sucesso!',
-        });
+        toast({ title: 'Sucesso', description: 'Professor criado com sucesso!' });
       }
 
       fetchTeachers();
@@ -86,11 +83,11 @@ const Teachers = () => {
 
   const handleDelete = async (teacherId) => {
     try {
-      // Check if teacher is assigned to any classes
       const { data: classes, error: classError } = await supabase
         .from('classes')
         .select('id')
-        .eq('teacher_id', teacherId);
+        .eq('teacher_id', teacherId)
+        .eq('school_id', schoolId);
 
       if (classError) throw classError;
 
@@ -110,11 +107,7 @@ const Teachers = () => {
 
       if (error) throw error;
 
-      toast({
-        title: 'Sucesso',
-        description: 'Professor excluído com sucesso!',
-      });
-
+      toast({ title: 'Sucesso', description: 'Professor excluído com sucesso!' });
       fetchTeachers();
     } catch (error) {
       toast({
@@ -125,9 +118,9 @@ const Teachers = () => {
     }
   };
 
-  const filteredTeachers = teachers.filter(teacher => 
-    teacher.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    teacher.specialization.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredTeachers = teachers.filter(teacher =>
+    (teacher.full_name ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (teacher.specialization ?? '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (

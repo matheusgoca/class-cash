@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useSchool } from "@/contexts/SchoolContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -19,12 +20,8 @@ interface ContractData {
   status: "active" | "suspended" | "cancelled";
   created_at: string;
   updated_at: string;
-  students: {
-    name: string;
-  } | null;
-  classes: {
-    name: string;
-  } | null;
+  students: { name: string } | null;
+  classes: { name: string } | null;
 }
 
 interface ContractSummary {
@@ -38,14 +35,15 @@ interface ContractSummary {
 
 const Contracts = () => {
   const { toast } = useToast();
+  const { schoolId } = useSchool();
   const [contracts, setContracts] = useState<ContractData[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingContract, setEditingContract] = useState<ContractData | null>(null);
 
   useEffect(() => {
-    fetchContracts();
-  }, []);
+    if (schoolId) fetchContracts();
+  }, [schoolId]);
 
   const fetchContracts = async () => {
     try {
@@ -53,23 +51,12 @@ const Contracts = () => {
       const { data, error } = await supabase
         .from('contracts')
         .select(`
-          id,
-          student_id,
-          class_id,
-          start_date,
-          end_date,
-          monthly_amount,
-          discount,
-          status,
-          created_at,
-          updated_at,
-          students (
-            name
-          ),
-          classes (
-            name
-          )
+          id, student_id, class_id, start_date, end_date,
+          monthly_amount, discount, status, created_at, updated_at,
+          students ( name ),
+          classes ( name )
         `)
+        .eq('school_id', schoolId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -84,11 +71,7 @@ const Contracts = () => {
       setContracts(typedData);
     } catch (error) {
       console.error('Error fetching contracts:', error);
-      toast({
-        title: "Erro",
-        description: "Erro ao carregar contratos",
-        variant: "destructive",
-      });
+      toast({ title: "Erro", description: "Erro ao carregar contratos", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -116,12 +99,11 @@ const Contracts = () => {
   };
 
   const calculateSummary = (): ContractSummary => {
-    const summary = contracts.reduce(
+    return contracts.reduce(
       (acc, contract) => {
         acc.total += 1;
         const monthlyValue = contract.monthly_amount * (1 - contract.discount / 100);
         acc.totalRevenue += monthlyValue;
-        
         switch (contract.status) {
           case "active":
             acc.active += 1;
@@ -136,24 +118,12 @@ const Contracts = () => {
         }
         return acc;
       },
-      {
-        total: 0,
-        active: 0,
-        suspended: 0,
-        cancelled: 0,
-        totalRevenue: 0,
-        activeRevenue: 0,
-      }
+      { total: 0, active: 0, suspended: 0, cancelled: 0, totalRevenue: 0, activeRevenue: 0 }
     );
-    return summary;
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value);
-  };
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 
   const summary = calculateSummary();
 
@@ -172,7 +142,6 @@ const Contracts = () => {
         </Button>
       </div>
 
-      {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="bg-card border rounded-2xl shadow">
           <CardHeader className="pb-3">
@@ -183,20 +152,16 @@ const Contracts = () => {
             <p className="text-muted-foreground text-sm">{formatCurrency(summary.totalRevenue)} mensais</p>
           </CardContent>
         </Card>
-        
+
         <Card className="bg-card border rounded-2xl shadow">
           <CardHeader className="pb-3">
             <CardTitle className="text-card-foreground font-medium text-sm flex items-center justify-between">
               Ativos
-              <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full">
-                {summary.active}
-              </span>
+              <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full">{summary.active}</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-card-foreground">
-              {formatCurrency(summary.activeRevenue)}
-            </div>
+            <div className="text-2xl font-bold text-card-foreground">{formatCurrency(summary.activeRevenue)}</div>
             <p className="text-muted-foreground text-sm">receita mensal</p>
           </CardContent>
         </Card>
@@ -205,9 +170,7 @@ const Contracts = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-card-foreground font-medium text-sm flex items-center justify-between">
               Suspensos
-              <span className="bg-yellow-500 text-slate-900 text-xs px-2 py-1 rounded-full">
-                {summary.suspended}
-              </span>
+              <span className="bg-yellow-500 text-slate-900 text-xs px-2 py-1 rounded-full">{summary.suspended}</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -220,9 +183,7 @@ const Contracts = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-card-foreground font-medium text-sm flex items-center justify-between">
               Cancelados
-              <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
-                {summary.cancelled}
-              </span>
+              <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">{summary.cancelled}</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -232,21 +193,17 @@ const Contracts = () => {
         </Card>
       </div>
 
-      {/* Contracts Table */}
-      <ContractTable 
+      <ContractTable
         data={contracts}
         loading={loading}
         onEdit={handleEdit}
         onRefresh={fetchContracts}
       />
 
-      {/* Form Dialog */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              {editingContract ? 'Editar Contrato' : 'Novo Contrato'}
-            </DialogTitle>
+            <DialogTitle>{editingContract ? 'Editar Contrato' : 'Novo Contrato'}</DialogTitle>
           </DialogHeader>
           <ContractForm
             contract={editingContract}

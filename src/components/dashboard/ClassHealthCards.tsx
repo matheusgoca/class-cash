@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
+import { useSchool } from "@/contexts/SchoolContext";
 import { Users, TrendingUp, DollarSign } from "lucide-react";
 
 interface ClassHealth {
@@ -145,12 +146,13 @@ function ClassHealthCard({ health }: ClassHealthCardProps) {
 }
 
 export function ClassHealthCards() {
+  const { schoolId } = useSchool();
   const [classes, setClasses] = useState<ClassHealth[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchClassData();
-  }, []);
+    if (schoolId) fetchClassData();
+  }, [schoolId]);
 
   const fetchClassData = async () => {
     try {
@@ -164,6 +166,7 @@ export function ClassHealthCards() {
             specialization
           )
         `)
+        .eq('school_id', schoolId)
         .order('name');
 
       if (classError) throw classError;
@@ -172,6 +175,7 @@ export function ClassHealthCards() {
       const { data: studentsData, error: studentsError } = await supabase
         .from('students')
         .select('class_id, final_tuition_value, status')
+        .eq('school_id', schoolId)
         .eq('status', 'active');
 
       if (studentsError) throw studentsError;
@@ -179,7 +183,8 @@ export function ClassHealthCards() {
       // Fetch tuition payments to calculate payment status
       const { data: tuitionsData, error: tuitionsError } = await supabase
         .from('tuitions')
-        .select('student_id, status, amount');
+        .select('student_id, status, amount')
+        .eq('school_id', schoolId);
 
       if (tuitionsError) throw tuitionsError;
 

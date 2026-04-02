@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { useSchool } from "@/contexts/SchoolContext";
 import { Calendar, DollarSign, User, CheckCircle } from "lucide-react";
 
 type PaymentStatus = 'pending' | 'paid' | 'overdue';
@@ -104,12 +105,13 @@ function TuitionCard({ tuition, onStatusChange }: TuitionCardProps) {
 }
 
 export function FinancialKanban() {
+  const { schoolId } = useSchool();
   const [tuitions, setTuitions] = useState<TuitionData[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchTuitions();
-  }, []);
+    if (schoolId) fetchTuitions();
+  }, [schoolId]);
 
   const fetchTuitions = async () => {
     try {
@@ -128,6 +130,7 @@ export function FinancialKanban() {
             name
           )
         `)
+        .eq('school_id', schoolId)
         .order('due_date', { ascending: false });
 
       if (error) throw error;

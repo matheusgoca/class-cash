@@ -2,9 +2,11 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
+import { useSchool } from "@/contexts/SchoolContext";
 import { DollarSign, TrendingUp, AlertTriangle, Users, UserCheck, Calculator } from "lucide-react";
 
 export function FinancialMetrics() {
+  const { schoolId } = useSchool();
   const [metrics, setMetrics] = useState({
     totalRevenue: 0,
     paidRevenue: 0,
@@ -18,8 +20,8 @@ export function FinancialMetrics() {
   });
 
   useEffect(() => {
-    fetchMetrics();
-  }, []);
+    if (schoolId) fetchMetrics();
+  }, [schoolId]);
 
   const fetchMetrics = async () => {
     try {
@@ -27,6 +29,7 @@ export function FinancialMetrics() {
       const { data: students, error: studentsError } = await supabase
         .from('students')
         .select('id, final_tuition_value, status')
+        .eq('school_id', schoolId)
         .eq('status', 'active');
 
       if (studentsError) throw studentsError;
@@ -35,6 +38,7 @@ export function FinancialMetrics() {
       const { data: teachers, error: teachersError } = await supabase
         .from('teachers')
         .select('id, salary, status')
+        .eq('school_id', schoolId)
         .eq('status', 'active');
 
       if (teachersError) throw teachersError;
@@ -42,7 +46,8 @@ export function FinancialMetrics() {
       // Fetch all tuition records
       const { data: tuitions, error: tuitionsError } = await supabase
         .from('tuitions')
-        .select('amount, status, due_date, paid_date');
+        .select('amount, status, due_date, paid_date')
+        .eq('school_id', schoolId);
 
       if (tuitionsError) throw tuitionsError;
 

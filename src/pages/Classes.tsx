@@ -4,10 +4,12 @@ import { Dialog, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useSchool } from '@/contexts/SchoolContext';
 import { ClassForm } from '@/components/classes/ClassForm';
 import { ClassTable } from '@/components/classes/ClassTable';
 
 const Classes = () => {
+  const { schoolId } = useSchool();
   const [classes, setClasses] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -17,9 +19,11 @@ const Classes = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchClasses();
-    fetchTeachers();
-  }, []);
+    if (schoolId) {
+      fetchClasses();
+      fetchTeachers();
+    }
+  }, [schoolId]);
 
   const fetchClasses = async () => {
     try {
@@ -32,14 +36,15 @@ const Classes = () => {
             specialization
           )
         `)
+        .eq('school_id', schoolId)
         .order('name');
 
       if (classError) throw classError;
 
-      // Get student counts for each class
       const { data: studentCounts, error: studentError } = await supabase
         .from('students')
         .select('class_id')
+        .eq('school_id', schoolId)
         .eq('status', 'active');
 
       if (studentError) throw studentError;
@@ -71,6 +76,7 @@ const Classes = () => {
       const { data, error } = await supabase
         .from('teachers')
         .select('*')
+        .eq('school_id', schoolId)
         .eq('status', 'active')
         .order('full_name');
 
@@ -91,6 +97,7 @@ const Classes = () => {
       const dataToSubmit = {
         ...formData,
         teacher_id: formData.teacher_id || null,
+        school_id: schoolId,
       };
 
       if (editingClass) {
@@ -100,22 +107,14 @@ const Classes = () => {
           .eq('id', editingClass.id);
 
         if (error) throw error;
-
-        toast({
-          title: 'Sucesso',
-          description: 'Turma atualizada com sucesso!',
-        });
+        toast({ title: 'Sucesso', description: 'Turma atualizada com sucesso!' });
       } else {
         const { error } = await supabase
           .from('classes')
           .insert([dataToSubmit]);
 
         if (error) throw error;
-
-        toast({
-          title: 'Sucesso',
-          description: 'Turma criada com sucesso!',
-        });
+        toast({ title: 'Sucesso', description: 'Turma criada com sucesso!' });
       }
 
       fetchClasses();
@@ -139,11 +138,11 @@ const Classes = () => {
 
   const handleDelete = async (classId) => {
     try {
-      // Check if class has students
       const { data: students, error: studentsError } = await supabase
         .from('students')
         .select('id')
-        .eq('class_id', classId);
+        .eq('class_id', classId)
+        .eq('school_id', schoolId);
 
       if (studentsError) throw studentsError;
 
@@ -163,11 +162,7 @@ const Classes = () => {
 
       if (error) throw error;
 
-      toast({
-        title: 'Sucesso',
-        description: 'Turma excluída com sucesso!',
-      });
-
+      toast({ title: 'Sucesso', description: 'Turma excluída com sucesso!' });
       fetchClasses();
     } catch (error) {
       toast({
@@ -178,8 +173,8 @@ const Classes = () => {
     }
   };
 
-  const filteredClasses = classes.filter(cls => 
-    cls.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredClasses = classes.filter(cls =>
+    (cls.name ?? '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (

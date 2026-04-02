@@ -1,29 +1,27 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
+import { useSchool } from "@/contexts/SchoolContext";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 
 export function DashboardCharts() {
+  const { schoolId } = useSchool();
   const [revenueData, setRevenueData] = useState([]);
   const [studentDistribution, setStudentDistribution] = useState([]);
   const [monthlyTrend, setMonthlyTrend] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchChartData();
-  }, []);
+    if (schoolId) fetchChartData();
+  }, [schoolId]);
 
   const fetchChartData = async () => {
     try {
       // Fetch classes with student counts and revenue
       const { data: classData, error: classError } = await supabase
         .from('classes')
-        .select(`
-          id,
-          name,
-          tuition_per_student,
-          color
-        `);
+        .select(`id, name, tuition_per_student, color`)
+        .eq('school_id', schoolId);
 
       if (classError) throw classError;
 
@@ -31,6 +29,7 @@ export function DashboardCharts() {
       const { data: studentsData, error: studentsError } = await supabase
         .from('students')
         .select('class_id, final_tuition_value, status, created_at')
+        .eq('school_id', schoolId)
         .eq('status', 'active');
 
       if (studentsError) throw studentsError;
@@ -39,6 +38,7 @@ export function DashboardCharts() {
       const { data: tuitionsData, error: tuitionsError } = await supabase
         .from('tuitions')
         .select('amount, paid_date, status')
+        .eq('school_id', schoolId)
         .eq('status', 'paid')
         .not('paid_date', 'is', null);
 

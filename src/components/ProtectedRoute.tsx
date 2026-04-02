@@ -1,19 +1,18 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSchool } from '@/contexts/SchoolContext';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requiredRole?: 'admin' | 'financial' | 'teacher';
+  requireSchool?: boolean;
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
-  children, 
-  requiredRole 
-}) => {
-  const { user, profile, loading } = useAuth();
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireSchool }) => {
+  const { user, loading: authLoading } = useAuth();
+  const { schoolId, loading: schoolLoading } = useSchool();
 
-  if (loading) {
+  if (authLoading || (requireSchool && schoolLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
@@ -25,17 +24,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/auth" replace />;
   }
 
-  if (requiredRole && profile?.role !== requiredRole && profile?.role !== 'admin') {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-destructive mb-2">Acesso Negado</h2>
-          <p className="text-muted-foreground">
-            Você não tem permissão para acessar esta página.
-          </p>
-        </div>
-      </div>
-    );
+  if (requireSchool && !schoolId) {
+    return <Navigate to="/onboarding" replace />;
   }
 
   return <>{children}</>;
