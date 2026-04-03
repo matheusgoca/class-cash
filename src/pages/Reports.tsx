@@ -62,8 +62,8 @@ const Reports = () => {
   const [filters, setFilters] = useState<ReportFilters>({
     startDate: "",
     endDate: "",
-    classId: "all",
-    status: "all"
+    classId: "",
+    status: ""
   });
 
   useEffect(() => {

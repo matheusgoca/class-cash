@@ -151,7 +151,7 @@ function SchoolProfileSection() {
                 )}
               />
 
-              <div className="flex items-center gap-3">
+              <div className="space-y-3">
                 <Button type="submit" disabled={saving} className="gap-2">
                   <Save className="h-4 w-4" />
                   {saving ? 'Salvando...' : 'Salvar alterações'}

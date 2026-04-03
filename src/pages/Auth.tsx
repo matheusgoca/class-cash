@@ -3,11 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/AuthContext';
-import { GraduationCap } from 'lucide-react';
+import { DollarSign } from 'lucide-react';
 
 const Auth = () => {
   const [loading, setLoading] = useState(false);
@@ -16,30 +15,18 @@ const Auth = () => {
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
 
-  // Redirect if already authenticated
   useEffect(() => {
-    if (user) {
-      navigate('/');
-    }
+    if (user) navigate('/');
   }, [user, navigate]);
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-
     const formData = new FormData(e.currentTarget);
-    const email = formData.get('email') as string;
-    const password = formData.get('password') as string;
-
-    const { error } = await signIn(email, password);
-    
-    if (error) {
-      setError(error.message);
-    } else {
-      navigate('/');
-    }
-    
+    const { error } = await signIn(formData.get('email') as string, formData.get('password') as string);
+    if (error) setError(error.message);
+    else navigate('/');
     setLoading(false);
   };
 
@@ -48,138 +35,122 @@ const Auth = () => {
     setLoading(true);
     setError(null);
     setSuccess(null);
-
     const formData = new FormData(e.currentTarget);
-    const email = formData.get('email') as string;
-    const password = formData.get('password') as string;
-    const fullName = formData.get('fullName') as string;
-
-    const { error } = await signUp(email, password, fullName);
-    
-    if (error) {
-      setError(error.message);
-    } else {
-      setSuccess('Conta criada com sucesso! Verifique seu email para confirmar.');
-    }
-    
+    const { error } = await signUp(
+      formData.get('email') as string,
+      formData.get('password') as string,
+      formData.get('fullName') as string,
+    );
+    if (error) setError(error.message);
+    else setSuccess('Conta criada com sucesso! Verifique seu email para confirmar.');
     setLoading(false);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-primary/5 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 rounded-full mb-4">
-            <GraduationCap className="h-8 w-8 text-primary" />
+    <div className="min-h-screen flex">
+      {/* Left panel — branding */}
+      <div className="hidden lg:flex lg:w-1/2 bg-primary flex-col items-center justify-center p-12 text-primary-foreground">
+        <div className="max-w-sm text-center space-y-6">
+          <div className="flex items-center justify-center w-20 h-20 bg-white/10 rounded-2xl mx-auto">
+            <DollarSign className="h-10 w-10" />
           </div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-            Financial School Manager
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Sistema de controle financeiro escolar
-          </p>
+          <div>
+            <h1 className="text-4xl font-bold tracking-tight">Class Cash</h1>
+            <p className="text-primary-foreground/70 mt-2 text-lg">
+              Gestão financeira escolar simplificada
+            </p>
+          </div>
+          <div className="space-y-3 text-left text-sm text-primary-foreground/80">
+            <div className="flex items-start gap-2">
+              <span className="mt-0.5 text-primary-foreground">✓</span>
+              <span>Controle de contratos e mensalidades</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="mt-0.5 text-primary-foreground">✓</span>
+              <span>Geração automática de cobranças</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="mt-0.5 text-primary-foreground">✓</span>
+              <span>Relatórios de inadimplência e rentabilidade</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="mt-0.5 text-primary-foreground">✓</span>
+              <span>Visão por turma, professor e aluno</span>
+            </div>
+          </div>
         </div>
+      </div>
 
-        <Card className="border-border/50 shadow-lg backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle>Acesso ao Sistema</CardTitle>
-            <CardDescription>
-              Entre com sua conta ou crie uma nova
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="signin" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="signin">Entrar</TabsTrigger>
-                <TabsTrigger value="signup">Cadastrar</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="signin">
-                <form onSubmit={handleSignIn} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signin-email">Email</Label>
-                    <Input
-                      id="signin-email"
-                      name="email"
-                      type="email"
-                      placeholder="seu@email.com"
-                      required
-                      disabled={loading}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signin-password">Senha</Label>
-                    <Input
-                      id="signin-password"
-                      name="password"
-                      type="password"
-                      placeholder="Sua senha"
-                      required
-                      disabled={loading}
-                    />
-                  </div>
-                  <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? 'Entrando...' : 'Entrar'}
-                  </Button>
-                </form>
-              </TabsContent>
-              
-              <TabsContent value="signup">
-                <form onSubmit={handleSignUp} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-name">Nome Completo</Label>
-                    <Input
-                      id="signup-name"
-                      name="fullName"
-                      type="text"
-                      placeholder="Seu nome completo"
-                      required
-                      disabled={loading}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-email">Email</Label>
-                    <Input
-                      id="signup-email"
-                      name="email"
-                      type="email"
-                      placeholder="seu@email.com"
-                      required
-                      disabled={loading}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-password">Senha</Label>
-                    <Input
-                      id="signup-password"
-                      name="password"
-                      type="password"
-                      placeholder="Crie uma senha"
-                      required
-                      disabled={loading}
-                      minLength={6}
-                    />
-                  </div>
-                  <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? 'Criando conta...' : 'Criar conta'}
-                  </Button>
-                </form>
-              </TabsContent>
-            </Tabs>
+      {/* Right panel — form */}
+      <div className="flex-1 flex items-center justify-center p-6 bg-background">
+        <div className="w-full max-w-md space-y-8">
+          {/* Mobile logo */}
+          <div className="flex lg:hidden items-center gap-3 justify-center">
+            <div className="flex items-center justify-center w-10 h-10 bg-primary rounded-xl">
+              <DollarSign className="h-5 w-5 text-primary-foreground" />
+            </div>
+            <span className="text-2xl font-bold">Class Cash</span>
+          </div>
 
-            {error && (
-              <Alert variant="destructive" className="mt-4">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">Acesso ao sistema</h2>
+            <p className="text-muted-foreground mt-1">Entre com sua conta ou crie uma nova</p>
+          </div>
 
-            {success && (
-              <Alert className="mt-4">
-                <AlertDescription>{success}</AlertDescription>
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
+          <Tabs defaultValue="signin" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="signin">Entrar</TabsTrigger>
+              <TabsTrigger value="signup">Cadastrar</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="signin">
+              <form onSubmit={handleSignIn} className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="signin-email">Email</Label>
+                  <Input id="signin-email" name="email" type="email" placeholder="seu@email.com" required disabled={loading} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signin-password">Senha</Label>
+                  <Input id="signin-password" name="password" type="password" placeholder="Sua senha" required disabled={loading} />
+                </div>
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? 'Entrando...' : 'Entrar'}
+                </Button>
+              </form>
+            </TabsContent>
+
+            <TabsContent value="signup">
+              <form onSubmit={handleSignUp} className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="signup-name">Nome Completo</Label>
+                  <Input id="signup-name" name="fullName" type="text" placeholder="Seu nome completo" required disabled={loading} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-email">Email</Label>
+                  <Input id="signup-email" name="email" type="email" placeholder="seu@email.com" required disabled={loading} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-password">Senha</Label>
+                  <Input id="signup-password" name="password" type="password" placeholder="Crie uma senha (mín. 6 caracteres)" required disabled={loading} minLength={6} />
+                </div>
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? 'Criando conta...' : 'Criar conta'}
+                </Button>
+              </form>
+            </TabsContent>
+          </Tabs>
+
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          {success && (
+            <Alert>
+              <AlertDescription>{success}</AlertDescription>
+            </Alert>
+          )}
+        </div>
       </div>
     </div>
   );

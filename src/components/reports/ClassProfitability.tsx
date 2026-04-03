@@ -79,7 +79,7 @@ export function ClassProfitability() {
         const revenue = revenueByClass[cls.id] || 0;
         const cost = costByClass[cls.id] || 0;
         const profit = revenue - cost;
-        const margin = cost > 0 ? (profit / cost) * 100 : revenue > 0 ? 100 : 0;
+        const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
         return {
           id: cls.id,
           name: cls.name,

@@ -23,7 +23,7 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const location = useLocation();
   const { school } = useSchool();
-  const pageTitle = PAGE_TITLES[location.pathname] ?? "EduFinance";
+  const pageTitle = PAGE_TITLES[location.pathname] ?? "Class Cash";
 
   return (
     <SidebarProvider>

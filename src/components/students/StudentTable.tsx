@@ -119,7 +119,9 @@ export const StudentTable: React.FC<StudentTableProps> = ({
                   <TableCell>{student.email || '-'}</TableCell>
                   <TableCell>{student.phone || '-'}</TableCell>
                   <TableCell>
-                    {format(new Date(student.birth_date), 'dd/MM/yyyy', { locale: ptBR })}
+                    {student.birth_date
+                      ? (() => { const [y,m,d] = student.birth_date.split('-').map(Number); return format(new Date(y, m-1, d), 'dd/MM/yyyy', { locale: ptBR }); })()
+                      : '-'}
                   </TableCell>
                   <TableCell>
                     {student.final_tuition_value ? 

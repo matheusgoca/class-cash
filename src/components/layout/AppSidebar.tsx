@@ -130,7 +130,7 @@ export function AppSidebar() {
           </div>
           {!collapsed && (
             <div className="flex flex-col">
-              <span className="text-sm font-semibold">{school?.name || 'EduFinance'}</span>
+              <span className="text-sm font-semibold">{school?.name || 'Class Cash'}</span>
               <span className="text-xs text-muted-foreground">{profile?.full_name || 'Usuário'}</span>
             </div>
           )}
