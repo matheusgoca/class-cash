@@ -12,9 +12,7 @@ interface Class {
   id: string;
   name: string;
   description?: string;
-  teacher_id?: string;
   max_capacity: number;
-  tuition_per_student?: number;
   color: string;
   class_teachers?: Array<{
     teacher_id: string;
@@ -25,7 +23,6 @@ interface Class {
 
 interface ClassTableProps {
   classes: Class[];
-  teachers: any[];
   onEdit: (classData: Class) => void;
   onDelete: (classId: string) => void;
   searchTerm: string;
@@ -34,7 +31,6 @@ interface ClassTableProps {
 
 export const ClassTable: React.FC<ClassTableProps> = ({
   classes,
-  teachers,
   onEdit,
   onDelete,
   searchTerm,
@@ -45,13 +41,9 @@ export const ClassTable: React.FC<ClassTableProps> = ({
   const paginated = classes.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const getTeacherName = (cls: Class) => {
     if (cls.class_teachers && cls.class_teachers.length > 0) {
-      const teacherNames = cls.class_teachers
-        .map(ct => ct.teachers.full_name)
-        .join(', ');
-      return teacherNames;
+      return cls.class_teachers.map(ct => ct.teachers.full_name).join(', ');
     }
-    const teacher = teachers.find(t => t.id === cls.teacher_id);
-    return teacher ? teacher.full_name : 'Sem professor';
+    return 'Sem professor';
   };
 
   const getStatusColor = (studentCount: number, maxCapacity: number) => {
@@ -89,8 +81,6 @@ export const ClassTable: React.FC<ClassTableProps> = ({
               <TableHead>Turma</TableHead>
               <TableHead>Professor</TableHead>
               <TableHead>Alunos</TableHead>
-              <TableHead>Mensalidade</TableHead>
-              <TableHead>Receita Total</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
@@ -98,7 +88,7 @@ export const ClassTable: React.FC<ClassTableProps> = ({
           <TableBody>
             {classes.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                   Nenhuma turma encontrada
                 </TableCell>
               </TableRow>
@@ -122,24 +112,6 @@ export const ClassTable: React.FC<ClassTableProps> = ({
                         <Users className="h-4 w-4 text-muted-foreground" />
                         {studentCount}/{cls.max_capacity}
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      {cls.tuition_per_student ? 
-                        new Intl.NumberFormat("pt-BR", {
-                          style: "currency",
-                          currency: "BRL",
-                        }).format(cls.tuition_per_student)
-                        : '-'
-                      }
-                    </TableCell>
-                    <TableCell>
-                      {cls.tuition_per_student ? 
-                        new Intl.NumberFormat("pt-BR", {
-                          style: "currency",
-                          currency: "BRL",
-                        }).format(cls.tuition_per_student * studentCount)
-                        : '-'
-                      }
                     </TableCell>
                     <TableCell>
                       <Badge className={getStatusColor(studentCount, cls.max_capacity)}>

@@ -2,14 +2,20 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
 
-interface School {
+export interface School {
   id: string;
   name: string;
+  segments: string[];
+  logo_url: string | null;
+  owner_user_id: string;
 }
+
+type SchoolStatus = 'loading' | 'found' | 'not_found' | 'error';
 
 interface SchoolContextType {
   school: School | null;
   schoolId: string | null;
+  schoolStatus: SchoolStatus;
   loading: boolean;
   refetch: () => Promise<void>;
 }
@@ -18,75 +24,93 @@ const SchoolContext = createContext<SchoolContextType | undefined>(undefined);
 
 export const useSchool = () => {
   const context = useContext(SchoolContext);
-  if (context === undefined) {
-    throw new Error('useSchool must be used within a SchoolProvider');
-  }
+  if (context === undefined) throw new Error('useSchool must be used within a SchoolProvider');
   return context;
 };
 
 export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading: authLoading } = useAuth();
-  // undefined = ainda não buscou, null = buscou e não tem escola
-  const [school, setSchool] = useState<School | null | undefined>(undefined);
+  const [school, setSchool]           = useState<School | null>(null);
+  const [schoolStatus, setSchoolStatus] = useState<SchoolStatus>('loading');
 
   const fetchSchool = async () => {
     if (!user) {
       setSchool(null);
+      setSchoolStatus('not_found');
       return;
     }
 
     try {
-      const { data: profileData, error: profileError } = await supabase
+      // 1. Try via profiles.school_id (staff invited to a school, or owner after onboarding)
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('school_id')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (profileError) {
-        console.error('Profile fetch error:', profileError);
+      let schoolId: string | null = profile?.school_id ?? null;
+
+      // 2. Fallback: owner lookup via schools.owner_user_id
+      if (!schoolId) {
+        const { data: owned, error: ownedError } = await (supabase as any)
+          .from('schools')
+          .select('id')
+          .eq('owner_user_id', user.id)
+          .maybeSingle();
+
+        if (ownedError) {
+          console.error('fetchSchool owner lookup error:', ownedError.message);
+          setSchoolStatus('error');
+          return;
+        }
+
+        schoolId = owned?.id ?? null;
+      }
+
+      if (!schoolId) {
         setSchool(null);
+        setSchoolStatus('not_found');
         return;
       }
 
-      if (!profileData?.school_id) {
-        setSchool(null);
-        return;
-      }
-
-      const { data: schoolData, error: schoolError } = await supabase
+      // 3. Fetch full school data
+      const { data: schoolData, error: schoolError } = await (supabase as any)
         .from('schools')
-        .select('id, name')
-        .eq('id', profileData.school_id)
+        .select('id, name, segments, logo_url, owner_user_id')
+        .eq('id', schoolId)
         .single();
 
       if (schoolError) {
-        console.error('School fetch error:', schoolError);
-        setSchool(null);
+        console.error('fetchSchool data error:', schoolError.message);
+        setSchoolStatus('error');
         return;
       }
 
-      setSchool(schoolData);
-    } catch (error) {
-      console.error('Unexpected error in fetchSchool:', error);
-      setSchool(null);
+      setSchool({ ...schoolData, segments: schoolData.segments ?? [] });
+      setSchoolStatus('found');
+    } catch (err) {
+      console.error('fetchSchool exception:', err);
+      setSchoolStatus('error');
     }
   };
 
   useEffect(() => {
     if (authLoading) return;
-    setSchool(undefined); // reset para "carregando" enquanto busca
+    setSchoolStatus('loading');
     fetchSchool();
   }, [user, authLoading]);
 
-  // loading = true enquanto auth carrega OU escola ainda não foi resolvida
-  const loading = authLoading || school === undefined;
+  const loading = authLoading || schoolStatus === 'loading';
 
-  const value = {
-    school: school ?? null,
-    schoolId: school?.id ?? null,
-    loading,
-    refetch: fetchSchool,
-  };
-
-  return <SchoolContext.Provider value={value}>{children}</SchoolContext.Provider>;
+  return (
+    <SchoolContext.Provider value={{
+      school,
+      schoolId: school?.id ?? null,
+      schoolStatus,
+      loading,
+      refetch: fetchSchool,
+    }}>
+      {children}
+    </SchoolContext.Provider>
+  );
 };

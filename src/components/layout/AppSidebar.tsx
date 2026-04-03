@@ -15,6 +15,7 @@ import {
   BarChart3,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSchool } from "@/contexts/SchoolContext";
 import { useRole, type AppRole } from "@/hooks/use-role";
 
 import {
@@ -85,7 +86,8 @@ const menuItems: MenuItem[] = [
 ];
 
 export function AppSidebar() {
-  const { signOut, profile, school } = useAuth();
+  const { signOut, profile } = useAuth();
+  const { school } = useSchool();
   const { role, hasRole } = useRole();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";

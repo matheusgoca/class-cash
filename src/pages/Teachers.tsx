@@ -83,15 +83,14 @@ const Teachers = () => {
 
   const handleDelete = async (teacherId) => {
     try {
-      const { data: classes, error: classError } = await supabase
-        .from('classes')
-        .select('id')
-        .eq('teacher_id', teacherId)
-        .eq('school_id', schoolId);
+      const { data: classMappings, error: classError } = await (supabase as any)
+        .from('class_teachers')
+        .select('class_id')
+        .eq('teacher_id', teacherId);
 
       if (classError) throw classError;
 
-      if (classes && classes.length > 0) {
+      if (classMappings && classMappings.length > 0) {
         toast({
           title: 'Erro',
           description: 'Não é possível excluir um professor que está atribuído a turmas.',

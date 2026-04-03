@@ -39,13 +39,11 @@ export interface Teacher {
 export interface Class {
   id: string;
   name: string;
-  teacher_id: string | null;
   max_capacity: number;
   color: string;
   created_at: string;
   updated_at: string;
   description: string | null;
-  tuition_per_student: number | null;
   grade: string | null;
   monthly_fee: number | null;
   level: string | null;

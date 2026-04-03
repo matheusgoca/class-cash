@@ -13,12 +13,12 @@ const PAGE_SIZE = 10;
 
 interface Student {
   id: string;
-  name: string;
+  full_name: string;
   email?: string;
   phone?: string;
   birth_date: string;
   enrollment_date?: string;
-  guardian_contact: string;
+  guardian_contact?: string;
   enrollment_class_id?: string;
   enrollment_class_name?: string;
   full_tuition_value?: number;

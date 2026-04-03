@@ -3,7 +3,7 @@ import { AppSidebar } from "./AppSidebar";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { ReactNode } from "react";
 import { useLocation } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
+import { useSchool } from "@/contexts/SchoolContext";
 
 const PAGE_TITLES: Record<string, string> = {
   "/": "Dashboard",
@@ -22,7 +22,7 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const location = useLocation();
-  const { school } = useAuth();
+  const { school } = useSchool();
   const pageTitle = PAGE_TITLES[location.pathname] ?? "EduFinance";
 
   return (

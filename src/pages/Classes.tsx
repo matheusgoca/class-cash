@@ -98,11 +98,10 @@ const Classes = () => {
   const handleSubmit = async (formData) => {
     setIsLoading(true);
     try {
-      const dataToSubmit = {
-        ...formData,
-        teacher_id: formData.teacher_id || null,
-        school_id: schoolId,
-      };
+      const { teacher_ids, ...classFields } = formData;
+      const dataToSubmit = { ...classFields, school_id: schoolId };
+
+      let classId: string;
 
       if (editingClass) {
         const { error } = await supabase
@@ -111,14 +110,27 @@ const Classes = () => {
           .eq('id', editingClass.id);
 
         if (error) throw error;
+        classId = editingClass.id;
         toast({ title: 'Sucesso', description: 'Turma atualizada com sucesso!' });
       } else {
-        const { error } = await supabase
+        const { data: created, error } = await supabase
           .from('classes')
-          .insert([dataToSubmit]);
+          .insert([dataToSubmit])
+          .select('id')
+          .single();
 
         if (error) throw error;
+        classId = created.id;
         toast({ title: 'Sucesso', description: 'Turma criada com sucesso!' });
+      }
+
+      // Sync class_teachers: replace all existing rows for this class
+      await (supabase as any).from('class_teachers').delete().eq('class_id', classId);
+
+      if (teacher_ids && teacher_ids.length > 0) {
+        const rows = teacher_ids.map((tid: string) => ({ class_id: classId, teacher_id: tid }));
+        const { error: ctError } = await (supabase as any).from('class_teachers').insert(rows);
+        if (ctError) throw ctError;
       }
 
       fetchClasses();
@@ -213,7 +225,6 @@ const Classes = () => {
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
         <ClassTable
           classes={filteredClasses}
-          teachers={teachers}
           onEdit={handleEdit}
           onDelete={handleDelete}
           searchTerm={searchTerm}

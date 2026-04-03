@@ -104,7 +104,7 @@ const Students = () => {
       const { class_id, birth_date, enrollment_date, ...studentData } = formData;
       const dataToSubmit = {
         ...studentData,
-        full_name: studentData.name || studentData.full_name, // ensure full_name is set
+        full_name: studentData.full_name,
         birth_date: birth_date instanceof Date ? birth_date.toISOString().split('T')[0] : birth_date,
         enrollment_date: enrollment_date instanceof Date ? enrollment_date.toISOString().split('T')[0] : enrollment_date,
         final_tuition_value: finalTuitionValue,
@@ -216,7 +216,7 @@ const Students = () => {
   };
 
   const filteredStudents = students.filter(student => {
-    const matchesSearch = (student.full_name ?? student.name ?? '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = ( student.full_name ?? '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesClass = !classFilter || classFilter === 'all' || student.class_id === classFilter || student.enrollment_class_id === classFilter;
     return matchesSearch && matchesClass;
   });

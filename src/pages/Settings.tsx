@@ -9,7 +9,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
+import { useSchool } from '@/contexts/SchoolContext';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 
@@ -35,7 +35,7 @@ const schoolSchema = z.object({
 type SchoolFormData = z.infer<typeof schoolSchema>;
 
 function SchoolProfileSection() {
-  const { school, refreshSchool } = useAuth();
+  const { school, refetch: refreshSchool } = useSchool();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
 

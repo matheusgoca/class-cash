@@ -4,19 +4,19 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 
 const classSchema = z.object({
-  name: z.string().min(2, 'Nome da turma deve ter pelo menos 2 caracteres'),
-  grade: z.string().nullable(),
-  description: z.string().optional(),
-  teacher_id: z.string().nullable(),
-  max_capacity: z.number().min(1, 'Capacidade máxima deve ser pelo menos 1').max(50, 'Capacidade máxima não pode exceder 50'),
-  monthly_fee: z.number().min(0, 'Mensalidade da turma deve ser positiva').optional(),
-  tuition_per_student: z.number().min(0, 'Valor da mensalidade deve ser positivo').optional(),
-  color: z.string().min(1, 'Cor é obrigatória'),
+  name:         z.string().min(2, 'Nome da turma deve ter pelo menos 2 caracteres'),
+  grade:        z.string().nullable(),
+  description:  z.string().optional(),
+  max_capacity: z.number().min(1).max(50),
+  monthly_fee:  z.number().min(0).optional(),
+  color:        z.string().min(1, 'Cor é obrigatória'),
+  teacher_ids:  z.array(z.string()),
 });
 
 type ClassFormData = z.infer<typeof classSchema>;
@@ -29,7 +29,7 @@ interface ClassFormProps {
   isLoading?: boolean;
 }
 
-const classColors = [
+const CLASS_COLORS = [
   { value: '#3B82F6', label: 'Azul' },
   { value: '#10B981', label: 'Verde' },
   { value: '#F59E0B', label: 'Amarelo' },
@@ -41,204 +41,93 @@ const classColors = [
 ];
 
 export const ClassForm: React.FC<ClassFormProps> = ({
-  classData,
-  onSubmit,
-  onCancel,
-  teachers,
-  isLoading
+  classData, onSubmit, onCancel, teachers, isLoading,
 }) => {
+  // Pre-populate teacher_ids from class_teachers join
+  const existingTeacherIds: string[] = (classData?.class_teachers ?? [])
+    .map((ct: any) => ct.teacher_id ?? ct.teachers?.id)
+    .filter(Boolean);
+
   const form = useForm<ClassFormData>({
     resolver: zodResolver(classSchema),
     defaultValues: {
-      name: classData?.name || '',
-      grade: classData?.grade || null,
-      description: classData?.description || '',
-      teacher_id: classData?.teacher_id || null,
-      max_capacity: classData?.max_capacity || 30,
-      monthly_fee: classData?.monthly_fee || 0,
-      tuition_per_student: classData?.tuition_per_student || 0,
-      color: classData?.color || '#3B82F6',
+      name:         classData?.name        ?? '',
+      grade:        classData?.grade       ?? null,
+      description:  classData?.description ?? '',
+      max_capacity: classData?.max_capacity ?? 30,
+      monthly_fee:  classData?.monthly_fee  ?? 0,
+      color:        classData?.color        ?? '#3B82F6',
+      teacher_ids:  existingTeacherIds,
     },
   });
 
+  const selectedTeachers = form.watch('teacher_ids');
+
+  const toggleTeacher = (id: string) => {
+    const current = form.getValues('teacher_ids');
+    form.setValue(
+      'teacher_ids',
+      current.includes(id) ? current.filter(t => t !== id) : [...current, id],
+    );
+  };
+
   return (
-    <DialogContent className="sm:max-w-[600px]">
+    <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
       <DialogHeader>
-        <DialogTitle>
-          {classData ? 'Editar Turma' : 'Nova Turma'}
-        </DialogTitle>
+        <DialogTitle>{classData ? 'Editar Turma' : 'Nova Turma'}</DialogTitle>
       </DialogHeader>
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <FormField
-            control={form.control}
-            name="name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Nome da Turma</FormLabel>
-                <FormControl>
-                  <Input placeholder="Ex: 1º Ano A, 2º Ano B..." {...field} />
-                </FormControl>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <FormField control={form.control} name="name" render={({ field }) => (
+              <FormItem className="sm:col-span-2">
+                <FormLabel>Nome da Turma <span className="text-destructive">*</span></FormLabel>
+                <FormControl><Input placeholder="Ex: 1º Ano A" {...field} /></FormControl>
                 <FormMessage />
               </FormItem>
-            )}
-          />
+            )} />
 
-          <FormField
-            control={form.control}
-            name="grade"
-            render={({ field }) => (
+            <FormField control={form.control} name="grade" render={({ field }) => (
               <FormItem>
                 <FormLabel>Série/Ano</FormLabel>
-                <Select onValueChange={(value) => field.onChange(value)} value={field.value || undefined}>
+                <Select onValueChange={field.onChange} value={field.value ?? undefined}>
                   <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione a série" />
-                    </SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="1º Ano">1º Ano</SelectItem>
-                    <SelectItem value="2º Ano">2º Ano</SelectItem>
-                    <SelectItem value="3º Ano">3º Ano</SelectItem>
-                    <SelectItem value="4º Ano">4º Ano</SelectItem>
-                    <SelectItem value="5º Ano">5º Ano</SelectItem>
-                    <SelectItem value="6º Ano">6º Ano</SelectItem>
-                    <SelectItem value="7º Ano">7º Ano</SelectItem>
-                    <SelectItem value="8º Ano">8º Ano</SelectItem>
-                    <SelectItem value="9º Ano">9º Ano</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="description"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Descrição</FormLabel>
-                <FormControl>
-                  <Input placeholder="Descrição da turma (opcional)" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="teacher_id"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Professor Responsável</FormLabel>
-                <Select onValueChange={(value) => field.onChange(value)} value={field.value || undefined}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um professor" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {teachers.map((teacher) => (
-                      <SelectItem key={teacher.id} value={teacher.id}>
-                        {teacher.full_name}
-                      </SelectItem>
+                    {['1º Ano','2º Ano','3º Ano','4º Ano','5º Ano','6º Ano','7º Ano','8º Ano','9º Ano'].map(g => (
+                      <SelectItem key={g} value={g}>{g}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 <FormMessage />
               </FormItem>
-            )}
-          />
+            )} />
 
-          <FormField
-            control={form.control}
-            name="monthly_fee"
-            render={({ field }) => (
+            <FormField control={form.control} name="color" render={({ field }) => (
               <FormItem>
-                <FormLabel>Mensalidade da Turma (R$)</FormLabel>
-                <FormControl>
-                  <Input 
-                    type="number" 
-                    min="0" 
-                    step="0.01"
-                    placeholder="1500.00"
-                    {...field}
-                    value={field.value}
-                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="tuition_per_student"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Mensalidade por Aluno (R$)</FormLabel>
-                <FormControl>
-                  <Input 
-                    type="number" 
-                    min="0" 
-                    step="0.01"
-                    placeholder="500.00"
-                    {...field}
-                    value={field.value}
-                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="max_capacity"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Capacidade Máxima</FormLabel>
-                <FormControl>
-                  <Input 
-                    type="number" 
-                    min="1" 
-                    max="50" 
-                    {...field}
-                    value={field.value}
-                    onChange={(e) => field.onChange(parseInt(e.target.value) || 30)}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="color"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Cor da Turma</FormLabel>
+                <FormLabel>Cor <span className="text-destructive">*</span></FormLabel>
                 <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue>
+                        {field.value && (
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 rounded-full" style={{ backgroundColor: field.value }} />
+                            {CLASS_COLORS.find(c => c.value === field.value)?.label}
+                          </div>
+                        )}
+                      </SelectValue>
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {classColors.map((color) => (
-                      <SelectItem key={color.value} value={color.value}>
+                    {CLASS_COLORS.map(c => (
+                      <SelectItem key={c.value} value={c.value}>
                         <div className="flex items-center gap-2">
-                          <div 
-                            className="w-4 h-4 rounded-full" 
-                            style={{ backgroundColor: color.value }}
-                          />
-                          {color.label}
+                          <div className="w-4 h-4 rounded-full" style={{ backgroundColor: c.value }} />
+                          {c.label}
                         </div>
                       </SelectItem>
                     ))}
@@ -246,15 +135,69 @@ export const ClassForm: React.FC<ClassFormProps> = ({
                 </Select>
                 <FormMessage />
               </FormItem>
-            )}
-          />
+            )} />
+
+            <FormField control={form.control} name="max_capacity" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Capacidade máxima</FormLabel>
+                <FormControl>
+                  <Input type="number" min="1" max="50" {...field}
+                    onChange={e => field.onChange(parseInt(e.target.value) || 30)} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+
+            <FormField control={form.control} name="monthly_fee" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Mensalidade base (R$)</FormLabel>
+                <FormControl>
+                  <Input type="number" min="0" step="0.01" placeholder="0.00" {...field}
+                    onChange={e => field.onChange(parseFloat(e.target.value) || 0)} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+
+            <FormField control={form.control} name="description" render={({ field }) => (
+              <FormItem className="sm:col-span-2">
+                <FormLabel>Descrição</FormLabel>
+                <FormControl><Input placeholder="Opcional" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+          </div>
+
+          {/* Professores */}
+          <FormField control={form.control} name="teacher_ids" render={() => (
+            <FormItem>
+              <FormLabel>Professores</FormLabel>
+              {teachers.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhum professor cadastrado.</p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-md border p-3">
+                  {teachers.map(t => (
+                    <div key={t.id} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`teacher-${t.id}`}
+                        checked={selectedTeachers.includes(t.id)}
+                        onCheckedChange={() => toggleTeacher(t.id)}
+                      />
+                      <label htmlFor={`teacher-${t.id}`} className="text-sm cursor-pointer">
+                        {t.full_name}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <FormMessage />
+            </FormItem>
+          )} />
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onCancel}>
-              Cancelar
-            </Button>
+            <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? 'Salvando...' : classData ? 'Atualizar' : 'Criar'}
+              {isLoading ? 'Salvando...' : classData ? 'Atualizar' : 'Criar Turma'}
             </Button>
           </DialogFooter>
         </form>

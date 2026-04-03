@@ -163,6 +163,7 @@ export function ClassHealthCards() {
           id,
           name,
           level,
+          color,
           class_teachers (
             teachers (
               id,
@@ -190,32 +191,45 @@ export function ClassHealthCards() {
         return acc;
       }, {});
 
-      // Create simplified health cards
-      const classesWithHealth: ClassHealth[] = (classData || []).map((cls: any) => {
-        const studentCount = classStudentCounts[cls.id] || 0;
-        const maxCapacity = 30; // Default max capacity
+      // Fetch paid tuitions per class (via contracts)
+      const { data: tuitionsData } = await (supabase as any)
+        .from('tuitions')
+        .select('final_amount, amount, contracts(class_id)')
+        .eq('school_id', schoolId)
+        .eq('status', 'paid');
+
+      const revenueByClass: Record<string, number> = {};
+      for (const t of tuitionsData || []) {
+        const cid = t.contracts?.class_id;
+        if (cid) revenueByClass[cid] = (revenueByClass[cid] || 0) + Number(t.final_amount ?? t.amount ?? 0);
+      }
+
+      const COLORS = ['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6','#F97316','#06B6D4','#84CC16'];
+
+      const classesWithHealth: ClassHealth[] = (classData || []).map((cls: any, i: number) => {
+        const studentCount       = classStudentCounts[cls.id] || 0;
+        const maxCapacity        = 30;
         const capacityPercentage = (studentCount / maxCapacity) * 100;
+        const totalRevenue       = revenueByClass[cls.id] || 0;
 
         let status: ClassHealth['status'] = 'critical';
         if (capacityPercentage >= 80) status = 'excellent';
         else if (capacityPercentage >= 60) status = 'good';
         else if (capacityPercentage >= 40) status = 'warning';
 
-        const teacherName = cls.class_teachers && cls.class_teachers.length > 0 && cls.class_teachers[0].teachers
-          ? cls.class_teachers[0].teachers.full_name
-          : undefined;
+        const teacherName = cls.class_teachers?.[0]?.teachers?.full_name ?? undefined;
 
         return {
           id: cls.id,
           name: cls.name,
-          color: '#3B82F6', // Default blue color
+          color: cls.color || COLORS[i % COLORS.length],
           teacher_name: teacherName,
           student_count: studentCount,
           max_capacity: maxCapacity,
           tuition_per_student: 0,
-          total_revenue: 0,
+          total_revenue: totalRevenue,
           potential_revenue: 0,
-          capacity_percentage: capacityPercentage,
+          capacity_percentage: Math.min(capacityPercentage, 100),
           revenue_percentage: capacityPercentage,
           paid_students: studentCount,
           payment_percentage: capacityPercentage,

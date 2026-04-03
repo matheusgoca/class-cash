@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSchool } from '@/contexts/SchoolContext';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 
@@ -29,7 +30,8 @@ type FormData = z.infer<typeof schema>;
 export default function Onboarding() {
   const navigate    = useNavigate();
   const { toast }   = useToast();
-  const { user, refreshSchool } = useAuth();
+  const { user } = useAuth();
+  const { refetch: refreshSchool } = useSchool();
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<FormData>({

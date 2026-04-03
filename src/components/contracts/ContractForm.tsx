@@ -14,15 +14,17 @@ import { useToast } from "@/hooks/use-toast";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { generateTuitions } from "@/lib/generateTuitions";
 
 const contractSchema = z.object({
-  student_id: z.string().min(1, "Aluno é obrigatório"),
-  class_id: z.string().optional(),
-  start_date: z.date({ message: "Data de início é obrigatória" }),
-  end_date: z.date({ message: "Data de término é obrigatória" }),
+  student_id:     z.string().min(1, "Aluno é obrigatório"),
+  class_id:       z.string().optional(),
+  start_date:     z.date({ message: "Data de início é obrigatória" }),
+  end_date:       z.date({ message: "Data de término é obrigatória" }),
   monthly_amount: z.number().min(0, "Valor deve ser maior que zero"),
-  discount: z.number().min(0).max(100, "Desconto deve ser entre 0 e 100%"),
-  status: z.enum(["active", "suspended", "cancelled"]),
+  discount:       z.number().min(0).max(100, "Desconto deve ser entre 0 e 100%"),
+  due_day:        z.number().int().min(1).max(28),
+  status:         z.enum(["active", "suspended", "cancelled"]),
 });
 
 type ContractFormData = z.infer<typeof contractSchema>;
@@ -62,12 +64,19 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
   } = useForm<ContractFormData>({
     resolver: zodResolver(contractSchema),
     defaultValues: {
-      status: "active",
+      status:   "active",
       discount: 0,
+      due_day:  10,
     },
   });
 
-  const watchStartDate = watch("start_date");
+  const watchStartDate    = watch("start_date");
+  const watchMonthly      = watch("monthly_amount") ?? 0;
+  const watchDiscount     = watch("discount") ?? 0;
+  const previewFinalValue = watchMonthly * (1 - watchDiscount / 100);
+
+  const fmt = (v: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
   useEffect(() => {
     fetchStudents();
@@ -77,13 +86,14 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
   useEffect(() => {
     if (contract) {
       reset({
-        student_id: contract.student_id,
-        class_id: contract.class_id || "",
-        start_date: new Date(contract.start_date),
-        end_date: new Date(contract.end_date),
+        student_id:     contract.student_id,
+        class_id:       contract.class_id || "",
+        start_date:     new Date(contract.start_date),
+        end_date:       new Date(contract.end_date),
         monthly_amount: Number(contract.monthly_amount),
-        discount: Number(contract.discount),
-        status: contract.status,
+        discount:       Number(contract.discount),
+        due_day:        Number(contract.due_day ?? 10),
+        status:         contract.status,
       });
     }
   }, [contract, reset]);
@@ -91,8 +101,8 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
   useEffect(() => {
     // Auto-calculate end_date as 1 year after start_date
     if (watchStartDate && !contract) {
-      const endDate = new Date(watchStartDate);
-      endDate.setFullYear(endDate.getFullYear() + 1);
+      // Last day of the 12th month after start (e.g. Apr 2026 → Mar 31 2027)
+      const endDate = new Date(watchStartDate.getFullYear(), watchStartDate.getMonth() + 12, 0);
       setValue("end_date", endDate);
     }
   }, [watchStartDate, setValue, contract]);
@@ -147,14 +157,15 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
       setLoading(true);
 
       const contractData = {
-        student_id: data.student_id,
-        class_id: data.class_id || null,
-        start_date: data.start_date.toISOString().split('T')[0],
-        end_date: data.end_date.toISOString().split('T')[0],
+        student_id:     data.student_id,
+        class_id:       data.class_id || null,
+        start_date:     data.start_date.toISOString().split('T')[0],
+        end_date:       data.end_date.toISOString().split('T')[0],
         monthly_amount: data.monthly_amount,
-        discount: data.discount,
-        status: data.status,
-        school_id: schoolId,
+        discount:       data.discount,
+        due_day:        data.due_day,
+        status:         data.status,
+        school_id:      schoolId,
       };
 
       if (contract) {
@@ -165,31 +176,46 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
 
         if (error) throw error;
 
-        toast({
-          title: "Sucesso",
-          description: "Contrato atualizado com sucesso",
-        });
+        // If status changed to active, generate missing tuitions
+        if (data.status === 'active') {
+          await generateTuitions(contract.id);
+        }
+
+        toast({ title: "Sucesso", description: "Contrato atualizado com sucesso" });
       } else {
-        const { error } = await supabase
+        const { data: created, error } = await supabase
           .from('contracts')
-          .insert([contractData]);
+          .insert([contractData])
+          .select('id')
+          .single();
 
         if (error) throw error;
 
-        toast({
-          title: "Sucesso",
-          description: "Contrato criado com sucesso. Mensalidades foram geradas automaticamente.",
-        });
+        // Generate tuitions for active contracts
+        if (data.status === 'active' && created?.id) {
+          const { inserted, error: genError } = await generateTuitions(created.id);
+          if (genError) {
+            console.error('generateTuitions error:', genError);
+            toast({
+              title: "Contrato criado",
+              description: `Contrato salvo, mas houve um erro ao gerar mensalidades: ${genError}`,
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Contrato criado!",
+              description: `${inserted} mensalidade${inserted !== 1 ? 's' : ''} gerada${inserted !== 1 ? 's' : ''} automaticamente.`,
+            });
+          }
+        } else {
+          toast({ title: "Contrato criado!", description: "Contrato salvo com sucesso." });
+        }
       }
 
       onSubmit();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving contract:', error);
-      toast({
-        title: "Erro",
-        description: "Erro ao salvar contrato",
-        variant: "destructive",
-      });
+      toast({ title: "Erro", description: error.message ?? "Erro ao salvar contrato", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -351,6 +377,7 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
             id="monthly_amount"
             type="number"
             step="0.01"
+            placeholder="500.00"
             {...register("monthly_amount", { valueAsNumber: true })}
           />
           {errors.monthly_amount && (
@@ -364,6 +391,9 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
             id="discount"
             type="number"
             step="0.01"
+            min="0"
+            max="100"
+            placeholder="0"
             {...register("discount", { valueAsNumber: true })}
           />
           {errors.discount && (
@@ -372,24 +402,49 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="status">Status *</Label>
-          <Select
-            onValueChange={(value) => setValue("status", value as "active" | "suspended" | "cancelled")}
-            defaultValue={contract?.status || "active"}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="active">Ativo</SelectItem>
-              <SelectItem value="suspended">Suspenso</SelectItem>
-              <SelectItem value="cancelled">Cancelado</SelectItem>
-            </SelectContent>
-          </Select>
-          {errors.status && (
-            <p className="text-sm text-destructive">{errors.status.message}</p>
+          <Label htmlFor="due_day">Dia de vencimento</Label>
+          <Input
+            id="due_day"
+            type="number"
+            min="1"
+            max="28"
+            placeholder="10"
+            {...register("due_day", { valueAsNumber: true })}
+          />
+          <p className="text-xs text-muted-foreground">Dia do mês (1–28)</p>
+          {errors.due_day && (
+            <p className="text-sm text-destructive">{errors.due_day.message}</p>
           )}
         </div>
+      </div>
+
+      {/* Valor final calculado */}
+      <div className="flex items-center justify-between rounded-lg bg-muted px-4 py-3">
+        <div>
+          <p className="text-sm font-medium">Valor final da mensalidade</p>
+          <p className="text-xs text-muted-foreground">Após {watchDiscount}% de desconto</p>
+        </div>
+        <p className="text-2xl font-bold">{fmt(previewFinalValue)}</p>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="status">Status *</Label>
+        <Select
+          onValueChange={(value) => setValue("status", value as "active" | "suspended" | "cancelled")}
+          defaultValue={contract?.status || "active"}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="active">Ativo</SelectItem>
+            <SelectItem value="suspended">Suspenso</SelectItem>
+            <SelectItem value="cancelled">Cancelado</SelectItem>
+          </SelectContent>
+        </Select>
+        {errors.status && (
+          <p className="text-sm text-destructive">{errors.status.message}</p>
+        )}
       </div>
 
       <div className="flex justify-between pt-6">
