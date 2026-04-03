@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { ArrowUpDown, Edit, Trash2, CheckCircle } from "lucide-react";
+import { ArrowUpDown, Edit, CheckCircle, Search } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
@@ -50,6 +51,9 @@ export function TuitionTable({ data, loading, onEdit, onRefresh }: TuitionTableP
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(15);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [monthFilter, setMonthFilter] = useState("all");
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -58,9 +62,25 @@ export function TuitionTable({ data, loading, onEdit, onRefresh }: TuitionTableP
     }).format(value);
   };
 
-  const formatDate = (date: string) => {
-    return format(new Date(date), "dd/MM/yyyy", { locale: ptBR });
+  // Parse YYYY-MM-DD as local time to avoid UTC offset shifting the day
+  const parseLocalDate = (date: string) => {
+    const [y, m, d] = date.split('-').map(Number);
+    return new Date(y, m - 1, d);
   };
+
+  const formatDate = (date: string) => {
+    return format(parseLocalDate(date), "dd/MM/yyyy", { locale: ptBR });
+  };
+
+  // Unique months from data for the month filter
+  const availableMonths = useMemo(() => {
+    const seen = new Set<string>();
+    for (const t of data) {
+      const [y, m] = t.due_date.split('-');
+      seen.add(`${y}-${m}`);
+    }
+    return Array.from(seen).sort();
+  }, [data]);
 
   const getStatusBadge = (tuition: TuitionData) => {
     const isOverdue = new Date(tuition.due_date) < new Date() && tuition.status === "pending";
@@ -97,7 +117,8 @@ export function TuitionTable({ data, loading, onEdit, onRefresh }: TuitionTableP
         .update({
           status: 'paid',
           paid_date: format(new Date(), 'yyyy-MM-dd'),
-          payment_method: tuition.payment_method || 'Sistema'
+          payment_method: tuition.payment_method || 'Não informado',
+          final_amount: tuition.amount,
         })
         .eq('id', tuition.id);
 
@@ -144,8 +165,17 @@ export function TuitionTable({ data, loading, onEdit, onRefresh }: TuitionTableP
     }
   };
 
+  // Filter data
+  const filteredData = data.filter(t => {
+    const effectiveStatus = new Date(t.due_date) < new Date() && t.status === 'pending' ? 'overdue' : t.status;
+    const matchesSearch = !search || (t.students?.full_name ?? '').toLowerCase().includes(search.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || effectiveStatus === statusFilter;
+    const matchesMonth  = monthFilter === 'all' || t.due_date.startsWith(monthFilter);
+    return matchesSearch && matchesStatus && matchesMonth;
+  });
+
   // Sort data
-  const sortedData = [...data].sort((a, b) => {
+  const sortedData = [...filteredData].sort((a, b) => {
     let aVal: any, bVal: any;
 
     switch (sortField) {
@@ -184,7 +214,7 @@ export function TuitionTable({ data, loading, onEdit, onRefresh }: TuitionTableP
   });
 
   // Pagination
-  const totalPages = Math.ceil(sortedData.length / itemsPerPage);
+  const totalPages = Math.max(1, Math.ceil(sortedData.length / itemsPerPage));
   const paginatedData = sortedData.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -209,8 +239,44 @@ export function TuitionTable({ data, loading, onEdit, onRefresh }: TuitionTableP
     <Card>
       <CardHeader>
         <CardTitle>
-          Mensalidades ({data.length} {data.length === 1 ? 'registro' : 'registros'})
+          Mensalidades ({filteredData.length} {filteredData.length === 1 ? 'registro' : 'registros'})
         </CardTitle>
+        <div className="flex flex-wrap gap-3 pt-2">
+          <div className="relative flex-1 min-w-[180px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar aluno..."
+              value={search}
+              onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
+              className="pl-9"
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={v => { setStatusFilter(v); setCurrentPage(1); }}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="pending">Pendente</SelectItem>
+              <SelectItem value="paid">Pago</SelectItem>
+              <SelectItem value="overdue">Atrasado</SelectItem>
+              <SelectItem value="cancelled">Cancelado</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={monthFilter} onValueChange={v => { setMonthFilter(v); setCurrentPage(1); }}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="Mês" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os meses</SelectItem>
+              {availableMonths.map(m => {
+                const [y, mo] = m.split('-').map(Number);
+                const label = new Date(y, mo - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+                return <SelectItem key={m} value={m}>{label}</SelectItem>;
+              })}
+            </SelectContent>
+          </Select>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="rounded-md border overflow-hidden">
@@ -366,8 +432,8 @@ export function TuitionTable({ data, loading, onEdit, onRefresh }: TuitionTableP
           <div className="flex items-center justify-between px-2 py-4">
             <div className="text-sm text-muted-foreground">
               Mostrando {(currentPage - 1) * itemsPerPage + 1} a{" "}
-              {Math.min(currentPage * itemsPerPage, data.length)} de{" "}
-              {data.length} registros
+              {Math.min(currentPage * itemsPerPage, filteredData.length)} de{" "}
+              {filteredData.length} registros
             </div>
             <div className="flex items-center space-x-2">
               <Button

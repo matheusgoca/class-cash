@@ -98,9 +98,15 @@ export function FinancialMetrics() {
     }).format(value);
   };
 
-  const defaultRate = metrics.totalRevenue > 0
-    ? ((metrics.pendingRevenue + metrics.overdueRevenue) / metrics.totalRevenue * 100).toFixed(1)
+  // Denominator: only tuitions whose due date has passed (paid + overdue)
+  // pending (within due date) are excluded — they are not yet delinquent
+  const duedBase = metrics.paidRevenue + metrics.overdueRevenue;
+  const defaultRate    = duedBase > 0
+    ? (metrics.overdueRevenue / duedBase * 100).toFixed(1)
     : "0.0";
+  const paymentEfficiency = duedBase > 0
+    ? (metrics.paidRevenue / duedBase * 100).toFixed(1)
+    : "100.0";
 
   const metricsData = [
     {
@@ -140,7 +146,7 @@ export function FinancialMetrics() {
     {
       title: "Taxa de Inadimplência",
       value: `${defaultRate}%`,
-      description: formatCurrency(metrics.overdueRevenue + metrics.pendingRevenue),
+      description: `${formatCurrency(metrics.overdueRevenue)} em atraso`,
       icon: AlertTriangle,
       color: "text-warning",
       bgColor: "bg-warning/10",
@@ -241,16 +247,11 @@ export function FinancialMetrics() {
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Eficiência de Pagamentos</span>
-                <span className="font-medium">
-                  {(100 - parseFloat(defaultRate)).toFixed(1)}%
-                </span>
+                <span className="font-medium">{paymentEfficiency}%</span>
               </div>
-              <Progress
-                value={100 - parseFloat(defaultRate)}
-                className="h-2"
-              />
+              <Progress value={parseFloat(paymentEfficiency)} className="h-2" />
               <p className="text-xs text-muted-foreground">
-                Pagamentos em dia vs total
+                Pago ÷ (pago + atrasado)
               </p>
             </div>
 

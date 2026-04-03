@@ -117,7 +117,7 @@ function ClassHealthCard({ health }: ClassHealthCardProps) {
               {formatCurrency(health.total_revenue)}
             </p>
             <p className="text-xs text-muted-foreground">
-              de {formatCurrency(health.potential_revenue)}
+              de {formatCurrency(health.potential_revenue)} possível
             </p>
           </div>
         </div>
@@ -164,6 +164,8 @@ export function ClassHealthCards() {
           name,
           level,
           color,
+          max_capacity,
+          monthly_fee,
           class_teachers (
             teachers (
               id,
@@ -208,9 +210,13 @@ export function ClassHealthCards() {
 
       const classesWithHealth: ClassHealth[] = (classData || []).map((cls: any, i: number) => {
         const studentCount       = classStudentCounts[cls.id] || 0;
-        const maxCapacity        = 30;
+        const maxCapacity        = cls.max_capacity || 30;
         const capacityPercentage = (studentCount / maxCapacity) * 100;
         const totalRevenue       = revenueByClass[cls.id] || 0;
+        const potentialRevenue   = maxCapacity * (cls.monthly_fee || 0);
+        const revenuePercentage  = potentialRevenue > 0
+          ? (totalRevenue / potentialRevenue) * 100
+          : 0;
 
         let status: ClassHealth['status'] = 'critical';
         if (capacityPercentage >= 80) status = 'excellent';
@@ -226,11 +232,11 @@ export function ClassHealthCards() {
           teacher_name: teacherName,
           student_count: studentCount,
           max_capacity: maxCapacity,
-          tuition_per_student: 0,
+          tuition_per_student: cls.monthly_fee || 0,
           total_revenue: totalRevenue,
-          potential_revenue: 0,
+          potential_revenue: potentialRevenue,
           capacity_percentage: Math.min(capacityPercentage, 100),
-          revenue_percentage: capacityPercentage,
+          revenue_percentage: revenuePercentage,
           paid_students: studentCount,
           payment_percentage: capacityPercentage,
           status,

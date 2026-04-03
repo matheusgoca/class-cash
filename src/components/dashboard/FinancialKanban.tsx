@@ -2,9 +2,13 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/contexts/SchoolContext";
+import { useToast } from "@/hooks/use-toast";
 import { Calendar, DollarSign, User, CheckCircle } from "lucide-react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -40,12 +44,86 @@ const statusConfig = {
   },
 };
 
-interface TuitionCardProps {
-  tuition: TuitionData;
-  onStatusChange: (id: string, status: PaymentStatus) => void;
+interface PaymentFormData {
+  paid_date: string;
+  payment_method: string;
+  final_amount: number;
 }
 
-function TuitionCard({ tuition, onStatusChange }: TuitionCardProps) {
+interface PaymentModalProps {
+  tuition: TuitionData | null;
+  onConfirm: (id: string, data: PaymentFormData) => void;
+  onCancel: () => void;
+}
+
+function PaymentModal({ tuition, onConfirm, onCancel }: PaymentModalProps) {
+  const [form, setForm] = useState<PaymentFormData>({
+    paid_date: format(new Date(), 'yyyy-MM-dd'),
+    payment_method: '',
+    final_amount: tuition?.amount ?? 0,
+  });
+
+  if (!tuition) return null;
+
+  return (
+    <Dialog open onOpenChange={onCancel}>
+      <DialogContent className="sm:max-w-[400px]">
+        <DialogHeader>
+          <DialogTitle>Registrar Pagamento</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <p className="text-sm text-muted-foreground">
+            {tuition.students?.full_name} — {tuition.description}
+          </p>
+          <div className="space-y-2">
+            <Label>Data de pagamento</Label>
+            <Input
+              type="date"
+              value={form.paid_date}
+              onChange={e => setForm(f => ({ ...f, paid_date: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Forma de pagamento</Label>
+            <Select value={form.payment_method || 'none'} onValueChange={v => setForm(f => ({ ...f, payment_method: v === 'none' ? '' : v }))}>
+              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Não informado</SelectItem>
+                <SelectItem value="PIX">PIX</SelectItem>
+                <SelectItem value="Dinheiro">Dinheiro</SelectItem>
+                <SelectItem value="Cartão de Débito">Cartão de Débito</SelectItem>
+                <SelectItem value="Cartão de Crédito">Cartão de Crédito</SelectItem>
+                <SelectItem value="Transferência">Transferência</SelectItem>
+                <SelectItem value="Boleto">Boleto</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Valor recebido (R$)</Label>
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={form.final_amount}
+              onChange={e => setForm(f => ({ ...f, final_amount: parseFloat(e.target.value) || 0 }))}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onCancel}>Cancelar</Button>
+          <Button onClick={() => onConfirm(tuition.id, form)}>Confirmar Pagamento</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+interface TuitionCardProps {
+  tuition: TuitionData;
+  onRegisterPayment: (tuition: TuitionData) => void;
+}
+
+function TuitionCard({ tuition, onRegisterPayment }: TuitionCardProps) {
   const isOverdue = new Date(tuition.due_date) < new Date() && tuition.status === "pending";
 
   const formatCurrency = (value: number) => {
@@ -56,8 +134,11 @@ function TuitionCard({ tuition, onStatusChange }: TuitionCardProps) {
   };
 
   const formatDate = (date: string) => {
-    return new Intl.DateTimeFormat("pt-BR").format(new Date(date));
+    const [y, m, d] = date.split('-').map(Number);
+    return new Intl.DateTimeFormat("pt-BR").format(new Date(y, m - 1, d));
   };
+
+  const canPay = tuition.status !== "paid";
 
   return (
     <Card className="mb-3 hover:shadow-md transition-shadow">
@@ -93,13 +174,13 @@ function TuitionCard({ tuition, onStatusChange }: TuitionCardProps) {
           )}
         </div>
 
-        {tuition.status === "pending" && (
+        {canPay && (
           <Button
             size="sm"
             className="w-full"
-            onClick={() => onStatusChange(tuition.id, "paid")}
+            onClick={() => onRegisterPayment(tuition)}
           >
-            Marcar como Pago
+            Registrar Pagamento
           </Button>
         )}
       </CardContent>
@@ -117,9 +198,11 @@ const MONTH_OPTIONS = Array.from({ length: 12 }, (_, i) => {
 
 export function FinancialKanban() {
   const { schoolId } = useSchool();
+  const { toast } = useToast();
   const [tuitions, setTuitions] = useState<TuitionData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
+  const [payingTuition, setPayingTuition] = useState<TuitionData | null>(null);
 
   useEffect(() => {
     if (schoolId) fetchTuitions();
@@ -179,38 +262,30 @@ export function FinancialKanban() {
     }
   };
 
-  const handleStatusChange = async (id: string, newStatus: PaymentStatus) => {
+  const handleConfirmPayment = async (id: string, data: PaymentFormData) => {
     try {
-      const updateData: any = { status: newStatus };
-      if (newStatus === "paid") {
-        updateData.paid_date = new Date().toISOString().split('T')[0];
-        updateData.payment_method = "Sistema";
-      } else {
-        updateData.paid_date = null;
-        updateData.payment_method = null;
-      }
-
       const { error } = await supabase
         .from('tuitions')
-        .update(updateData)
+        .update({
+          status: 'paid',
+          paid_date: data.paid_date,
+          payment_method: data.payment_method || 'Não informado',
+          final_amount: data.final_amount,
+        })
         .eq('id', id);
 
       if (error) throw error;
 
-      // Update local state
-      setTuitions(prev => prev.map(tuition => {
-        if (tuition.id === id) {
-          return {
-            ...tuition,
-            status: newStatus,
-            paid_date: newStatus === "paid" ? new Date().toISOString().split('T')[0] : undefined,
-            payment_method: newStatus === "paid" ? "Sistema" : undefined,
-          };
-        }
-        return tuition;
-      }));
+      setTuitions(prev => prev.map(t =>
+        t.id === id
+          ? { ...t, status: 'paid', paid_date: data.paid_date, payment_method: data.payment_method }
+          : t
+      ));
+      setPayingTuition(null);
+      toast({ title: "Pagamento registrado!", description: "Mensalidade marcada como paga." });
     } catch (error) {
-      console.error('Error updating tuition status:', error);
+      console.error('Error registering payment:', error);
+      toast({ title: "Erro", description: "Não foi possível registrar o pagamento.", variant: "destructive" });
     }
   };
 
@@ -261,6 +336,7 @@ export function FinancialKanban() {
   }
 
   return (
+    <>
     <div className="space-y-4">
       <div className="flex items-center gap-3">
         <span className="text-sm font-medium text-muted-foreground">Filtrar por mês:</span>
@@ -298,7 +374,7 @@ export function FinancialKanban() {
             <TuitionCard
               key={tuition.id}
               tuition={tuition}
-              onStatusChange={handleStatusChange}
+              onRegisterPayment={setPayingTuition}
             />
           ))}
           {categorizedTuitions.pending.length === 0 && (
@@ -327,7 +403,7 @@ export function FinancialKanban() {
             <TuitionCard
               key={tuition.id}
               tuition={tuition}
-              onStatusChange={handleStatusChange}
+              onRegisterPayment={setPayingTuition}
             />
           ))}
           {categorizedTuitions.overdue.length === 0 && (
@@ -356,7 +432,7 @@ export function FinancialKanban() {
             <TuitionCard
               key={tuition.id}
               tuition={tuition}
-              onStatusChange={handleStatusChange}
+              onRegisterPayment={setPayingTuition}
             />
           ))}
           {categorizedTuitions.paid.length === 0 && (
@@ -366,5 +442,12 @@ export function FinancialKanban() {
       </div>
     </div>
     </div>
+
+    <PaymentModal
+      tuition={payingTuition}
+      onConfirm={handleConfirmPayment}
+      onCancel={() => setPayingTuition(null)}
+    />
+    </>
   );
 }

@@ -21,6 +21,7 @@ import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
 import Landing from "./pages/Landing";
 import NotFound from "./pages/NotFound";
+import AdminSyncTuitions from "./pages/AdminSyncTuitions";
 
 const queryClient = new QueryClient();
 
@@ -119,6 +120,14 @@ const App = () => (
                       <Layout>
                         <Reports />
                       </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/gerar-mensalidades"
+                  element={
+                    <ProtectedRoute requireSchool allowedRoles={['admin']}>
+                      <AdminSyncTuitions />
                     </ProtectedRoute>
                   }
                 />
