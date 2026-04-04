@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <!-- Background -->
+  <rect width="1200" height="630" fill="#2563EB"/>
+
+  <!-- Subtle gradient overlay -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1D4ED8"/>
+      <stop offset="100%" stop-color="#2563EB"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Icon: rounded square with $ -->
+  <rect x="524" y="165" width="152" height="152" rx="34" ry="34" fill="white" fill-opacity="0.15"/>
+  <text
+    x="600"
+    y="276"
+    font-family="Arial, Helvetica, sans-serif"
+    font-size="100"
+    font-weight="900"
+    text-anchor="middle"
+    fill="white"
+  >$</text>
+
+  <!-- App name -->
+  <text
+    x="600"
+    y="380"
+    font-family="Arial, Helvetica, sans-serif"
+    font-size="72"
+    font-weight="800"
+    text-anchor="middle"
+    fill="white"
+    letter-spacing="-1"
+  >Class Cash</text>
+
+  <!-- Subtitle -->
+  <text
+    x="600"
+    y="440"
+    font-family="Arial, Helvetica, sans-serif"
+    font-size="30"
+    font-weight="400"
+    text-anchor="middle"
+    fill="white"
+    fill-opacity="0.8"
+  >Gestão financeira escolar simplificada</text>
+</svg>
