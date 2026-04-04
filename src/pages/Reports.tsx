@@ -623,6 +623,7 @@ const Reports = () => {
             ) : defaulters.length === 0 ? (
               <p className="text-center py-8 text-muted-foreground">Nenhum aluno inadimplente. 🎉</p>
             ) : (
+              <>
               <div className="rounded-md border overflow-x-auto">
                 <Table className="min-w-[700px]">
                   <TableHeader>
@@ -674,6 +675,7 @@ const Reports = () => {
                 totalItems={defaulters.length}
                 itemsPerPage={defaultersPerPage}
               />
+              </>
             )}
           </CardContent>
         </Card>
