@@ -10,7 +10,7 @@ interface ClassHealth {
   id: string;
   name: string;
   color: string;
-  teacher_name?: string;
+  teacher_names: string[];
   student_count: number;
   max_capacity: number;
   tuition_per_student: number;
@@ -79,7 +79,11 @@ function ClassHealthCard({ health }: ClassHealthCardProps) {
               {health.name}
             </CardTitle>
             <p className="text-sm text-muted-foreground">
-              {health.teacher_name ? `Prof. ${health.teacher_name}` : 'Sem professor'}
+              {health.teacher_names.length === 0
+                ? 'Sem professor'
+                : health.teacher_names.length <= 2
+                  ? `Prof. ${health.teacher_names.join(', ')}`
+                  : `Prof. ${health.teacher_names[0]} +${health.teacher_names.length - 1}`}
             </p>
           </div>
           <Badge variant={config.badgeVariant}>
@@ -223,13 +227,15 @@ export function ClassHealthCards() {
         else if (capacityPercentage >= 60) status = 'good';
         else if (capacityPercentage >= 40) status = 'warning';
 
-        const teacherName = cls.class_teachers?.[0]?.teachers?.full_name ?? undefined;
+        const teacherNames: string[] = (cls.class_teachers || [])
+          .map((ct: any) => ct.teachers?.full_name)
+          .filter(Boolean);
 
         return {
           id: cls.id,
           name: cls.name,
           color: cls.color || COLORS[i % COLORS.length],
-          teacher_name: teacherName,
+          teacher_names: teacherNames,
           student_count: studentCount,
           max_capacity: maxCapacity,
           tuition_per_student: cls.monthly_fee || 0,
