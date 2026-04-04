@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,13 +9,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Download, FileText, FileSpreadsheet, ArrowUpDown } from "lucide-react";
+import { Download, FileText, FileSpreadsheet, ArrowUpDown, AlertTriangle, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { ClassProfitability } from "@/components/reports/ClassProfitability";
 import { PaginationCompact } from "@/components/ui/pagination-compact";
+import { useSchool } from "@/contexts/SchoolContext";
 
 interface TuitionReport {
   id: string;
@@ -50,7 +52,18 @@ interface ReportSummary {
   overdueAmount: number;
 }
 
+interface DefaulterRow {
+  student_id: string;
+  student_name: string;
+  class_name: string | null;
+  parcelas: number;
+  valor_aberto: number;
+  mais_antiga: string; // YYYY-MM-DD
+}
+
 const Reports = () => {
+  const navigate = useNavigate();
+  const { schoolId } = useSchool();
   const [data, setData] = useState<TuitionReport[]>([]);
   const [filteredData, setFilteredData] = useState<TuitionReport[]>([]);
   const [classes, setClasses] = useState<ClassOption[]>([]);
@@ -59,13 +72,59 @@ const Reports = () => {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(20);
-  
+
   const [filters, setFilters] = useState<ReportFilters>({
     startDate: "",
     endDate: "",
     classId: "",
     status: ""
   });
+
+  // Build defaulters list from already-fetched data (no extra query needed)
+  const defaulters = useMemo((): DefaulterRow[] => {
+    const map = new Map<string, DefaulterRow & { student_id: string }>();
+    for (const item of data) {
+      if (item.status !== 'overdue') continue;
+      const existing = map.get(item.student_name);
+      if (existing) {
+        existing.parcelas += 1;
+        existing.valor_aberto += item.amount;
+        if (item.due_date < existing.mais_antiga) existing.mais_antiga = item.due_date;
+        if (!existing.class_name && item.class_name) existing.class_name = item.class_name;
+      } else {
+        map.set(item.student_name, {
+          student_id: item.student_name, // used as key only
+          student_name: item.student_name,
+          class_name: item.class_name,
+          parcelas: 1,
+          valor_aberto: item.amount,
+          mais_antiga: item.due_date,
+        });
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => b.valor_aberto - a.valor_aberto);
+  }, [data]);
+
+  // Inadimplência summary metrics
+  const inadimplenciaSummary = useMemo(() => {
+    const totalOverdue = defaulters.reduce((s, d) => s + d.valor_aberto, 0);
+    const alunosCount  = defaulters.length;
+    const totalEmitido = data.reduce((s, d) => s + d.amount, 0);
+    const pctReceita   = totalEmitido > 0 ? (totalOverdue / totalEmitido) * 100 : 0;
+
+    // Average months late across all overdue tuitions
+    const today = new Date();
+    const overdueItems = data.filter(d => d.status === 'overdue');
+    let totalMonths = 0;
+    for (const item of overdueItems) {
+      const [y, m] = item.due_date.split('-').map(Number);
+      const months = (today.getFullYear() - y) * 12 + (today.getMonth() + 1 - m);
+      totalMonths += Math.max(0, months);
+    }
+    const mediaAtraso = overdueItems.length > 0 ? totalMonths / overdueItems.length : 0;
+
+    return { totalOverdue, alunosCount, mediaAtraso, pctReceita };
+  }, [defaulters, data]);
 
   useEffect(() => {
     fetchData();
@@ -501,6 +560,115 @@ const Reports = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* ── Inadimplência ─────────────────────────────────────────── */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <AlertTriangle className="h-5 w-5 text-red-500" />
+          <h2 className="text-xl font-bold tracking-tight">Inadimplência</h2>
+        </div>
+
+        {/* Summary cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total inadimplente</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600">{formatCurrency(inadimplenciaSummary.totalOverdue)}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Alunos inadimplentes</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{inadimplenciaSummary.alunosCount}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Média de atraso</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {inadimplenciaSummary.mediaAtraso.toFixed(1)} <span className="text-base font-normal text-muted-foreground">meses</span>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">% sobre receita emitida</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{inadimplenciaSummary.pctReceita.toFixed(1)}%</div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Defaulters table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              Alunos em atraso ({defaulters.length} {defaulters.length === 1 ? 'aluno' : 'alunos'})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+              </div>
+            ) : defaulters.length === 0 ? (
+              <p className="text-center py-8 text-muted-foreground">Nenhum aluno inadimplente. 🎉</p>
+            ) : (
+              <div className="rounded-md border overflow-x-auto">
+                <Table className="min-w-[700px]">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Aluno</TableHead>
+                      <TableHead>Turma</TableHead>
+                      <TableHead>Parcelas em atraso</TableHead>
+                      <TableHead>Valor em aberto</TableHead>
+                      <TableHead>Mês mais antigo</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {defaulters.map((row) => {
+                      const [y, m] = row.mais_antiga.split('-').map(Number);
+                      const mesLabel = new Date(y, m - 1, 1).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
+                      return (
+                        <TableRow key={row.student_name}>
+                          <TableCell className="font-medium">{row.student_name}</TableCell>
+                          <TableCell>{row.class_name || '—'}</TableCell>
+                          <TableCell>
+                            <Badge className="bg-red-100 text-red-700 border-red-200">
+                              {row.parcelas} {row.parcelas === 1 ? 'parcela' : 'parcelas'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="font-semibold text-red-600">{formatCurrency(row.valor_aberto)}</TableCell>
+                          <TableCell className="capitalize">{mesLabel}</TableCell>
+                          <TableCell>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => navigate(`/mensalidades?search=${encodeURIComponent(row.student_name)}`)}
+                              className="gap-1"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              Ver mensalidades
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Data Table */}
       <Card>

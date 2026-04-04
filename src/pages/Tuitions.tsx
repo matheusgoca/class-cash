@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/contexts/SchoolContext";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,8 @@ interface TuitionSummary {
 const Tuitions = () => {
   const { toast } = useToast();
   const { schoolId } = useSchool();
+  const [searchParams] = useSearchParams();
+  const initialSearch = searchParams.get("search") ?? "";
   const [tuitions, setTuitions] = useState<TuitionData[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -225,6 +228,7 @@ const Tuitions = () => {
         loading={loading}
         onEdit={handleEdit}
         onRefresh={fetchTuitions}
+        initialSearch={initialSearch}
       />
 
       {showForm && editingTuition && (

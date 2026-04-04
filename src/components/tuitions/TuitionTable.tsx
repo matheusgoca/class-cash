@@ -42,17 +42,18 @@ interface TuitionTableProps {
   loading: boolean;
   onEdit: (tuition: TuitionData) => void;
   onRefresh: () => void;
+  initialSearch?: string;
 }
 
 type SortField = 'student_name' | 'class_name' | 'amount' | 'status' | 'due_date' | 'paid_date';
 
-export function TuitionTable({ data, loading, onEdit, onRefresh }: TuitionTableProps) {
+export function TuitionTable({ data, loading, onEdit, onRefresh, initialSearch = "" }: TuitionTableProps) {
   const { toast } = useToast();
   const [sortField, setSortField] = useState<SortField>("due_date");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(30);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const [statusFilter, setStatusFilter] = useState("all");
   const [monthFilter, setMonthFilter] = useState("all");
 
