@@ -53,15 +53,25 @@ export default function Onboarding() {
     if (!user) return;
     setIsLoading(true);
     try {
-      const { error } = await (supabase as any)
+      const { data: school, error: schoolError } = await (supabase as any)
         .from('schools')
         .insert({
           name:          data.name,
           segments:      data.segments,
           owner_user_id: user.id,
-        });
+        })
+        .select('id')
+        .single();
 
-      if (error) throw error;
+      if (schoolError) throw schoolError;
+
+      // Bind owner's profile to this school so all subsequent lookups use profiles.school_id
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ school_id: school.id })
+        .eq('user_id', user.id);
+
+      if (profileError) throw profileError;
 
       await refreshSchool();
       toast({ title: 'Escola criada!', description: `Bem-vindo ao ${data.name}` });
