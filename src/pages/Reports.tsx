@@ -72,6 +72,8 @@ const Reports = () => {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(20);
+  const [defaultersPage, setDefaultersPage] = useState(1);
+  const defaultersPerPage = 15;
 
   const [filters, setFilters] = useState<ReportFilters>({
     startDate: "",
@@ -580,7 +582,7 @@ const Reports = () => {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Alunos inadimplentes</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Alunos com parcelas em atraso</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{inadimplenciaSummary.alunosCount}</div>
@@ -634,7 +636,7 @@ const Reports = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {defaulters.map((row) => {
+                    {defaulters.slice((defaultersPage - 1) * defaultersPerPage, defaultersPage * defaultersPerPage).map((row) => {
                       const [y, m] = row.mais_antiga.split('-').map(Number);
                       const mesLabel = new Date(y, m - 1, 1).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
                       return (
@@ -665,6 +667,13 @@ const Reports = () => {
                   </TableBody>
                 </Table>
               </div>
+              <PaginationCompact
+                currentPage={defaultersPage}
+                totalPages={Math.max(1, Math.ceil(defaulters.length / defaultersPerPage))}
+                onPageChange={setDefaultersPage}
+                totalItems={defaulters.length}
+                itemsPerPage={defaultersPerPage}
+              />
             )}
           </CardContent>
         </Card>
