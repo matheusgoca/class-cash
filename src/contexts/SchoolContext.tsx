@@ -40,6 +40,8 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
 
+    console.log('[SchoolContext] fetchSchool — user.id:', user.id);
+
     try {
       // 1. Try via profiles.school_id (staff invited to a school, or owner after onboarding)
       const { data: profile, error: profileError } = await supabase
@@ -48,24 +50,31 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         .eq('user_id', user.id)
         .maybeSingle();
 
+      console.log('[SchoolContext] profiles query —', { profile, profileError });
+
       let schoolId: string | null = profile?.school_id ?? null;
 
       // 2. Fallback: owner lookup via schools.owner_user_id
       if (!schoolId) {
+        console.log('[SchoolContext] school_id not in profile, trying owner_user_id fallback');
         const { data: owned, error: ownedError } = await (supabase as any)
           .from('schools')
           .select('id')
           .eq('owner_user_id', user.id)
           .maybeSingle();
 
+        console.log('[SchoolContext] owner lookup —', { owned, ownedError });
+
         if (ownedError) {
-          console.error('fetchSchool owner lookup error:', ownedError.message);
+          console.error('[SchoolContext] owner lookup error:', ownedError.message);
           setSchoolStatus('error');
           return;
         }
 
         schoolId = owned?.id ?? null;
       }
+
+      console.log('[SchoolContext] resolved schoolId:', schoolId);
 
       if (!schoolId) {
         setSchool(null);
@@ -78,10 +87,18 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         .from('schools')
         .select('id, name, segments, logo_url, owner_user_id')
         .eq('id', schoolId)
-        .single();
+        .maybeSingle();
+
+      console.log('[SchoolContext] school data —', { schoolData, schoolError });
 
       if (schoolError) {
-        console.error('fetchSchool data error:', schoolError.message);
+        console.error('[SchoolContext] school data error:', schoolError.message);
+        setSchoolStatus('error');
+        return;
+      }
+
+      if (!schoolData) {
+        console.error('[SchoolContext] school not accessible — RLS may be blocking SELECT on schools for this user');
         setSchoolStatus('error');
         return;
       }
@@ -89,7 +106,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setSchool({ ...schoolData, segments: schoolData.segments ?? [] });
       setSchoolStatus('found');
     } catch (err) {
-      console.error('fetchSchool exception:', err);
+      console.error('[SchoolContext] exception:', err);
       setSchoolStatus('error');
     }
   };
