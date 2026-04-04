@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PaginationCompact } from "@/components/ui/pagination-compact";
 import { ArrowUpDown, Edit, CheckCircle, Search } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -279,8 +280,8 @@ export function TuitionTable({ data, loading, onEdit, onRefresh }: TuitionTableP
         </div>
       </CardHeader>
       <CardContent>
-        <div className="rounded-md border overflow-hidden">
-          <Table>
+        <div className="overflow-x-auto rounded-md border">
+          <Table className="min-w-[700px]">
             <TableHeader>
               <TableRow>
                 <TableHead>
@@ -427,47 +428,13 @@ export function TuitionTable({ data, loading, onEdit, onRefresh }: TuitionTableP
           </Table>
         </div>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-2 py-4">
-            <div className="text-sm text-muted-foreground">
-              Mostrando {(currentPage - 1) * itemsPerPage + 1} a{" "}
-              {Math.min(currentPage * itemsPerPage, filteredData.length)} de{" "}
-              {filteredData.length} registros
-            </div>
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-              >
-                Anterior
-              </Button>
-              <div className="flex items-center gap-1">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <Button
-                    key={page}
-                    variant={currentPage === page ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setCurrentPage(page)}
-                    className="w-8"
-                  >
-                    {page}
-                  </Button>
-                ))}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                disabled={currentPage === totalPages}
-              >
-                Próxima
-              </Button>
-            </div>
-          </div>
-        )}
+        <PaginationCompact
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalItems={filteredData.length}
+          itemsPerPage={itemsPerPage}
+        />
       </CardContent>
     </Card>
   );

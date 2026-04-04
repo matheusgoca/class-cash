@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useSchool } from '@/contexts/SchoolContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,12 +19,6 @@ const SEGMENTS = [
   { value: 'tecnico',     label: 'Curso Técnico',      icon: Building2,     description: 'Cursos profissionalizantes' },
 ];
 
-const SEGMENT_LABELS: Record<string, string> = {
-  infantil:    'Educação Infantil',
-  fundamental: 'Ensino Fundamental',
-  medio:       'Ensino Médio',
-  tecnico:     'Curso Técnico',
-};
 
 const schoolSchema = z.object({
   name:     z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
@@ -151,21 +144,10 @@ function SchoolProfileSection() {
                 )}
               />
 
-              <div className="space-y-3">
-                <Button type="submit" disabled={saving} className="gap-2">
-                  <Save className="h-4 w-4" />
-                  {saving ? 'Salvando...' : 'Salvar alterações'}
-                </Button>
-                {selectedSegments.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {selectedSegments.map(s => (
-                      <Badge key={s} variant="secondary" className="text-xs">
-                        {SEGMENT_LABELS[s] ?? s}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <Button type="submit" disabled={saving} className="gap-2">
+                <Save className="h-4 w-4" />
+                {saving ? 'Salvando...' : 'Salvar alterações'}
+              </Button>
 
             </form>
           </Form>

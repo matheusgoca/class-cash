@@ -14,6 +14,7 @@ import { ptBR } from "date-fns/locale";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { ClassProfitability } from "@/components/reports/ClassProfitability";
+import { PaginationCompact } from "@/components/ui/pagination-compact";
 
 interface TuitionReport {
   id: string;
@@ -78,40 +79,35 @@ const Reports = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const { data: tuitionsData, error } = await supabase
-        .from('tuitions')
-        .select(`
-          id,
-          amount,
-          status,
-          due_date,
-          paid_date,
-          description,
-          student_id
-        `)
-        .order('due_date', { ascending: false });
 
-      if (error) throw error;
+      const [tuitionsRes, studentsRes, contractsRes] = await Promise.all([
+        supabase
+          .from('tuitions')
+          .select('id, amount, status, due_date, paid_date, description, student_id, contract_id')
+          .order('due_date', { ascending: false }),
+        supabase.from('students').select('id, full_name'),
+        (supabase as any).from('contracts').select('id, classes(name)'),
+      ]);
 
-      // Fetch students separately
-      const { data: studentsData, error: studentsError } = await supabase
-        .from('students')
-        .select('id, full_name');
+      if (tuitionsRes.error) throw tuitionsRes.error;
+      if (studentsRes.error) throw studentsRes.error;
 
-      if (studentsError) throw studentsError;
-
-      // Create a lookup map for students
-      const studentMap = (studentsData || []).reduce((acc: any, student: any) => {
-        acc[student.id] = student.full_name;
+      const studentMap = (studentsRes.data || []).reduce((acc: any, s: any) => {
+        acc[s.id] = s.full_name;
         return acc;
       }, {});
 
-      const formattedData: TuitionReport[] = (tuitionsData || []).map(item => {
+      const contractClassMap = (contractsRes.data || []).reduce((acc: any, c: any) => {
+        acc[c.id] = c.classes?.name ?? null;
+        return acc;
+      }, {});
+
+      const formattedData: TuitionReport[] = (tuitionsRes.data || []).map((item: any) => {
         const isOverdue = new Date(item.due_date) < new Date() && item.status === "pending";
         return {
           id: item.id,
           student_name: studentMap[item.student_id] || 'N/A',
-          class_name: null, // Simplified for now
+          class_name: contractClassMap[item.contract_id] ?? null,
           amount: Number(item.amount),
           status: isOverdue ? "overdue" : item.status as "pending" | "paid" | "overdue",
           due_date: item.due_date,
@@ -520,8 +516,8 @@ const Reports = () => {
             </div>
           ) : (
             <>
-              <div className="rounded-md border overflow-hidden">
-                <Table>
+              <div className="rounded-md border overflow-x-auto">
+                <Table className="min-w-[700px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead>
@@ -599,47 +595,13 @@ const Reports = () => {
                 </Table>
               </div>
 
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between px-2 py-4">
-                  <div className="text-sm text-muted-foreground">
-                    Mostrando {(currentPage - 1) * itemsPerPage + 1} a{" "}
-                    {Math.min(currentPage * itemsPerPage, filteredData.length)} de{" "}
-                    {filteredData.length} registros
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                      disabled={currentPage === 1}
-                    >
-                      Anterior
-                    </Button>
-                    <div className="flex items-center gap-1">
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                        <Button
-                          key={page}
-                          variant={currentPage === page ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setCurrentPage(page)}
-                          className="w-8"
-                        >
-                          {page}
-                        </Button>
-                      ))}
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                      disabled={currentPage === totalPages}
-                    >
-                      Próxima
-                    </Button>
-                  </div>
-                </div>
-              )}
+              <PaginationCompact
+                currentPage={currentPage}
+                totalPages={Math.max(1, totalPages)}
+                onPageChange={setCurrentPage}
+                totalItems={filteredData.length}
+                itemsPerPage={itemsPerPage}
+              />
             </>
           )}
         </CardContent>
