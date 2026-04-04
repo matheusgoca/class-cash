@@ -85,7 +85,7 @@ function Navbar() {
 // ─── Hero ─────────────────────────────────────────────────────────────────────
 function Hero() {
   return (
-    <section className="pt-28 pb-28 px-4 bg-gradient-to-br from-white via-blue-50/40 to-violet-50/40">
+    <section className="pt-28 pb-28 px-4" style={{ background: "linear-gradient(180deg, #EFF6FF 0%, #ffffff 60%)" }}>
       <div className="max-w-7xl mx-auto">
         <div className="text-center max-w-4xl mx-auto">
           <Badge variant="secondary" className="mb-6 px-4 py-1.5 text-sm font-medium">
@@ -97,7 +97,7 @@ function Hero() {
             <span className="text-primary">Controle tudo</span> em um só lugar.
           </h1>
 
-          <p className="text-xl text-gray-500 mb-10 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto leading-relaxed">
             Gerencie mensalidades, contratos e inadimplência da sua escola de forma simples, rápida e profissional. Do lançamento ao recebimento.
           </p>
 
