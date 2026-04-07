@@ -50,6 +50,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         is_master_admin: profile?.is_master_admin,
         school_id: profile?.school_id,
       });
+      console.log('PROFILE CARREGADO:', {
+        userId: profile?.user_id,
+        email: profile?.email,
+        isMasterAdmin: profile?.is_master_admin,
+        schoolId: profile?.school_id,
+      });
       setProfile(profile);
     } catch (err) {
       console.error('fetchProfile error:', err);
@@ -63,6 +69,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
+    // onAuthStateChange fires immediately with the current session on mount,
+    // so we don't need a separate getSession() call — that would race.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -71,17 +79,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         initUser(session.user.id);
       } else {
         setProfile(null);
-        setLoading(false);
-      }
-    });
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-
-      if (session?.user) {
-        initUser(session.user.id);
-      } else {
         setLoading(false);
       }
     });
