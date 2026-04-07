@@ -44,7 +44,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .maybeSingle();
 
       if (error) throw error;
-      setProfile(data ? { ...data, is_master_admin: data.is_master_admin ?? false } : null);
+      const profile = data ? { ...data, is_master_admin: data.is_master_admin ?? false } : null;
+      console.log('[AuthContext] profile loaded —', {
+        user_id: userId,
+        is_master_admin: profile?.is_master_admin,
+        school_id: profile?.school_id,
+      });
+      setProfile(profile);
     } catch (err) {
       console.error('fetchProfile error:', err);
       setProfile(null);

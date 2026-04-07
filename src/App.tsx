@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { MasterAdminProvider } from "./contexts/MasterAdminContext";
+import { useMasterAdmin } from "./contexts/MasterAdminContext";
 import { SchoolProvider } from "./contexts/SchoolContext";
 import { ThemeProvider } from "./contexts/ThemeProvider";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -27,11 +28,12 @@ import MasterAdmin from "./pages/MasterAdmin";
 
 const queryClient = new QueryClient();
 
-// Rota raiz: landing para visitantes, dashboard para autenticados
+// Rota raiz: landing para visitantes, /master para master admin, /dashboard para demais
 function RootRoute() {
   const { user, loading } = useAuth();
+  const { isMasterAdmin } = useMasterAdmin();
   if (loading) return null;
-  if (user) return <Navigate to="/dashboard" replace />;
+  if (user) return <Navigate to={isMasterAdmin ? "/master" : "/dashboard"} replace />;
   return <Landing />;
 }
 
