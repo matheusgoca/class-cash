@@ -1,15 +1,14 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Building2, Users, DollarSign, AlertTriangle, ExternalLink, Edit, ShieldCheck } from "lucide-react";
+import { Edit, ShieldCheck, GraduationCap, DollarSign, AlertTriangle, CalendarDays, Mail } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
@@ -35,9 +34,9 @@ const PLAN_LABELS: Record<string, string> = {
 };
 
 const PLAN_COLORS: Record<string, string> = {
-  starter: "bg-slate-100 text-slate-700",
-  pro: "bg-blue-100 text-blue-700",
-  enterprise: "bg-purple-100 text-purple-700",
+  starter: "bg-slate-100 text-slate-700 border-slate-200",
+  pro: "bg-blue-100 text-blue-700 border-blue-200",
+  enterprise: "bg-purple-100 text-purple-700 border-purple-200",
 };
 
 export default function MasterAdmin() {
@@ -115,15 +114,6 @@ export default function MasterAdmin() {
   const formatCurrency = (v: number) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
-  const summary = {
-    totalSchools: schools.length,
-    totalStudents: schools.reduce((s, r) => s + r.student_count, 0),
-    totalRevenue: schools.reduce((s, r) => s + r.monthly_revenue, 0),
-    avgInadimplencia: schools.length > 0
-      ? schools.reduce((s, r) => s + r.overdue_pct, 0) / schools.length
-      : 0,
-  };
-
   const openEdit = (school: SchoolRow) => {
     setEditingSchool(school);
     setEditForm({ name: school.name, plan: school.plan, status: school.status });
@@ -166,138 +156,95 @@ export default function MasterAdmin() {
         </div>
       </div>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Building2 className="h-4 w-4" /> Total de escolas
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{summary.totalSchools}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Users className="h-4 w-4" /> Total de alunos
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{summary.totalStudents}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <DollarSign className="h-4 w-4" /> Receita total
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{formatCurrency(summary.totalRevenue)}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4" /> Inadimplência média
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-red-600">{summary.avgInadimplencia.toFixed(1)}%</div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Counter */}
+      <p className="text-sm font-medium text-muted-foreground">
+        Escolas ({schools.length})
+      </p>
 
-      {/* Schools table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Escolas ({schools.length})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-            </div>
-          ) : (
-            <div className="rounded-md border overflow-x-auto">
-              <Table className="min-w-[900px]">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome da escola</TableHead>
-                    <TableHead>Plano</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Alunos</TableHead>
-                    <TableHead>Receita</TableHead>
-                    <TableHead>Inadimplência</TableHead>
-                    <TableHead>Cadastro</TableHead>
-                    <TableHead>Contato (owner)</TableHead>
-                    <TableHead>Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {schools.map((school) => (
-                    <TableRow key={school.id}>
-                      <TableCell className="font-medium">{school.name}</TableCell>
-                      <TableCell>
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${PLAN_COLORS[school.plan] || PLAN_COLORS.starter}`}>
-                          {PLAN_LABELS[school.plan] || school.plan}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        {school.status === "active"
-                          ? <Badge className="bg-green-100 text-green-700 border-green-200">Ativa</Badge>
-                          : <Badge className="bg-red-100 text-red-700 border-red-200">Suspensa</Badge>}
-                      </TableCell>
-                      <TableCell>{school.student_count}</TableCell>
-                      <TableCell>{formatCurrency(school.monthly_revenue)}</TableCell>
-                      <TableCell>
-                        <span className={school.overdue_pct > 20 ? "text-red-600 font-semibold" : ""}>
-                          {school.overdue_pct.toFixed(1)}%
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {school.created_at
-                          ? format(new Date(school.created_at), "dd/MM/yyyy", { locale: ptBR })
-                          : "—"}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{school.owner_email}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleEnterSchool(school)}
-                            className="gap-1"
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                            Acessar
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => openEdit(school)}
-                          >
-                            <Edit className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {schools.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                        Nenhuma escola encontrada
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* School cards grid */}
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        </div>
+      ) : schools.length === 0 ? (
+        <p className="text-center py-16 text-muted-foreground">Nenhuma escola cadastrada.</p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {schools.map((school) => (
+            <Card key={school.id} className="overflow-hidden">
+              <CardContent className="p-5 space-y-4">
+
+                {/* Row 1: name + badges */}
+                <div className="flex items-start justify-between gap-2">
+                  <h2 className="text-base font-bold leading-tight">{school.name}</h2>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${PLAN_COLORS[school.plan] || PLAN_COLORS.starter}`}>
+                      {PLAN_LABELS[school.plan] || school.plan}
+                    </span>
+                    {school.status === "active"
+                      ? <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">Ativa</Badge>
+                      : <Badge className="bg-red-100 text-red-700 border-red-200 text-xs">Suspensa</Badge>}
+                  </div>
+                </div>
+
+                {/* Row 2: owner email + date */}
+                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <Mail className="h-3 w-3" />
+                    {school.owner_email}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <CalendarDays className="h-3 w-3" />
+                    {school.created_at
+                      ? format(new Date(school.created_at), "dd/MM/yyyy", { locale: ptBR })
+                      : "—"}
+                  </span>
+                </div>
+
+                <div className="border-t" />
+
+                {/* Row 3: metrics */}
+                <div className="flex items-center gap-5 text-sm">
+                  <span className="flex items-center gap-1.5">
+                    <GraduationCap className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-semibold">{school.student_count}</span>
+                    <span className="text-muted-foreground">alunos</span>
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-semibold">{formatCurrency(school.monthly_revenue)}</span>
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <AlertTriangle className={`h-4 w-4 ${school.overdue_pct > 20 ? "text-red-500" : "text-muted-foreground"}`} />
+                    <span className={`font-semibold ${school.overdue_pct > 20 ? "text-red-600" : ""}`}>
+                      {school.overdue_pct.toFixed(1)}%
+                    </span>
+                    <span className="text-muted-foreground">inadimp.</span>
+                  </span>
+                </div>
+
+                {/* Row 4: actions */}
+                <div className="flex items-center gap-2">
+                  <Button
+                    className="flex-1"
+                    onClick={() => handleEnterSchool(school)}
+                  >
+                    Acessar escola
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    onClick={() => openEdit(school)}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                </div>
+
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Edit modal */}
       <Dialog open={!!editingSchool} onOpenChange={(open) => { if (!open) setEditingSchool(null); }}>
