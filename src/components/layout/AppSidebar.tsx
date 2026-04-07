@@ -90,7 +90,7 @@ const menuItems: MenuItem[] = [
 export function AppSidebar() {
   const { signOut, profile } = useAuth();
   const { school } = useSchool();
-  const { isMasterAdmin } = useMasterAdmin();
+  const { isMasterAdmin, viewingSchoolId } = useMasterAdmin();
   const { role, hasRole } = useRole();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
@@ -116,13 +116,18 @@ export function AppSidebar() {
   // Real access control is enforced at the route level by ProtectedRoute.
   const canSee = (roles?: AppRole[]) => !roles || !role || hasRole(...roles);
 
-  const visibleItems = menuItems
-    .filter(item => canSee(item.roles))
-    .map(item => ({
-      ...item,
-      items: item.items?.filter(sub => canSee(sub.roles)),
-    }))
-    .filter(item => !item.items || item.items.length > 0);
+  // Master admin without a viewing school: show only "Painel Master", hide school menu
+  const masterWithoutSchool = isMasterAdmin && !viewingSchoolId;
+
+  const visibleItems = masterWithoutSchool
+    ? []
+    : menuItems
+        .filter(item => canSee(item.roles))
+        .map(item => ({
+          ...item,
+          items: item.items?.filter(sub => canSee(sub.roles)),
+        }))
+        .filter(item => !item.items || item.items.length > 0);
 
   return (
     <Sidebar className={collapsed ? "w-16" : "w-64"} collapsible="icon">
