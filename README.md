@@ -1,73 +1,159 @@
-# Welcome to your Lovable project
+# Class Cash
 
-## Project info
+> **SaaS de gestão financeira escolar** — contratos, mensalidades, inadimplência e relatórios em um só lugar. Sem planilhas.
 
-**URL**: https://lovable.dev/projects/20574d89-11ef-4eab-8414-58492d8a897e
+[![Deploy](https://img.shields.io/badge/deploy-vercel-black)](https://class-cash-tan.vercel.app)
+[![Stack](https://img.shields.io/badge/stack-React%20%2B%20Supabase-blue)]()
 
-## How can I edit this code?
+---
 
-There are several ways of editing your application.
+## O que é o Class Cash
 
-**Use Lovable**
+Class Cash é uma plataforma multi-tenant para gestão financeira de escolas particulares. O sistema centraliza o controle de contratos, geração automática de mensalidades, acompanhamento de inadimplência e visualização da saúde financeira por turma — substituindo planilhas por um painel intuitivo e sempre atualizado.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/20574d89-11ef-4eab-8414-58492d8a897e) and start prompting.
+**Acesso:** [class-cash-tan.vercel.app](https://class-cash-tan.vercel.app)
 
-Changes made via Lovable will be committed automatically to this repo.
+---
 
-**Use your preferred IDE**
+## Funcionalidades
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Gestão escolar
+- Cadastro de turmas com capacidade, mensalidade base e múltiplos professores
+- Cadastro de alunos com matrícula e vínculo à turma
+- Cadastro de professores com salário e especialização
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### Financeiro
+- Contratos por aluno com desconto percentual e dia de vencimento configurável
+- Geração automática de mensalidades ao ativar um contrato
+- Kanban de mensalidades por status: pendente, pago e atrasado
+- Registro de pagamento com data, método e valor final
 
-Follow these steps:
+### Relatórios
+- Dashboard com receita recebida, inadimplência, ocupação e gastos com salários
+- Saúde financeira por turma: ocupação, receita realizada vs potencial e eficiência
+- Rentabilidade por turma: receita menos custo de professores com margem percentual
+- Relatório de inadimplência: lista de alunos em atraso ordenada por valor em aberto
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+### Multi-tenant e acesso
+- Cada escola vê apenas seus próprios dados via RLS no Supabase
+- Painel master para o administrador da plataforma visualizar e acessar todas as escolas
+- Suporte a múltiplos usuários por escola com roles: Admin e Financeiro
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+---
 
-# Step 3: Install the necessary dependencies.
-npm i
+## Stack
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+| Camada | Tecnologia |
+|---|---|
+| Frontend | React + TypeScript + Vite |
+| Estilização | Tailwind CSS + shadcn/ui |
+| Backend / Banco | Supabase (PostgreSQL + Auth + RLS) |
+| Deploy | Vercel |
+| Gráficos | Recharts |
+
+---
+
+## Arquitetura
+
+```
+┌─────────────────────────────────────────────────────┐
+│                    USUÁRIOS                         │
+│  Master Admin     Admin da Escola     Financeiro    │
+│  Todas as escolas Sua escola          Sua escola    │
+└──────────────┬───────────────┬────────────┬─────────┘
+               │               │            │
+               ▼               ▼            ▼
+┌─────────────────────────────────────────────────────┐
+│                  SUPABASE AUTH                      │
+│  profiles.school_id → escola do usuário             │
+│  profiles.is_master_admin → bypass de RLS           │
+│  user_roles(user_id, role) → permissões             │
+└─────────────────────────────────────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────────────────────┐
+│               FLUXO FINANCEIRO                      │
+│                                                     │
+│  Turma (monthly_fee)                                │
+│    └── Contrato (aluno + desconto + due_day)        │
+│          └── final_amount (coluna computada)        │
+│                └── Tuitions (1 por mês)             │
+│                      └── Pagamento                  │
+└─────────────────────────────────────────────────────┘
 ```
 
-**Edit a file directly in GitHub**
+### Tabelas principais
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+| Tabela | Descrição |
+|---|---|
+| `schools` | Escolas cadastradas na plataforma |
+| `profiles` | Perfil do usuário com school_id e flag de master admin |
+| `user_roles` | Roles por usuário (admin, financial) |
+| `classes` | Turmas com capacidade e mensalidade base |
+| `class_teachers` | Relacionamento N:N entre turmas e professores |
+| `teachers` | Professores com salário mensal |
+| `students` | Alunos matriculados |
+| `enrollments` | Vínculo aluno ↔ turma |
+| `contracts` | Contrato financeiro aluno ↔ escola |
+| `tuitions` | Mensalidades geradas pelos contratos |
 
-**Use GitHub Codespaces**
+### Segurança (RLS)
+Todas as tabelas têm Row Level Security habilitado. Cada usuário acessa apenas os dados da sua escola via `profiles.school_id`. O master admin tem bypass via função `is_master_admin()` com `SECURITY DEFINER` para evitar recursão.
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+---
 
-## What technologies are used for this project?
+## Estrutura do projeto
 
-This project is built with:
+```
+src/
+├── components/
+│   ├── dashboard/      # Componentes do dashboard financeiro
+│   ├── ui/             # Componentes base (shadcn)
+│   └── layout/         # Sidebar, header, banner master
+├── contexts/
+│   ├── AuthContext     # Autenticação e perfil do usuário
+│   ├── SchoolContext   # Escola ativa no contexto
+│   └── MasterAdminContext # Controle de acesso master
+├── pages/
+│   ├── Dashboard       # Painel financeiro principal
+│   ├── Students        # Gestão de alunos
+│   ├── Teachers        # Gestão de professores
+│   ├── Classes         # Gestão de turmas
+│   ├── Contracts       # Gestão de contratos
+│   ├── Tuitions        # Mensalidades (kanban + tabela)
+│   ├── Reports         # Relatórios financeiros
+│   ├── MasterAdmin     # Painel do administrador da plataforma
+│   └── Settings        # Configurações da escola
+├── hooks/              # Hooks customizados
+├── lib/                # Configuração do Supabase
+└── types/              # Interfaces TypeScript
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+---
 
-## How can I deploy this project?
+## Variáveis de ambiente
 
-Simply open [Lovable](https://lovable.dev/projects/20574d89-11ef-4eab-8414-58492d8a897e) and click on Share -> Publish.
+```env
+VITE_SUPABASE_URL=sua_url_do_supabase
+VITE_SUPABASE_ANON_KEY=sua_chave_anonima
+```
 
-## Can I connect a custom domain to my Lovable project?
+---
 
-Yes, you can!
+## Roadmap
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+- [x] Motor financeiro — geração automática de tuitions
+- [x] Dashboard com métricas reais
+- [x] Relatório de inadimplência
+- [x] Painel master multi-escola
+- [ ] Renegociação de mensalidades
+- [ ] Notificações por email ao responsável
+- [ ] Convite de staff por email
+- [ ] Importação via planilha
+- [ ] Documentação técnica e de usuário
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+---
+
+<p align="center">
+  Class Cash — Gestão financeira escolar simplificada
+</p>
