@@ -5,6 +5,7 @@ import { useSchool } from '@/contexts/SchoolContext';
 import { useMasterAdmin } from '@/contexts/MasterAdminContext';
 import { useRole, type AppRole } from '@/hooks/use-role';
 
+
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requireSchool?: boolean;
@@ -13,14 +14,14 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireSchool, requireMasterAdmin, allowedRoles }) => {
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { schoolStatus, loading: schoolLoading } = useSchool();
-  const { isMasterAdmin } = useMasterAdmin();
+  const { isMasterAdmin, viewingSchoolId } = useMasterAdmin();
   const { role, isOwner } = useRole();
   const location = useLocation();
 
-  // Wait for auth; if requireSchool, also wait for school lookup
-  if (authLoading || (requireSchool && schoolLoading)) {
+  // Always wait for auth to finish
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
@@ -35,14 +36,40 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireSchool
     return <Navigate to="/dashboard" replace />;
   }
 
-  // School not found: master admin → /master, others → /onboarding
+  // Master admin with viewingSchoolId: wait for school to load, then let through
+  if (requireSchool && isMasterAdmin && viewingSchoolId) {
+    if (schoolLoading) {
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+        </div>
+      );
+    }
+    // School loaded or error — let through regardless (master always has access)
+    return <>{children}</>;
+  }
+
+  // Master admin without viewingSchoolId: send to /master
+  if (requireSchool && isMasterAdmin && !viewingSchoolId) {
+    return <Navigate to="/master" replace />;
+  }
+
+  // Regular user: wait for school lookup
+  if (requireSchool && schoolLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  // Regular user: school not found → onboarding
   if (requireSchool && schoolStatus === 'not_found' && location.pathname !== '/onboarding') {
-    if (isMasterAdmin) return <Navigate to="/master" replace />;
     return <Navigate to="/onboarding" replace />;
   }
 
-  // Role guard — owner and master admin always bypass
-  if (allowedRoles && !isOwner && !isMasterAdmin && role && !allowedRoles.includes(role)) {
+  // Role guard — owner always bypasses
+  if (allowedRoles && !isOwner && role && !allowedRoles.includes(role)) {
     return <Navigate to="/dashboard" replace />;
   }
 
