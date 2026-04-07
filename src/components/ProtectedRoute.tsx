@@ -20,6 +20,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireSchool
   const { role, isOwner } = useRole();
   const location = useLocation();
 
+  console.log('[ProtectedRoute]', location.pathname, { authLoading, schoolStatus, schoolLoading, isMasterAdmin, viewingSchoolId });
+
   // Always wait for auth to finish
   if (authLoading) {
     return (
