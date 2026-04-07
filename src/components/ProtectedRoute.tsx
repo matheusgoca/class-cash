@@ -2,17 +2,20 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSchool } from '@/contexts/SchoolContext';
+import { useMasterAdmin } from '@/contexts/MasterAdminContext';
 import { useRole, type AppRole } from '@/hooks/use-role';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requireSchool?: boolean;
+  requireMasterAdmin?: boolean;
   allowedRoles?: AppRole[];
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireSchool, allowedRoles }) => {
-  const { user, loading: authLoading } = useAuth();
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireSchool, requireMasterAdmin, allowedRoles }) => {
+  const { user, profile, loading: authLoading } = useAuth();
   const { schoolStatus, loading: schoolLoading } = useSchool();
+  const { isMasterAdmin } = useMasterAdmin();
   const { role, isOwner } = useRole();
   const location = useLocation();
 
@@ -27,13 +30,19 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireSchool
 
   if (!user) return <Navigate to="/auth" replace />;
 
-  // Only redirect to onboarding when school is definitively not found
+  // Master admin guard
+  if (requireMasterAdmin && !isMasterAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  // School not found: master admin → /master, others → /onboarding
   if (requireSchool && schoolStatus === 'not_found' && location.pathname !== '/onboarding') {
+    if (isMasterAdmin) return <Navigate to="/master" replace />;
     return <Navigate to="/onboarding" replace />;
   }
 
-  // Role guard — owner always bypasses
-  if (allowedRoles && !isOwner && role && !allowedRoles.includes(role)) {
+  // Role guard — owner and master admin always bypass
+  if (allowedRoles && !isOwner && !isMasterAdmin && role && !allowedRoles.includes(role)) {
     return <Navigate to="/dashboard" replace />;
   }
 

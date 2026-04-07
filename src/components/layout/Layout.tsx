@@ -1,5 +1,6 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
+import { MasterBanner } from "./MasterBanner";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { ReactNode } from "react";
 import { useLocation } from "react-router-dom";
@@ -31,6 +32,7 @@ export function Layout({ children }: LayoutProps) {
         <AppSidebar />
 
         <div className="flex flex-1 flex-col">
+          <MasterBanner />
           <header className="flex h-14 items-center gap-4 border-b bg-background px-4 lg:px-6">
             <SidebarTrigger className="md:hidden" />
             <div className="flex-1 flex items-center gap-3">

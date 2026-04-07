@@ -8,6 +8,7 @@ export interface Profile {
   full_name: string;
   email: string;
   school_id: string | null;
+  is_master_admin: boolean;
 }
 
 interface AuthContextType {
@@ -43,7 +44,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .maybeSingle();
 
       if (error) throw error;
-      setProfile(data ?? null);
+      setProfile(data ? { ...data, is_master_admin: data.is_master_admin ?? false } : null);
     } catch (err) {
       console.error('fetchProfile error:', err);
       setProfile(null);

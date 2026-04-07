@@ -13,9 +13,11 @@ import {
   FileText,
   Receipt,
   BarChart3,
+  ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSchool } from "@/contexts/SchoolContext";
+import { useMasterAdmin } from "@/contexts/MasterAdminContext";
 import { useRole, type AppRole } from "@/hooks/use-role";
 
 import {
@@ -88,6 +90,7 @@ const menuItems: MenuItem[] = [
 export function AppSidebar() {
   const { signOut, profile } = useAuth();
   const { school } = useSchool();
+  const { isMasterAdmin } = useMasterAdmin();
   const { role, hasRole } = useRole();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
@@ -140,6 +143,19 @@ export function AppSidebar() {
 
       <SidebarContent className="px-2 py-4">
         <SidebarMenu>
+          {isMasterAdmin && (
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild>
+                <NavLink
+                  to="/master"
+                  className={`flex items-center gap-2 ${getNavCls(isActive("/master"))} text-amber-600`}
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  {!collapsed && <span className="font-semibold">Painel Master</span>}
+                </NavLink>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
           {visibleItems.map((item) => (
             <SidebarMenuItem key={item.title}>
               {item.items ? (

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
+import { useMasterAdmin } from './MasterAdminContext';
 
 export interface School {
   id: string;
@@ -30,10 +31,29 @@ export const useSchool = () => {
 
 export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading: authLoading } = useAuth();
+  const { isMasterAdmin, viewingSchoolId } = useMasterAdmin();
   const [school, setSchool]           = useState<School | null>(null);
   const [schoolStatus, setSchoolStatus] = useState<SchoolStatus>('loading');
 
   const fetchSchool = async () => {
+    // Master admin viewing a specific school — bypass normal lookup
+    if (isMasterAdmin && viewingSchoolId) {
+      const { data: schoolData, error: schoolError } = await (supabase as any)
+        .from('schools')
+        .select('id, name, segments, logo_url, owner_user_id')
+        .eq('id', viewingSchoolId)
+        .maybeSingle();
+
+      if (schoolError || !schoolData) {
+        console.error('[SchoolContext] master viewing school error:', schoolError?.message);
+        setSchoolStatus('error');
+        return;
+      }
+      setSchool({ ...schoolData, segments: schoolData.segments ?? [] });
+      setSchoolStatus('found');
+      return;
+    }
+
     if (!user) {
       setSchool(null);
       setSchoolStatus('not_found');
@@ -115,7 +135,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (authLoading) return;
     setSchoolStatus('loading');
     fetchSchool();
-  }, [user, authLoading]);
+  }, [user, authLoading, viewingSchoolId]);
 
   const loading = authLoading || schoolStatus === 'loading';
 
