@@ -13,6 +13,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { useMasterAdmin } from "@/contexts/MasterAdminContext";
+import { useSchool } from "@/contexts/SchoolContext";
 
 interface SchoolRow {
   id: string;
@@ -43,16 +44,25 @@ export default function MasterAdmin() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { enterSchool } = useMasterAdmin();
+  const { school } = useSchool();
 
   const [schools, setSchools] = useState<SchoolRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingSchool, setEditingSchool] = useState<SchoolRow | null>(null);
   const [editForm, setEditForm] = useState({ name: "", plan: "starter", status: "active" });
   const [saving, setSaving] = useState(false);
+  const [waitingForSchool, setWaitingForSchool] = useState(false);
 
   useEffect(() => {
     fetchSchools();
   }, []);
+
+  useEffect(() => {
+    if (waitingForSchool && school) {
+      setWaitingForSchool(false);
+      navigate("/dashboard");
+    }
+  }, [waitingForSchool, school]);
 
   const fetchSchools = async () => {
     setLoading(true);
@@ -138,9 +148,9 @@ export default function MasterAdmin() {
     }
   };
 
-  const handleEnterSchool = (school: SchoolRow) => {
-    enterSchool(school.id, school.name);
-    navigate("/dashboard");
+  const handleEnterSchool = (schoolRow: SchoolRow) => {
+    setWaitingForSchool(true);
+    enterSchool(schoolRow.id, schoolRow.name);
   };
 
   return (
