@@ -25,6 +25,7 @@ import Landing from "./pages/Landing";
 import NotFound from "./pages/NotFound";
 import AdminSyncTuitions from "./pages/AdminSyncTuitions";
 import MasterAdmin from "./pages/MasterAdmin";
+import Team from "./pages/Team";
 
 const queryClient = new QueryClient();
 
@@ -133,6 +134,16 @@ const App = () => (
                   element={
                     <ProtectedRoute requireSchool>
                       <AdminSyncTuitions />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/equipe"
+                  element={
+                    <ProtectedRoute requireSchool allowedRoles={['admin']}>
+                      <Layout>
+                        <Team />
+                      </Layout>
                     </ProtectedRoute>
                   }
                 />

@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { DollarSign } from 'lucide-react';
 
 const Auth = () => {
@@ -14,6 +15,73 @@ const Auth = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
+
+  // Detecta convite aceito: Supabase redireciona com #access_token&type=invite
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash.includes("type=invite") && !hash.includes("type=signup")) return;
+
+    const params = new URLSearchParams(hash.replace("#", ""));
+    const accessToken = params.get("access_token");
+    const refreshToken = params.get("refresh_token");
+    if (!accessToken || !refreshToken) return;
+
+    const linkInvite = async () => {
+      setLoading(true);
+
+      // Seta a sessão manualmente com os tokens do hash
+      const { data: { session }, error: sessionError } =
+        await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+
+      if (sessionError || !session) {
+        setError("Erro ao processar o convite. Tente fazer login normalmente.");
+        setLoading(false);
+        return;
+      }
+
+      const uid   = session.user.id;
+      const email = session.user.email!;
+
+      // Busca o convite pendente pelo email
+      const { data: invite } = await (supabase as any)
+        .from("invitations")
+        .select("id, school_id, role")
+        .eq("email", email)
+        .eq("status", "pending")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!invite) {
+        // Sem convite pendente — fluxo normal (ex.: confirmação de cadastro)
+        navigate("/dashboard", { replace: true });
+        setLoading(false);
+        return;
+      }
+
+      // Vincula escola ao profile (trigger já criou o registro)
+      await (supabase as any)
+        .from("profiles")
+        .update({ school_id: invite.school_id })
+        .eq("user_id", uid);
+
+      // Atribui role
+      await supabase
+        .from("user_roles")
+        .insert({ user_id: uid, role: invite.role });
+
+      // Marca convite como aceito
+      await (supabase as any)
+        .from("invitations")
+        .update({ status: "accepted" })
+        .eq("id", invite.id);
+
+      navigate("/dashboard", { replace: true });
+      setLoading(false);
+    };
+
+    linkInvite();
+  }, []);
 
   useEffect(() => {
     if (user) navigate('/');
