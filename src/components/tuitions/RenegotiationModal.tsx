@@ -52,19 +52,28 @@ export function RenegotiationModal({
 
   const fetchOverdueTuitions = async () => {
     setLoadingTuitions(true);
+    // Busca tanto status='overdue' (gravado no banco) quanto
+    // status='pending' com due_date no passado (calculado em runtime)
     const { data, error } = await supabase
       .from("tuitions")
-      .select("id, amount, final_amount, due_date, contract_id")
+      .select("id, amount, final_amount, due_date, contract_id, status")
       .eq("student_id", studentId)
       .eq("school_id", schoolId)
-      .eq("status", "pending")
-      .lt("due_date", today)
+      .in("status", ["pending", "overdue"])
       .order("due_date");
+
+    console.log("[RenegotiationModal] student_id:", studentId, "school_id:", schoolId);
+    console.log("[RenegotiationModal] query result:", { data, error });
 
     if (error) {
       toast({ title: "Erro", description: "Não foi possível carregar mensalidades em atraso.", variant: "destructive" });
     } else {
-      setOverdueTuitions(data || []);
+      // Inclui status='overdue' E pending com due_date < hoje
+      const overdue = (data || []).filter(
+        (t) => t.status === "overdue" || new Date(t.due_date) < new Date()
+      );
+      console.log("[RenegotiationModal] overdue after filter:", overdue);
+      setOverdueTuitions(overdue);
     }
     setLoadingTuitions(false);
   };
@@ -113,7 +122,7 @@ export function RenegotiationModal({
 
       if (renegError) throw renegError;
 
-      // 2. Cancel all overdue tuitions, linking to this renegotiation
+      // 2. Cancel all overdue tuitions (status 'overdue' or 'pending' past due), linking to this renegotiation
       const { error: cancelError } = await supabase
         .from("tuitions")
         .update({ status: "cancelled", renegotiation_id: reneg.id })
