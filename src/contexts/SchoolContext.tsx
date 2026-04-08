@@ -36,14 +36,6 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [schoolStatus, setSchoolStatus] = useState<SchoolStatus>('loading');
 
   const fetchSchool = async () => {
-    // Master admin without a viewing school — no school context, go to /master
-    if (isMasterAdmin && !viewingSchoolId) {
-      console.log('[SchoolContext] master admin, no viewingSchoolId — skipping lookup');
-      setSchool(null);
-      setSchoolStatus('not_found');
-      return;
-    }
-
     // Master admin viewing a specific school — bypass normal lookup
     if (isMasterAdmin && viewingSchoolId) {
       const { data: schoolData, error: schoolError } = await (supabase as any)
