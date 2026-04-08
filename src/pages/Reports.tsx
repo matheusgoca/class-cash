@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Download, FileText, FileSpreadsheet, ArrowUpDown, AlertTriangle, ExternalLink } from "lucide-react";
+import { Download, FileText, FileSpreadsheet, ArrowUpDown, AlertTriangle, ExternalLink, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import Papa from "papaparse";
@@ -17,6 +17,7 @@ import * as XLSX from "xlsx";
 import { ClassProfitability } from "@/components/reports/ClassProfitability";
 import { PaginationCompact } from "@/components/ui/pagination-compact";
 import { useSchool } from "@/contexts/SchoolContext";
+import { RenegotiationModal } from "@/components/tuitions/RenegotiationModal";
 
 interface TuitionReport {
   id: string;
@@ -61,10 +62,16 @@ interface DefaulterRow {
   mais_antiga: string; // YYYY-MM-DD
 }
 
+interface RenegotiationTarget {
+  studentId: string;
+  studentName: string;
+}
+
 const Reports = () => {
   const navigate = useNavigate();
   const { schoolId } = useSchool();
   const [data, setData] = useState<TuitionReport[]>([]);
+  const [renegotiationTarget, setRenegotiationTarget] = useState<RenegotiationTarget | null>(null);
   const [filteredData, setFilteredData] = useState<TuitionReport[]>([]);
   const [classes, setClasses] = useState<ClassOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,18 +91,18 @@ const Reports = () => {
 
   // Build defaulters list from already-fetched data (no extra query needed)
   const defaulters = useMemo((): DefaulterRow[] => {
-    const map = new Map<string, DefaulterRow & { student_id: string }>();
+    const map = new Map<string, DefaulterRow>();
     for (const item of data) {
       if (item.status !== 'overdue') continue;
-      const existing = map.get(item.student_name);
+      const existing = map.get(item.student_id);
       if (existing) {
         existing.parcelas += 1;
         existing.valor_aberto += item.amount;
         if (item.due_date < existing.mais_antiga) existing.mais_antiga = item.due_date;
         if (!existing.class_name && item.class_name) existing.class_name = item.class_name;
       } else {
-        map.set(item.student_name, {
-          student_id: item.student_name, // used as key only
+        map.set(item.student_id, {
+          student_id: item.student_id,
           student_name: item.student_name,
           class_name: item.class_name,
           parcelas: 1,
@@ -641,7 +648,7 @@ const Reports = () => {
                       const [y, m] = row.mais_antiga.split('-').map(Number);
                       const mesLabel = new Date(y, m - 1, 1).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
                       return (
-                        <TableRow key={row.student_name}>
+                        <TableRow key={row.student_id}>
                           <TableCell className="font-medium">{row.student_name}</TableCell>
                           <TableCell>{row.class_name || '—'}</TableCell>
                           <TableCell>
@@ -652,15 +659,26 @@ const Reports = () => {
                           <TableCell className="font-semibold text-red-600">{formatCurrency(row.valor_aberto)}</TableCell>
                           <TableCell className="capitalize">{mesLabel}</TableCell>
                           <TableCell>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => navigate(`/mensalidades?search=${encodeURIComponent(row.student_name)}`)}
-                              className="gap-1"
-                            >
-                              <ExternalLink className="h-3 w-3" />
-                              Ver mensalidades
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => navigate(`/mensalidades?search=${encodeURIComponent(row.student_name)}`)}
+                                className="gap-1"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                                Ver mensalidades
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setRenegotiationTarget({ studentId: row.student_id, studentName: row.student_name })}
+                                className="gap-1 text-purple-600 hover:text-purple-700"
+                              >
+                                <RefreshCw className="h-3 w-3" />
+                                Renegociar
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
@@ -785,6 +803,15 @@ const Reports = () => {
           )}
         </CardContent>
       </Card>
+      {renegotiationTarget && schoolId && (
+        <RenegotiationModal
+          studentId={renegotiationTarget.studentId}
+          studentName={renegotiationTarget.studentName}
+          schoolId={schoolId}
+          onSuccess={() => { setRenegotiationTarget(null); fetchData(); }}
+          onClose={() => setRenegotiationTarget(null)}
+        />
+      )}
     </div>
   );
 };

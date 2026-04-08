@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { TuitionForm } from "@/components/tuitions/TuitionForm";
 import { TuitionTable } from "@/components/tuitions/TuitionTable";
+import { RenegotiationModal } from "@/components/tuitions/RenegotiationModal";
 import { useToast } from "@/hooks/use-toast";
 
 interface TuitionData {
@@ -22,9 +23,17 @@ interface TuitionData {
   discount_applied: number;
   penalty_amount: number;
   final_amount: number;
+  renegotiation_id: string | null;
+  renegotiations?: {
+    created_at: string;
+    new_installment_amount: number;
+    installments: number;
+    total_renegotiated: number;
+    notes: string | null;
+  } | null;
   students: {
     name: string | null;
-    full_name?: string;
+    full_name?: string | null;
     classes?: { name: string } | null;
   } | null;
   contracts: {
@@ -54,6 +63,7 @@ const Tuitions = () => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingTuition, setEditingTuition] = useState<TuitionData | null>(null);
+  const [renegotiatingTuition, setRenegotiatingTuition] = useState<TuitionData | null>(null);
 
   useEffect(() => {
     if (schoolId) fetchTuitions();
@@ -77,6 +87,14 @@ const Tuitions = () => {
           discount_applied,
           penalty_amount,
           final_amount,
+          renegotiation_id,
+          renegotiations (
+            created_at,
+            new_installment_amount,
+            installments,
+            total_renegotiated,
+            notes
+          ),
           students (
             name,
             full_name,
@@ -99,6 +117,8 @@ const Tuitions = () => {
         return {
           ...item,
           status: (isOverdue ? "overdue" : item.status) as "pending" | "paid" | "overdue" | "cancelled",
+          renegotiation_id: item.renegotiation_id ?? null,
+          renegotiations: Array.isArray(item.renegotiations) ? item.renegotiations[0] || null : (item.renegotiations ?? null),
           students: Array.isArray(item.students) ? item.students[0] || null : item.students,
           contracts: Array.isArray(item.contracts) ? item.contracts[0] || null : item.contracts,
         };
@@ -228,8 +248,19 @@ const Tuitions = () => {
         loading={loading}
         onEdit={handleEdit}
         onRefresh={fetchTuitions}
+        onRenegotiate={(t) => setRenegotiatingTuition(t)}
         initialSearch={initialSearch}
       />
+
+      {renegotiatingTuition && schoolId && (
+        <RenegotiationModal
+          studentId={renegotiatingTuition.student_id}
+          studentName={renegotiatingTuition.students?.full_name ?? renegotiatingTuition.students?.name ?? "Aluno"}
+          schoolId={schoolId}
+          onSuccess={() => { setRenegotiatingTuition(null); fetchTuitions(); }}
+          onClose={() => setRenegotiatingTuition(null)}
+        />
+      )}
 
       {showForm && editingTuition && (
         <Dialog open={showForm} onOpenChange={setShowForm}>

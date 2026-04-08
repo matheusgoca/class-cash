@@ -429,6 +429,63 @@ export type Database = {
           },
         ]
       }
+      renegotiations: {
+        Row: {
+          id: string
+          student_id: string
+          school_id: string
+          original_amount: number
+          new_installment_amount: number
+          installments: number
+          total_renegotiated: number
+          first_due_date: string
+          notes: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          student_id: string
+          school_id: string
+          original_amount: number
+          new_installment_amount: number
+          installments: number
+          total_renegotiated: number
+          first_due_date: string
+          notes?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          student_id?: string
+          school_id?: string
+          original_amount?: number
+          new_installment_amount?: number
+          installments?: number
+          total_renegotiated?: number
+          first_due_date?: string
+          notes?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "renegotiations_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "renegotiations_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tuitions: {
         Row: {
           amount: number
@@ -443,6 +500,7 @@ export type Database = {
           paid_date: string | null
           payment_method: string | null
           penalty_amount: number | null
+          renegotiation_id: string | null
           school_id: string
           status: string
           student_id: string
@@ -461,6 +519,7 @@ export type Database = {
           paid_date?: string | null
           payment_method?: string | null
           penalty_amount?: number | null
+          renegotiation_id?: string | null
           school_id: string
           status?: string
           student_id: string
@@ -479,6 +538,7 @@ export type Database = {
           paid_date?: string | null
           payment_method?: string | null
           penalty_amount?: number | null
+          renegotiation_id?: string | null
           school_id?: string
           status?: string
           student_id?: string
@@ -504,6 +564,13 @@ export type Database = {
             columns: ["school_id"]
             isOneToOne: false
             referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tuitions_renegotiation_id_fkey"
+            columns: ["renegotiation_id"]
+            isOneToOne: false
+            referencedRelation: "renegotiations"
             referencedColumns: ["id"]
           },
         ]

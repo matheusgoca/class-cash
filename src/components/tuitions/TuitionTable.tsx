@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { PaginationCompact } from "@/components/ui/pagination-compact";
-import { ArrowUpDown, Edit, CheckCircle, Search } from "lucide-react";
+import { ArrowUpDown, Edit, CheckCircle, Search, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
@@ -25,8 +26,17 @@ interface TuitionData {
   discount_applied: number;
   penalty_amount: number;
   final_amount: number;
+  renegotiation_id: string | null;
+  renegotiations?: {
+    created_at: string;
+    new_installment_amount: number;
+    installments: number;
+    total_renegotiated: number;
+    notes: string | null;
+  } | null;
   students: {
-    full_name: string;
+    name?: string | null;
+    full_name?: string | null;
     classes?: {
       name: string;
     } | null;
@@ -42,12 +52,13 @@ interface TuitionTableProps {
   loading: boolean;
   onEdit: (tuition: TuitionData) => void;
   onRefresh: () => void;
+  onRenegotiate?: (tuition: TuitionData) => void;
   initialSearch?: string;
 }
 
 type SortField = 'student_name' | 'class_name' | 'amount' | 'status' | 'due_date' | 'paid_date';
 
-export function TuitionTable({ data, loading, onEdit, onRefresh, initialSearch = "" }: TuitionTableProps) {
+export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, initialSearch = "" }: TuitionTableProps) {
   const { toast } = useToast();
   const [sortField, setSortField] = useState<SortField>("due_date");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
@@ -96,6 +107,26 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, initialSearch =
       case "overdue":
         return <Badge className="bg-red-500 text-white">Atrasado</Badge>;
       case "cancelled":
+        if (tuition.renegotiation_id && tuition.renegotiations) {
+          const r = tuition.renegotiations;
+          const dateLabel = format(new Date(r.created_at), "dd/MM/yyyy", { locale: ptBR });
+          const fmtCurrency = (v: number) =>
+            new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+          return (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge className="bg-purple-600 text-white cursor-default">Renegociada</Badge>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs text-xs space-y-1">
+                  <p className="font-semibold">Renegociação em {dateLabel}</p>
+                  <p>{r.installments}x de {fmtCurrency(r.new_installment_amount)} = {fmtCurrency(r.total_renegotiated)}</p>
+                  {r.notes && <p className="text-muted-foreground">{r.notes}</p>}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          );
+        }
         return <Badge className="bg-gray-500 text-white">Cancelado</Badge>;
       default:
         return <Badge variant="secondary">{tuition.status}</Badge>;
@@ -142,30 +173,6 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, initialSearch =
     }
   };
 
-  const handleDelete = async (tuition: TuitionData) => {
-    try {
-      const { error } = await supabase
-        .from('tuitions')
-        .delete()
-        .eq('id', tuition.id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Sucesso",
-        description: "Mensalidade excluída com sucesso!",
-      });
-
-      onRefresh();
-    } catch (error) {
-      console.error('Error deleting tuition:', error);
-      toast({
-        title: "Erro",
-        description: "Erro ao excluir mensalidade",
-        variant: "destructive",
-      });
-    }
-  };
 
   // Filter data
   const filteredData = data.filter(t => {
@@ -403,7 +410,19 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, initialSearch =
                             <CheckCircle className="h-4 w-4" />
                           </Button>
                         )}
-                        
+
+                        {isOverdue && onRenegotiate && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => onRenegotiate(tuition)}
+                            className="text-purple-600 hover:text-purple-700 gap-1"
+                          >
+                            <RefreshCw className="h-3 w-3" />
+                            Renegociar
+                          </Button>
+                        )}
+
                         {tuition.status !== "paid" && tuition.status !== "cancelled" && (
                           <Button
                             size="sm"
