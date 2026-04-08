@@ -24,7 +24,8 @@ serve(async (req) => {
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
     // Valida que quem chama é admin ou owner da escola
@@ -32,13 +33,10 @@ serve(async (req) => {
     if (!authHeader) {
       return Response.json({ error: "Não autorizado" }, { status: 401, headers: corsHeaders });
     }
-    const supabaseUser = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
 
-    const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
+    // Usa o admin client para verificar o JWT do usuário — evita criar segundo client com anon key
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
     if (authError || !user) {
       return Response.json({ error: "Não autorizado" }, { status: 401, headers: corsHeaders });
     }
