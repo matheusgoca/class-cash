@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { addMonths, format } from "date-fns";
+import { addMonths, format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -132,24 +132,28 @@ export function RenegotiationModal({
 
       // 3. Generate new tuitions
       const contractId = overdueTuitions[0]?.contract_id ?? null;
-      const firstDate = new Date(firstDueDate + "T12:00:00"); // noon avoids DST edge
-      const newTuitions = Array.from({ length: parsedInstallments }, (_, i) => {
+      const firstDate = parseISO(firstDueDate); // YYYY-MM-DD → local date, no timezone shift
+      const numInstallments = Math.max(1, parseInt(installments) || 1);
+      const installmentAmount = parseFloat(newInstallmentAmount.replace(",", "."));
+      const newTuitions = [];
+      for (let i = 0; i < numInstallments; i++) {
         const dueDate = addMonths(firstDate, i);
-        return {
+        console.log(`[RenegotiationModal] parcela ${i + 1}: due_date=${format(dueDate, "yyyy-MM-dd")}`);
+        newTuitions.push({
           student_id: studentId,
           school_id: schoolId,
           contract_id: contractId,
-          amount: parsedInstallmentAmount,
-          final_amount: parsedInstallmentAmount,
+          amount: installmentAmount,
+          final_amount: installmentAmount,
           due_date: format(dueDate, "yyyy-MM-dd"),
           status: "pending",
-          description: `Parcela renegociada ${i + 1}/${parsedInstallments}`,
+          description: `Parcela renegociada ${i + 1}/${numInstallments}`,
           renegotiation_id: reneg.id,
           category: "tuition",
           discount_applied: 0,
           penalty_amount: 0,
-        };
-      });
+        });
+      }
 
       const { error: insertError } = await supabase.from("tuitions").insert(newTuitions);
       if (insertError) throw insertError;
