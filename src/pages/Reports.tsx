@@ -21,6 +21,7 @@ import { RenegotiationModal } from "@/components/tuitions/RenegotiationModal";
 
 interface TuitionReport {
   id: string;
+  student_id: string;
   student_name: string;
   class_name: string | null;
   amount: number;
@@ -136,9 +137,11 @@ const Reports = () => {
   }, [defaulters, data]);
 
   useEffect(() => {
-    fetchData();
-    fetchClasses();
-  }, []);
+    if (schoolId) {
+      fetchData();
+      fetchClasses();
+    }
+  }, [schoolId]);
 
   useEffect(() => {
     applyFilters();
@@ -152,9 +155,10 @@ const Reports = () => {
         supabase
           .from('tuitions')
           .select('id, amount, status, due_date, paid_date, description, student_id, contract_id')
+          .eq('school_id', schoolId!)
           .order('due_date', { ascending: false }),
-        supabase.from('students').select('id, full_name'),
-        (supabase as any).from('contracts').select('id, classes(name)'),
+        supabase.from('students').select('id, full_name').eq('school_id', schoolId!),
+        supabase.from('contracts').select('id, classes(name)').eq('school_id', schoolId!),
       ]);
 
       if (tuitionsRes.error) throw tuitionsRes.error;
@@ -174,6 +178,7 @@ const Reports = () => {
         const isOverdue = new Date(item.due_date) < new Date() && item.status === "pending";
         return {
           id: item.id,
+          student_id: item.student_id,
           student_name: studentMap[item.student_id] || 'N/A',
           class_name: contractClassMap[item.contract_id] ?? null,
           amount: Number(item.amount),
@@ -197,6 +202,7 @@ const Reports = () => {
       const { data: classesData, error } = await supabase
         .from('classes')
         .select('id, name')
+        .eq('school_id', schoolId!)
         .order('name');
 
       if (error) throw error;
