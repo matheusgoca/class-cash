@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Users, RefreshCw, Mail, Pencil, Trash2, UserSearch } from "lucide-react";
+import { UserPlus, Users, RefreshCw, Mail, Pencil, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -30,7 +30,7 @@ interface Invitation {
   created_at: string;
 }
 
-type ModalType = "invite" | "add-existing" | "edit-role" | "remove" | null;
+type ModalType = "invite" | "edit-role" | "remove" | null;
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Admin",
@@ -81,10 +81,6 @@ export default function Team() {
   // Invite form
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole]   = useState<"admin" | "financial">("financial");
-
-  // Add existing form
-  const [existingEmail, setExistingEmail] = useState("");
-  const [existingRole, setExistingRole]   = useState<"admin" | "financial">("financial");
 
   // Edit role
   const [newRole, setNewRole] = useState<"admin" | "financial">("financial");
@@ -153,8 +149,6 @@ export default function Team() {
     setSelectedMember(null);
     setInviteEmail("");
     setInviteRole("financial");
-    setExistingEmail("");
-    setExistingRole("financial");
   };
 
   // ── Convidar novo usuário ─────────────────────────────────────
@@ -191,12 +185,8 @@ export default function Team() {
 
     if (!res.ok) {
       if (json.error === "user_exists") {
-        // Convite já expirado pela Edge Function — abre modal de adicionar existente com email preenchido
         toast({ title: "Usuário já possui conta", description: json.message });
-        fetchInvitations(); // atualiza lista (convite sumiu)
-        setExistingEmail(invite.email);
-        setExistingRole(invite.role as "admin" | "financial");
-        setModal("add-existing");
+        fetchInvitations();
       } else {
         toast({ title: "Erro ao reenviar", description: json.error, variant: "destructive" });
       }
@@ -205,64 +195,6 @@ export default function Team() {
       fetchInvitations();
     }
     setResending(null);
-  };
-
-  // ── Adicionar usuário existente ───────────────────────────────
-  const handleAddExisting = async () => {
-    if (!existingEmail || !schoolId) return;
-    setSubmitting(true);
-
-    // Verifica se já é membro
-    const alreadyMember = members.some(m => m.email.toLowerCase() === existingEmail.toLowerCase());
-    if (alreadyMember) {
-      toast({ title: "Erro", description: "Este usuário já é membro da escola.", variant: "destructive" });
-      setSubmitting(false);
-      return;
-    }
-
-    // Busca o usuário pelo email via RPC SECURITY DEFINER
-    const { data: found, error: rpcError } = await (supabase as any)
-      .rpc("get_user_by_email", { p_email: existingEmail.toLowerCase() });
-
-    if (rpcError || !found || found.length === 0) {
-      toast({
-        title: "Usuário não encontrado",
-        description: "Nenhuma conta com este email. Use 'Convidar membro' para enviar um convite.",
-        variant: "destructive",
-      });
-      setSubmitting(false);
-      return;
-    }
-
-    const targetUserId = found[0].id;
-
-    // Vincula escola ao profile
-    const { error: profileError } = await (supabase as any)
-      .from("profiles")
-      .update({ school_id: schoolId })
-      .eq("user_id", targetUserId);
-
-    if (profileError) {
-      toast({ title: "Erro", description: profileError.message, variant: "destructive" });
-      setSubmitting(false);
-      return;
-    }
-
-    // Atribui role (upsert para evitar duplicata)
-    const { error: roleError } = await supabase
-      .from("user_roles")
-      .upsert({ user_id: targetUserId, role: existingRole as any }, { onConflict: "user_id,role" });
-
-    if (roleError) {
-      toast({ title: "Erro", description: roleError.message, variant: "destructive" });
-      setSubmitting(false);
-      return;
-    }
-
-    toast({ title: "Membro adicionado!", description: `${existingEmail} agora tem acesso à escola.` });
-    closeModal();
-    fetchMembers();
-    setSubmitting(false);
   };
 
   // ── Editar role ───────────────────────────────────────────────
@@ -299,18 +231,31 @@ export default function Team() {
   };
 
   const handleRemove = async () => {
-    if (!selectedMember) return;
+    if (!selectedMember || !schoolId) return;
     setSubmitting(true);
 
-    await supabase.from("user_roles").delete().eq("user_id", selectedMember.user_id);
-    await (supabase as any)
-      .from("profiles")
-      .update({ school_id: null })
-      .eq("user_id", selectedMember.user_id);
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/remove-user`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session?.access_token}`,
+          "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ user_id: selectedMember.user_id, school_id: schoolId }),
+      }
+    );
 
-    toast({ title: "Acesso removido", description: `${selectedMember.full_name} foi removido da escola.` });
-    closeModal();
-    fetchMembers();
+    const json = await res.json();
+    if (!res.ok) {
+      toast({ title: "Erro", description: json.error, variant: "destructive" });
+    } else {
+      toast({ title: "Usuário removido", description: `${selectedMember.full_name} foi excluído do sistema.` });
+      closeModal();
+      fetchMembers();
+    }
     setSubmitting(false);
   };
 
@@ -324,16 +269,10 @@ export default function Team() {
           <h1 className="text-3xl font-bold tracking-tight">Equipe</h1>
           <p className="text-muted-foreground">Gerencie os membros da sua escola</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setModal("add-existing")} className="gap-2">
-            <UserSearch className="h-4 w-4" />
-            Adicionar existente
-          </Button>
-          <Button onClick={() => setModal("invite")} className="gap-2">
-            <UserPlus className="h-4 w-4" />
-            Convidar membro
-          </Button>
-        </div>
+        <Button onClick={() => setModal("invite")} className="gap-2">
+          <UserPlus className="h-4 w-4" />
+          Convidar membro
+        </Button>
       </div>
 
       {/* Membros ativos */}
@@ -489,49 +428,6 @@ export default function Team() {
                 <Button variant="outline" onClick={closeModal} disabled={submitting}>Cancelar</Button>
                 <Button onClick={handleInvite} disabled={submitting || !inviteEmail}>
                   {submitting ? "Enviando..." : "Enviar convite"}
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {/* ── Modal: Adicionar usuário existente ── */}
-      {modal === "add-existing" && (
-        <Dialog open onOpenChange={closeModal}>
-          <DialogContent className="max-w-sm">
-            <DialogHeader>
-              <DialogTitle>Adicionar membro existente</DialogTitle>
-            </DialogHeader>
-            <p className="text-sm text-muted-foreground">
-              Para usuários que já têm conta no Class Cash.
-            </p>
-            <div className="space-y-4 pt-1">
-              <div className="space-y-1">
-                <Label htmlFor="existing-email">Email da conta</Label>
-                <Input
-                  id="existing-email"
-                  type="email"
-                  placeholder="colaborador@email.com"
-                  value={existingEmail}
-                  onChange={(e) => setExistingEmail(e.target.value)}
-                  disabled={submitting}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>Função</Label>
-                <Select value={existingRole} onValueChange={(v) => setExistingRole(v as any)} disabled={submitting}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="financial">Financeiro</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" onClick={closeModal} disabled={submitting}>Cancelar</Button>
-                <Button onClick={handleAddExisting} disabled={submitting || !existingEmail}>
-                  {submitting ? "Adicionando..." : "Adicionar"}
                 </Button>
               </div>
             </div>
