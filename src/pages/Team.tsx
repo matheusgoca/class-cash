@@ -172,6 +172,7 @@ export default function Team() {
   // ── Reenviar convite ──────────────────────────────────────────
   const handleResend = async (invite: Invitation) => {
     setResending(invite.id);
+    // Deleta convite antigo antes de tentar reenviar
     await (supabase as any).from("invitations").delete().eq("id", invite.id);
     const { data: { session } } = await supabase.auth.getSession();
     const res = await callInviteFunction(
@@ -179,8 +180,18 @@ export default function Team() {
       session?.access_token ?? ""
     );
     const json = await res.json();
+
     if (!res.ok) {
-      toast({ title: "Erro ao reenviar", description: json.error, variant: "destructive" });
+      if (json.error === "user_exists") {
+        // Convite já expirado pela Edge Function — abre modal de adicionar existente com email preenchido
+        toast({ title: "Usuário já possui conta", description: json.message });
+        fetchInvitations(); // atualiza lista (convite sumiu)
+        setExistingEmail(invite.email);
+        setExistingRole(invite.role as "admin" | "financial");
+        setModal("add-existing");
+      } else {
+        toast({ title: "Erro ao reenviar", description: json.error, variant: "destructive" });
+      }
     } else {
       toast({ title: "Convite reenviado!", description: `Novo link enviado para ${invite.email}.` });
       fetchInvitations();

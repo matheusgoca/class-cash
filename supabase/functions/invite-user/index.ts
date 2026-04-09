@@ -66,6 +66,27 @@ serve(async (req) => {
       );
     }
 
+    // Verifica se o email já existe em auth.users ANTES de tentar o convite
+    const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+    const userAlreadyExists = (existingUsers?.users ?? []).some(
+      (u: any) => u.email?.toLowerCase() === email.toLowerCase()
+    );
+
+    if (userAlreadyExists) {
+      // Expira qualquer convite pendente para esse email nessa escola
+      await supabaseAdmin
+        .from("invitations")
+        .update({ status: "expired" })
+        .eq("email", email)
+        .eq("school_id", school_id)
+        .eq("status", "pending");
+
+      return Response.json(
+        { error: "user_exists", message: "Este usuário já possui conta. Use 'Adicionar membro existente'." },
+        { status: 409, headers: corsHeaders }
+      );
+    }
+
     // Convite duplicado pendente?
     const { data: existing } = await supabaseAdmin
       .from("invitations")
@@ -88,12 +109,6 @@ serve(async (req) => {
     });
 
     if (inviteError) {
-      if (inviteError.message.toLowerCase().includes("already registered")) {
-        return Response.json(
-          { error: "Este email já possui uma conta. Use 'Adicionar membro existente' para dar acesso à escola." },
-          { status: 409, headers: corsHeaders }
-        );
-      }
       return Response.json({ error: inviteError.message }, { status: 400, headers: corsHeaders });
     }
 
