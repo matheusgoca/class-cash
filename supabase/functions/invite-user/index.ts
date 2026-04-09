@@ -87,7 +87,13 @@ serve(async (req) => {
       redirectTo: "https://class-cash-tan.vercel.app/auth",
     });
 
-    if (inviteError && !inviteError.message.toLowerCase().includes("already registered")) {
+    if (inviteError) {
+      if (inviteError.message.toLowerCase().includes("already registered")) {
+        return Response.json(
+          { error: "Este email já possui uma conta. Use 'Adicionar membro existente' para dar acesso à escola." },
+          { status: 409, headers: corsHeaders }
+        );
+      }
       return Response.json({ error: inviteError.message }, { status: 400, headers: corsHeaders });
     }
 
