@@ -19,7 +19,7 @@ interface Member {
   user_id: string;
   full_name: string;
   email: string;
-  role: string | null;
+  role: string; // always a real role — owner is excluded from this list
   created_at: string;
 }
 
@@ -38,12 +38,12 @@ const ROLE_LABELS: Record<string, string> = {
   teacher: "Professor",
 };
 
-const roleBadge = (role: string | null) => {
+const roleBadge = (role: string) => {
   switch (role) {
     case "admin":     return <Badge className="bg-blue-600 text-white">Admin</Badge>;
     case "financial": return <Badge className="bg-emerald-600 text-white">Financeiro</Badge>;
     case "teacher":   return <Badge className="bg-orange-500 text-white">Professor</Badge>;
-    default:          return <Badge variant="outline">Owner</Badge>;
+    default:          return <Badge variant="secondary">{role}</Badge>;
   }
 };
 
@@ -98,12 +98,17 @@ export default function Team() {
 
   const fetchMembers = async () => {
     setLoadingMembers(true);
+
+    // Busca profiles da escola
     const { data: profiles, error } = await (supabase as any)
       .from("profiles")
       .select("user_id, full_name, email, created_at")
       .eq("school_id", schoolId);
 
     if (error) { console.error("fetchMembers:", error); setLoadingMembers(false); return; }
+
+    // Owner real vem da tabela schools
+    const ownerUserId = school?.owner_user_id ?? null;
 
     const userIds = (profiles || []).map((p: any) => p.user_id);
     const { data: roles } = userIds.length
@@ -113,14 +118,17 @@ export default function Team() {
     const roleMap: Record<string, string> = {};
     (roles || []).forEach((r: any) => { roleMap[r.user_id] = r.role; });
 
+    // Exclui: o próprio owner (não precisa de role) e o usuário logado
+    // Inclui apenas quem tem role em user_roles
     setMembers(
       (profiles || [])
-        .filter((p: any) => p.user_id !== user?.id)
+        .filter((p: any) => p.user_id !== ownerUserId && p.user_id !== user?.id)
+        .filter((p: any) => roleMap[p.user_id] !== undefined)
         .map((p: any) => ({
           user_id: p.user_id,
           full_name: p.full_name || "—",
           email: p.email,
-          role: roleMap[p.user_id] ?? null,
+          role: roleMap[p.user_id],
           created_at: p.created_at,
         }))
     );
@@ -260,7 +268,7 @@ export default function Team() {
   // ── Editar role ───────────────────────────────────────────────
   const openEditRole = (m: Member) => {
     setSelectedMember(m);
-    setNewRole((m.role as "admin" | "financial") ?? "financial");
+    setNewRole(m.role === "admin" ? "admin" : "financial");
     setModal("edit-role");
   };
 
@@ -365,15 +373,13 @@ export default function Team() {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           {roleBadge(m.role)}
-                          {m.role !== null && (
-                            <button
-                              onClick={() => openEditRole(m)}
-                              className="text-muted-foreground hover:text-foreground transition-colors"
-                              title="Editar função"
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </button>
-                          )}
+                          <button
+                            onClick={() => openEditRole(m)}
+                            className="text-muted-foreground hover:text-foreground transition-colors"
+                            title="Editar função"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
                         </div>
                       </TableCell>
                       <TableCell>{fmt(m.created_at)}</TableCell>
