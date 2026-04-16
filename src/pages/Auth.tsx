@@ -102,8 +102,8 @@ const Auth = () => {
         .eq('id', invite.id);
     }
 
-    // 6. Redireciona — school_id já vinculado, não vai para onboarding
-    navigate('/dashboard', { replace: true });
+    // 6. Reload completo para SchoolContext recarregar com school_id já gravado
+    window.location.href = '/dashboard';
     setLoading(false);
   };
 
