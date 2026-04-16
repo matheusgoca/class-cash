@@ -30,17 +30,21 @@ const Auth = () => {
 
     if (type !== 'invite' || !accessToken || !refreshToken) return;
 
+    console.log('1. type=invite detectado');
+
     const initInvite = async () => {
       setLoading(true);
-      const { error: sessionError } = await supabase.auth.setSession({
+      const { data: session, error: sessionError } = await supabase.auth.setSession({
         access_token: accessToken,
         refresh_token: refreshToken,
       });
       if (sessionError) {
+        console.error('setSession ERRO:', sessionError);
         setError('Link de convite inválido ou expirado. Peça um novo convite.');
         setLoading(false);
         return;
       }
+      console.log('2. sessão setada:', session);
       setView('set-password');
       setLoading(false);
     };
@@ -74,7 +78,7 @@ const Auth = () => {
     const email = updateData.user!.email!;
 
     // 2. Busca convite pendente
-    const { data: invite } = await (supabase as any)
+    const { data: invite, error: inviteError } = await (supabase as any)
       .from('invitations')
       .select('id, school_id, role')
       .eq('email', email)
@@ -83,26 +87,36 @@ const Auth = () => {
       .limit(1)
       .maybeSingle();
 
+    console.log('3. convite encontrado:', invite, 'erro:', inviteError);
+
     if (invite) {
       // 3. Vincula escola ao profile
-      await (supabase as any)
+      const { error: profileError } = await (supabase as any)
         .from('profiles')
         .update({ school_id: invite.school_id })
         .eq('user_id', uid);
+      if (profileError) console.error('profiles ERRO:', profileError);
+      else console.log('4. profiles atualizado');
 
       // 4. Atribui role
-      await supabase
+      const { error: roleError } = await supabase
         .from('user_roles')
         .insert({ user_id: uid, role: invite.role });
+      if (roleError) console.error('user_roles ERRO:', roleError);
+      else console.log('5. user_roles inserido');
 
       // 5. Marca convite como aceito
-      await (supabase as any)
+      const { error: acceptError } = await (supabase as any)
         .from('invitations')
         .update({ status: 'accepted' })
         .eq('id', invite.id);
+      if (acceptError) console.error('invitations ERRO:', acceptError);
+    } else {
+      console.warn('Nenhum convite pendente encontrado para', email);
     }
 
-    // 6. Reload completo para SchoolContext recarregar com school_id já gravado
+    console.log('6. redirecionando para dashboard');
+    // Reload completo para SchoolContext recarregar com school_id já gravado
     window.location.href = '/dashboard';
     setLoading(false);
   };
