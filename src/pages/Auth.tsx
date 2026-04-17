@@ -51,6 +51,7 @@ const Auth = () => {
     if (password.length < 6)  { setError('A senha deve ter ao menos 6 caracteres.'); return; }
     if (!inviteTokens)        { setError('Tokens de convite ausentes. Tente o link novamente.'); return; }
 
+    console.log('handleSetPassword chamado — inviteTokens:', inviteTokens);
     setLoading(true);
     setError(null);
 
