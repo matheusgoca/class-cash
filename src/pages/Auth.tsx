@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,8 @@ const Auth = () => {
   const [confirm, setConfirm]   = useState('');
   // Tokens do convite — guardados para usar no submit (setSession adiado)
   const [inviteTokens, setInviteTokens] = useState<{ access: string; refresh: string } | null>(null);
+  // Ref síncrona: true durante todo o fluxo de convite, impede redirect do AuthContext
+  const isInviteFlow = useRef(false);
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
 
@@ -33,15 +35,16 @@ const Auth = () => {
     if (type !== 'invite' || !accessToken || !refreshToken) return;
 
     console.log('1. type=invite detectado — tokens guardados, aguardando senha');
+    isInviteFlow.current = true;
     setInviteTokens({ access: accessToken, refresh: refreshToken });
     setView('set-password');
     // Limpa o hash para não vazar tokens na URL
     window.history.replaceState(null, '', window.location.pathname);
   }, []);
 
-  // Redireciona usuário já logado (fora do fluxo de convite)
+  // Redireciona usuário já logado — ignora durante fluxo de convite
   useEffect(() => {
-    if (user && view === 'auth') navigate('/');
+    if (user && view === 'auth' && !isInviteFlow.current) navigate('/');
   }, [user, navigate, view]);
 
   // Submete nova senha: seta sessão, define senha, vincula escola, redireciona
