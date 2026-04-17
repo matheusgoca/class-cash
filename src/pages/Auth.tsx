@@ -18,10 +18,12 @@ const Auth = () => {
   const [view, setView]         = useState<View>('auth');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm]   = useState('');
+  // Tokens do convite — guardados para usar no submit (setSession adiado)
+  const [inviteTokens, setInviteTokens] = useState<{ access: string; refresh: string } | null>(null);
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
 
-  // Detecta type=invite no hash — mostra formulário de definir senha
+  // Detecta type=invite no hash — guarda tokens e mostra formulário SEM criar sessão ainda
   useEffect(() => {
     const hash = new URLSearchParams(window.location.hash.slice(1));
     const type         = hash.get('type');
@@ -30,26 +32,11 @@ const Auth = () => {
 
     if (type !== 'invite' || !accessToken || !refreshToken) return;
 
-    console.log('1. type=invite detectado');
-
-    const initInvite = async () => {
-      setLoading(true);
-      const { data: session, error: sessionError } = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      });
-      if (sessionError) {
-        console.error('setSession ERRO:', sessionError);
-        setError('Link de convite inválido ou expirado. Peça um novo convite.');
-        setLoading(false);
-        return;
-      }
-      console.log('2. sessão setada:', session);
-      setView('set-password');
-      setLoading(false);
-    };
-
-    initInvite();
+    console.log('1. type=invite detectado — tokens guardados, aguardando senha');
+    setInviteTokens({ access: accessToken, refresh: refreshToken });
+    setView('set-password');
+    // Limpa o hash para não vazar tokens na URL
+    window.history.replaceState(null, '', window.location.pathname);
   }, []);
 
   // Redireciona usuário já logado (fora do fluxo de convite)
@@ -57,27 +44,44 @@ const Auth = () => {
     if (user && view === 'auth') navigate('/');
   }, [user, navigate, view]);
 
-  // Submete nova senha e vincula escola
+  // Submete nova senha: seta sessão, define senha, vincula escola, redireciona
   const handleSetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirm) { setError('As senhas não coincidem.'); return; }
     if (password.length < 6)  { setError('A senha deve ter ao menos 6 caracteres.'); return; }
+    if (!inviteTokens)        { setError('Tokens de convite ausentes. Tente o link novamente.'); return; }
 
     setLoading(true);
     setError(null);
 
-    // 1. Define a senha
+    // 1. Seta a sessão com os tokens do convite (só agora, após o usuário ter digitado a senha)
+    console.log('2. setSession com tokens do convite...');
+    const { error: sessionError } = await supabase.auth.setSession({
+      access_token: inviteTokens.access,
+      refresh_token: inviteTokens.refresh,
+    });
+    if (sessionError) {
+      console.error('setSession ERRO:', sessionError);
+      setError('Link de convite inválido ou expirado. Peça um novo convite.');
+      setLoading(false);
+      return;
+    }
+    console.log('3. sessão setada');
+
+    // 2. Define a senha
     const { data: updateData, error: updateError } = await supabase.auth.updateUser({ password });
     if (updateError) {
+      console.error('updateUser ERRO:', updateError);
       setError(updateError.message);
       setLoading(false);
       return;
     }
+    console.log('4. senha definida');
 
     const uid   = updateData.user!.id;
     const email = updateData.user!.email!;
 
-    // 2. Busca convite pendente
+    // 3. Busca convite pendente
     const { data: invite, error: inviteError } = await (supabase as any)
       .from('invitations')
       .select('id, school_id, role')
@@ -87,38 +91,39 @@ const Auth = () => {
       .limit(1)
       .maybeSingle();
 
-    console.log('3. convite encontrado:', invite, 'erro:', inviteError);
+    console.log('5. convite encontrado:', invite, 'erro:', inviteError);
 
-    if (invite) {
-      // 3. Vincula escola ao profile
-      const { error: profileError } = await (supabase as any)
-        .from('profiles')
-        .update({ school_id: invite.school_id })
-        .eq('user_id', uid);
-      if (profileError) console.error('profiles ERRO:', profileError);
-      else console.log('4. profiles atualizado');
-
-      // 4. Atribui role
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .insert({ user_id: uid, role: invite.role });
-      if (roleError) console.error('user_roles ERRO:', roleError);
-      else console.log('5. user_roles inserido');
-
-      // 5. Marca convite como aceito
-      const { error: acceptError } = await (supabase as any)
-        .from('invitations')
-        .update({ status: 'accepted' })
-        .eq('id', invite.id);
-      if (acceptError) console.error('invitations ERRO:', acceptError);
-    } else {
-      console.warn('Nenhum convite pendente encontrado para', email);
+    if (!invite) {
+      console.warn('Nenhum convite pendente para', email, '— redirecionando assim mesmo');
+      window.location.href = '/dashboard';
+      return;
     }
 
-    console.log('6. redirecionando para dashboard');
+    // 4. Vincula school_id no profile
+    const { error: profileError } = await (supabase as any)
+      .from('profiles')
+      .update({ school_id: invite.school_id })
+      .eq('user_id', uid);
+    if (profileError) console.error('profiles ERRO:', profileError);
+    else console.log('6. profiles atualizado');
+
+    // 5. Insere role
+    const { error: roleError } = await supabase
+      .from('user_roles')
+      .upsert({ user_id: uid, role: invite.role });
+    if (roleError) console.error('user_roles ERRO:', roleError);
+    else console.log('7. user_roles inserido');
+
+    // 6. Marca convite como aceito
+    const { error: acceptError } = await (supabase as any)
+      .from('invitations')
+      .update({ status: 'accepted' })
+      .eq('id', invite.id);
+    if (acceptError) console.error('invitations ERRO:', acceptError);
+
+    console.log('8. redirecionando para dashboard');
     // Reload completo para SchoolContext recarregar com school_id já gravado
     window.location.href = '/dashboard';
-    setLoading(false);
   };
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
