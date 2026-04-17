@@ -136,8 +136,9 @@ const Auth = () => {
       console.log('8. redirecionando para dashboard');
       window.location.href = '/dashboard';
 
-    } catch (err) {
+    } catch (err: any) {
       console.error('=== ERRO em handleSetPassword:', err);
+      alert('ERRO: ' + (err?.message ?? JSON.stringify(err)));
       setError('Ocorreu um erro inesperado. Tente novamente.');
       setLoading(false);
     }
