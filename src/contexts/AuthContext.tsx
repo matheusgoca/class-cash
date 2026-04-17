@@ -43,6 +43,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('user_id', userId)
         .maybeSingle();
 
+      console.log('RAW profile data:', data);
+      console.log('RAW profile error:', error);
       if (error) throw error;
       const profile = data ? { ...data, is_master_admin: data.is_master_admin ?? false } : null;
       console.log('[AuthContext] profile loaded —', {
