@@ -17,7 +17,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireSchool
   const { user, loading: authLoading } = useAuth();
   const { schoolStatus, loading: schoolLoading } = useSchool();
   const { isMasterAdmin, viewingSchoolId } = useMasterAdmin();
-  const { role, isOwner } = useRole();
+  const { role, isOwner, roleLoading } = useRole();
   const location = useLocation();
 
   console.log('[ProtectedRoute]', location.pathname, { authLoading, schoolStatus, schoolLoading, isMasterAdmin, viewingSchoolId });
@@ -79,9 +79,18 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireSchool
     return <Navigate to="/onboarding" replace />;
   }
 
-  // Role guard — owner always bypasses
-  if (allowedRoles && !isOwner && role && !allowedRoles.includes(role)) {
-    return <Navigate to="/dashboard" replace />;
+  // Role guard — owner always bypasses; wait for role to load before enforcing
+  if (allowedRoles && !isOwner) {
+    if (roleLoading) {
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+        </div>
+      );
+    }
+    if (role && !allowedRoles.includes(role)) {
+      return <Navigate to="/dashboard" replace />;
+    }
   }
 
   return <>{children}</>;

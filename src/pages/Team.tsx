@@ -140,7 +140,11 @@ export default function Team() {
       .eq("status", "pending")
       .order("created_at", { ascending: false });
 
-    if (!error) setInvitations(data || []);
+    if (error) {
+      console.error('[Team] fetchInvitations error:', error);
+    } else {
+      setInvitations(data || []);
+    }
     setLoadingInvites(false);
   };
 
