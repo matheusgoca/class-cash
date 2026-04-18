@@ -80,7 +80,7 @@ const Auth = () => {
       console.log('3. sessão setada');
 
       // 2. Define a senha
-      const { data: updateData, error: updateError } = await supabase.auth.updateUser({ password });
+      const { error: updateError } = await supabase.auth.updateUser({ password });
       if (updateError) {
         console.error('updateUser ERRO:', updateError);
         setError(updateError.message);
@@ -89,51 +89,32 @@ const Auth = () => {
       }
       console.log('4. senha definida');
 
-      const uid   = updateData.user!.id;
-      const email = updateData.user!.email!;
-      console.log('uid:', uid, 'email:', email);
-
-      // 3. Busca convite pendente
-      const { data: invite, error: inviteError } = await (supabase as any)
-        .from('invitations')
-        .select('id, school_id, role')
-        .eq('email', email)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      console.log('5. convite encontrado:', invite, 'erro:', inviteError);
-
-      if (!invite) {
-        console.warn('Nenhum convite pendente para', email, '— redirecionando assim mesmo');
-        window.location.href = '/dashboard';
+      // 3. Chama edge function (service role) para vincular convite — RLS impediria acesso client-side
+      // refreshSession garante token rotacionado pelo updateUser — getSession pode ter o token antigo
+      console.log('5. chamando accept-invite...');
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError || !refreshData.session) {
+        console.error('refreshSession ERRO:', refreshError);
+        setError('Erro ao renovar sessão. Tente fazer login novamente.');
+        setLoading(false);
         return;
       }
+      const accessToken = refreshData.session.access_token;
 
-      // 4. Vincula school_id no profile
-      const { error: profileError } = await (supabase as any)
-        .from('profiles')
-        .update({ school_id: invite.school_id })
-        .eq('user_id', uid);
-      if (profileError) console.error('profiles ERRO:', profileError);
-      else console.log('6. profiles atualizado com school_id:', invite.school_id);
+      const fnRes = await supabase.functions.invoke('accept-invite', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
 
-      // 5. Insere role
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .upsert({ user_id: uid, role: invite.role });
-      if (roleError) console.error('user_roles ERRO:', roleError);
-      else console.log('7. user_roles inserido:', invite.role);
+      console.log('6. accept-invite resposta:', fnRes.data, 'erro:', fnRes.error);
 
-      // 6. Marca convite como aceito
-      const { error: acceptError } = await (supabase as any)
-        .from('invitations')
-        .update({ status: 'accepted' })
-        .eq('id', invite.id);
-      if (acceptError) console.error('invitations ERRO:', acceptError);
+      if (fnRes.error) {
+        console.error('accept-invite ERRO:', fnRes.error);
+        // Non-fatal if no invite found — redirect anyway
+      } else if (fnRes.data?.error === 'no_invite') {
+        console.warn('Nenhum convite pendente encontrado — redirecionando assim mesmo');
+      }
 
-      console.log('8. redirecionando para dashboard');
+      console.log('7. redirecionando para dashboard');
       window.location.href = '/dashboard';
 
     } catch (err: any) {
