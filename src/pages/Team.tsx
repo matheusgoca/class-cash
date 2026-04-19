@@ -132,10 +132,11 @@ export default function Team() {
   };
 
   const fetchInvitations = async () => {
+    if (!schoolId) return;
     setLoadingInvites(true);
     const { data, error } = await (supabase as any)
       .from("invitations")
-      .select("id, email, role, created_at")
+      .select("id, email, role, status, created_at")
       .eq("school_id", schoolId)
       .eq("status", "pending")
       .order("created_at", { ascending: false });

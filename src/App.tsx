@@ -82,7 +82,7 @@ const App = () => (
                 <Route
                   path="/professores"
                   element={
-                    <ProtectedRoute requireSchool allowedRoles={['admin']}>
+                    <ProtectedRoute requireSchool allowedRoles={['admin', 'financial']}>
                       <Layout>
                         <Teachers />
                       </Layout>
@@ -92,7 +92,7 @@ const App = () => (
                 <Route
                   path="/turmas"
                   element={
-                    <ProtectedRoute requireSchool allowedRoles={['admin', 'teacher']}>
+                    <ProtectedRoute requireSchool allowedRoles={['admin', 'financial', 'teacher']}>
                       <Layout>
                         <Classes />
                       </Layout>

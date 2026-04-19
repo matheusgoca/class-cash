@@ -79,8 +79,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireSchool
     return <Navigate to="/onboarding" replace />;
   }
 
-  // Role guard — owner always bypasses; wait for role to load before enforcing
-  if (allowedRoles && !isOwner) {
+  // Role guard — owner and master admin always bypass
+  if (allowedRoles && !isOwner && !isMasterAdmin) {
     if (roleLoading) {
       return (
         <div className="min-h-screen flex items-center justify-center">
