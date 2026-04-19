@@ -66,8 +66,8 @@ const menuItems: MenuItem[] = [
     icon: School,
     items: [
       { title: "Alunos",      url: "/alunos",      icon: Users,         roles: ['admin', 'financial', 'teacher'] },
-      { title: "Professores", url: "/professores", icon: GraduationCap, roles: ['admin'] },
-      { title: "Turmas",      url: "/turmas",      icon: BookOpen,      roles: ['admin', 'teacher'] },
+      { title: "Professores", url: "/professores", icon: GraduationCap, roles: ['admin', 'financial'] },
+      { title: "Turmas",      url: "/turmas",      icon: BookOpen,      roles: ['admin', 'financial', 'teacher'] },
       { title: "Equipe",      url: "/equipe",      icon: UserPlus,      roles: ['admin'] },
     ],
   },

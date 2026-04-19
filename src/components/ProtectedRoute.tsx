@@ -51,18 +51,10 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireSchool
     return <>{children}</>;
   }
 
-  // Master admin without viewingSchoolId: wait for school lookup (profile.school_id fallback)
-  // Only redirect to /master if school is definitively not found
+  // Master admin without viewingSchoolId: always redirect to /master
+  // They only access school content when viewingSchoolId is set (handled above)
   if (requireSchool && isMasterAdmin && !viewingSchoolId) {
-    if (schoolLoading) {
-      return (
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
-        </div>
-      );
-    }
-    if (schoolStatus === 'not_found') return <Navigate to="/master" replace />;
-    // school found via profile.school_id — let through
+    return <Navigate to="/master" replace />;
   }
 
   // Regular user: wait for school lookup
