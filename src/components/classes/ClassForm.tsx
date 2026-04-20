@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -55,11 +55,29 @@ export const ClassForm: React.FC<ClassFormProps> = ({
       grade:        classData?.grade       ?? null,
       description:  classData?.description ?? '',
       max_capacity: classData?.max_capacity ?? 30,
-      monthly_fee:  classData?.monthly_fee  ?? 0,
+      monthly_fee:  classData?.monthly_fee  ?? undefined,
       color:        classData?.color        ?? '#3B82F6',
       teacher_ids:  existingTeacherIds,
     },
   });
+
+  // Bug 2: reset form when classData changes (editing different record)
+  useEffect(() => {
+    if (classData) {
+      const teacherIds: string[] = (classData.class_teachers ?? [])
+        .map((ct: any) => ct.teacher_id ?? ct.teachers?.id)
+        .filter(Boolean);
+      form.reset({
+        name:         classData.name        ?? '',
+        grade:        classData.grade       ?? null,
+        description:  classData.description ?? '',
+        max_capacity: classData.max_capacity ?? 30,
+        monthly_fee:  classData.monthly_fee  ?? undefined,
+        color:        classData.color        ?? '#3B82F6',
+        teacher_ids:  teacherIds,
+      });
+    }
+  }, [classData?.id]);
 
   const selectedTeachers = form.watch('teacher_ids');
 
@@ -152,8 +170,12 @@ export const ClassForm: React.FC<ClassFormProps> = ({
               <FormItem>
                 <FormLabel>Mensalidade base (R$)</FormLabel>
                 <FormControl>
-                  <Input type="number" min="0" step="0.01" placeholder="0.00" {...field}
-                    onChange={e => field.onChange(parseFloat(e.target.value) || 0)} />
+                  <Input type="number" min="0" step="0.01" placeholder="0.00"
+                    value={field.value ?? ''}
+                    onChange={e => {
+                      const val = e.target.value;
+                      field.onChange(val === '' ? undefined : parseFloat(val));
+                    }} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

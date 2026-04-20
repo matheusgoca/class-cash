@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -42,6 +42,19 @@ export const TeacherForm: React.FC<TeacherFormProps> = ({
       status: teacher?.status || 'active',
     },
   });
+
+  // Bug 2: reset form when teacher changes (editing different record)
+  useEffect(() => {
+    if (teacher) {
+      form.reset({
+        full_name: teacher.full_name ?? '',
+        email:     teacher.email ?? '',
+        phone:     teacher.phone ?? '',
+        salary:    teacher.salary ?? undefined,
+        status:    teacher.status ?? 'active',
+      });
+    }
+  }, [teacher?.id]);
 
   return (
     <DialogContent className="sm:max-w-[560px]">

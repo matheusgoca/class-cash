@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -16,16 +16,16 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
 const studentSchema = z.object({
-  full_name:        z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
-  email:            z.string().email('Email inválido').optional().or(z.literal('')),
-  phone:            z.string().optional(),
-  birth_date:       z.date({ required_error: 'Data de nascimento é obrigatória' }),
-  enrollment_date:  z.date({ required_error: 'Data de matrícula é obrigatória' }),
-  guardian_contact: z.string().optional(),
-  class_id:         z.string().nullable(),
-  full_tuition_value: z.number().min(0, 'Valor deve ser positivo'),
-  discount:         z.number().min(0).max(100).optional(),
-  status:           z.enum(['active', 'inactive']),
+  full_name:          z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
+  email:              z.string().email('Email inválido').optional().or(z.literal('')),
+  phone:              z.string().optional(),
+  birth_date:         z.date({ required_error: 'Data de nascimento é obrigatória' }),
+  enrollment_date:    z.date({ required_error: 'Data de matrícula é obrigatória' }),
+  guardian_contact:   z.string().optional(),
+  class_id:           z.string().nullable(),
+  full_tuition_value: z.number().min(0, 'Valor deve ser positivo').optional(),
+  discount:           z.number().min(0).max(100).optional(),
+  status:             z.enum(['active', 'inactive']),
 });
 
 type StudentFormData = z.infer<typeof studentSchema>;
@@ -54,13 +54,31 @@ export const StudentForm: React.FC<StudentFormProps> = ({
       enrollment_date:    student?.enrollment_date ? new Date(student.enrollment_date) : new Date(),
       guardian_contact:   student?.guardian_contact ?? '',
       class_id:           student?.enrollment_class_id ?? null,
-      full_tuition_value: student?.full_tuition_value ?? 0,
-      discount:           student?.discount ?? 0,
+      full_tuition_value: student?.full_tuition_value ?? undefined,
+      discount:           student?.discount ?? undefined,
       status:             student?.status ?? 'active',
     },
   });
 
-  const fullTuitionValue = form.watch('full_tuition_value');
+  // Bug 2: reset form when student changes (editing different record)
+  useEffect(() => {
+    if (student) {
+      form.reset({
+        full_name:          student.full_name ?? '',
+        email:              student.email ?? '',
+        phone:              student.phone ?? '',
+        birth_date:         student.birth_date ? new Date(student.birth_date) : undefined,
+        enrollment_date:    student.enrollment_date ? new Date(student.enrollment_date) : new Date(),
+        guardian_contact:   student.guardian_contact ?? '',
+        class_id:           student.enrollment_class_id ?? null,
+        full_tuition_value: student.full_tuition_value ?? undefined,
+        discount:           student.discount ?? undefined,
+        status:             student.status ?? 'active',
+      });
+    }
+  }, [student?.id]);
+
+  const fullTuitionValue = form.watch('full_tuition_value') ?? 0;
   const discount         = form.watch('discount') ?? 0;
   const finalValue       = fullTuitionValue * (1 - discount / 100);
 
@@ -199,8 +217,11 @@ export const StudentForm: React.FC<StudentFormProps> = ({
                   <FormLabel>Mensalidade base (R$)</FormLabel>
                   <FormControl>
                     <Input type="number" min="0" step="0.01" placeholder="500.00"
-                      {...field} value={field.value}
-                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)} />
+                      value={field.value ?? ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        field.onChange(val === '' ? undefined : parseFloat(val));
+                      }} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -211,8 +232,11 @@ export const StudentForm: React.FC<StudentFormProps> = ({
                   <FormLabel>Desconto (%)</FormLabel>
                   <FormControl>
                     <Input type="number" min="0" max="100" step="0.01" placeholder="0"
-                      {...field} value={field.value}
-                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)} />
+                      value={field.value ?? ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        field.onChange(val === '' ? undefined : parseFloat(val));
+                      }} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
