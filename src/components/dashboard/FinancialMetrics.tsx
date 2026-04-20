@@ -52,6 +52,8 @@ export function FinancialMetrics() {
       if (tuitionsError) throw tuitionsError;
 
       const currentDate = new Date();
+      const currentYear  = currentDate.getFullYear();
+      const currentMonth = currentDate.getMonth(); // 0-indexed
 
       // Calculate revenue metrics from tuition records
       const totalRevenue = tuitions?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
@@ -67,11 +69,17 @@ export function FinancialMetrics() {
         )
       ).reduce((sum, t) => sum + Number(t.amount), 0) || 0;
 
-      // Calculate teacher salaries from salary column
+      // Monthly revenue: tuitions due in the current month (paid + pending)
+      const monthlyRevenue = tuitions?.filter((t: any) => {
+        const due = new Date(t.due_date);
+        return due.getFullYear() === currentYear && due.getMonth() === currentMonth;
+      }).reduce((sum: number, t: any) => sum + Number(t.amount), 0) || 0;
+
+      // Calculate teacher salaries from salary column (already monthly)
       const totalSalaries = teachers?.reduce((sum: number, t: any) => sum + (Number(t.salary) || 0), 0) || 0;
 
-      // Calculate financial balance (revenue - salaries)
-      const financialBalance = paidRevenue - totalSalaries;
+      // Financial balance: monthly revenue vs monthly salary cost (same period)
+      const financialBalance = monthlyRevenue - totalSalaries;
 
       setMetrics({
         totalRevenue,

@@ -64,9 +64,8 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
   } = useForm<ContractFormData>({
     resolver: zodResolver(contractSchema),
     defaultValues: {
-      status:   "active",
-      discount: 0,
-      due_day:  10,
+      status:  "active",
+      due_day: 10,
     },
   });
 
@@ -394,7 +393,7 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
             min="0"
             max="100"
             placeholder="0"
-            {...register("discount", { valueAsNumber: true })}
+            {...register("discount", { setValueAs: (v) => v === '' || v === undefined ? 0 : Number(v) })}
           />
           {errors.discount && (
             <p className="text-sm text-destructive">{errors.discount.message}</p>

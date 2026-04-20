@@ -38,7 +38,7 @@ export const TeacherForm: React.FC<TeacherFormProps> = ({
       full_name: teacher?.full_name || '',
       email: teacher?.email || '',
       phone: teacher?.phone || '',
-      salary: teacher?.salary || 0,
+      salary: teacher?.salary ?? undefined,
       status: teacher?.status || 'active',
     },
   });
@@ -115,8 +115,8 @@ export const TeacherForm: React.FC<TeacherFormProps> = ({
                     step="0.01"
                     placeholder="3000.00"
                     {...field}
-                    value={field.value}
-                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                    value={field.value ?? ''}
+                    onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}
                   />
                 </FormControl>
                 <FormMessage />
