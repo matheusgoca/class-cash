@@ -10,6 +10,7 @@ export function FinancialMetrics() {
   const [metrics, setMetrics] = useState({
     totalRevenue: 0,
     paidRevenue: 0,
+    monthlyRevenue: 0,
     pendingRevenue: 0,
     overdueRevenue: 0,
     totalStudents: 0,
@@ -84,6 +85,7 @@ export function FinancialMetrics() {
       setMetrics({
         totalRevenue,
         paidRevenue,
+        monthlyRevenue,
         pendingRevenue,
         overdueRevenue,
         totalStudents: students?.length || 0,
@@ -238,17 +240,17 @@ export function FinancialMetrics() {
                 <span>Receita vs Gastos</span>
                 <span className="font-medium">
                   {metrics.totalSalaries > 0
-                    ? `${((metrics.paidRevenue / metrics.totalSalaries) * 100).toFixed(1)}%`
+                    ? `${((metrics.monthlyRevenue / metrics.totalSalaries) * 100).toFixed(1)}%`
                     : '100%'
                   }
                 </span>
               </div>
               <Progress
-                value={metrics.totalSalaries > 0 ? (metrics.paidRevenue / metrics.totalSalaries) * 100 : 100}
+                value={metrics.totalSalaries > 0 ? Math.min((metrics.monthlyRevenue / metrics.totalSalaries) * 100, 100) : 100}
                 className="h-2"
               />
               <p className="text-xs text-muted-foreground">
-                Receita recebida vs salários pagos
+                Receita do mês vs salários mensais
               </p>
             </div>
 
