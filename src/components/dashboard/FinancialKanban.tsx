@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/contexts/SchoolContext";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, DollarSign, User, CheckCircle } from "lucide-react";
+import { Calendar, DollarSign, User, CheckCircle, BookOpen } from "lucide-react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -24,9 +24,15 @@ interface TuitionData {
   description: string;
   status: PaymentStatus;
   payment_method?: string;
+  class_id: string | null;
   students: {
     full_name: string;
   } | null;
+}
+
+interface ClassOption {
+  id: string;
+  name: string;
 }
 
 const statusConfig = {
@@ -120,10 +126,11 @@ function PaymentModal({ tuition, onConfirm, onCancel }: PaymentModalProps) {
 
 interface TuitionCardProps {
   tuition: TuitionData;
+  turmaName?: string | null;
   onRegisterPayment: (tuition: TuitionData) => void;
 }
 
-function TuitionCard({ tuition, onRegisterPayment }: TuitionCardProps) {
+function TuitionCard({ tuition, turmaName, onRegisterPayment }: TuitionCardProps) {
   const isOverdue = new Date(tuition.due_date) < new Date() && tuition.status === "pending";
 
   const formatCurrency = (value: number) => {
@@ -144,9 +151,9 @@ function TuitionCard({ tuition, onRegisterPayment }: TuitionCardProps) {
     <Card className="mb-3 hover:shadow-md transition-shadow">
       <CardContent className="p-4">
         <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <User className="h-4 w-4 text-muted-foreground" />
-            <span className="font-medium text-sm">{tuition.students?.full_name || 'Aluno não encontrado'}</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <User className="h-4 w-4 text-muted-foreground shrink-0" />
+            <span className="font-medium text-sm truncate">{tuition.students?.full_name || 'Aluno não encontrado'}</span>
           </div>
           <Badge className={statusConfig[tuition.status].badgeClass}>
             {tuition.status === "pending" && isOverdue ? "Atrasado" : statusConfig[tuition.status].title.slice(0, -1)}
@@ -154,6 +161,13 @@ function TuitionCard({ tuition, onRegisterPayment }: TuitionCardProps) {
         </div>
 
         <div className="space-y-2 mb-4">
+          {turmaName && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <BookOpen className="h-3.5 w-3.5" />
+              <span>{turmaName}</span>
+            </div>
+          )}
+
           <div className="flex items-center gap-2 text-sm">
             <DollarSign className="h-4 w-4 text-muted-foreground" />
             <span className="font-semibold text-lg">{formatCurrency(tuition.amount)}</span>
@@ -200,13 +214,34 @@ export function FinancialKanban() {
   const { schoolId } = useSchool();
   const { toast } = useToast();
   const [tuitions, setTuitions] = useState<TuitionData[]>([]);
+  const [classes, setClasses] = useState<ClassOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
+  const [classFilter, setClassFilter] = useState('all');
   const [payingTuition, setPayingTuition] = useState<TuitionData | null>(null);
 
   useEffect(() => {
     if (schoolId) fetchTuitions();
   }, [schoolId, selectedMonth]);
+
+  useEffect(() => {
+    if (schoolId) fetchClasses();
+  }, [schoolId]);
+
+  const fetchClasses = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('classes')
+        .select('id, name')
+        .eq('school_id', schoolId)
+        .order('name');
+
+      if (error) throw error;
+      setClasses(data || []);
+    } catch (error) {
+      console.error('Error fetching classes:', error);
+    }
+  };
 
   const fetchTuitions = async () => {
     try {
@@ -214,17 +249,21 @@ export function FinancialKanban() {
       const start = format(startOfMonth(new Date(year, month - 1)), 'yyyy-MM-dd');
       const end = format(endOfMonth(new Date(year, month - 1)), 'yyyy-MM-dd');
 
-      const { data: tuitionsData, error } = await supabase
+      const { data: tuitionsData, error } = await (supabase as any)
         .from('tuitions')
         .select(`
           id,
           student_id,
+          contract_id,
           amount,
           due_date,
           paid_date,
           description,
           status,
-          payment_method
+          payment_method,
+          contracts (
+            class_id
+          )
         `)
         .eq('school_id', schoolId)
         .gte('due_date', start)
@@ -248,10 +287,11 @@ export function FinancialKanban() {
       }, {});
 
       // Merge the data
-      const typedData: TuitionData[] = (tuitionsData || []).map(item => ({
+      const typedData: TuitionData[] = (tuitionsData || []).map((item: any) => ({
         ...item,
         status: item.status as PaymentStatus,
-        students: { full_name: studentMap[item.student_id] || 'N/A' }
+        class_id: item.contracts?.class_id ?? null,
+        students: { full_name: studentMap[item.student_id] || 'N/A' },
       }));
 
       setTuitions(typedData);
@@ -289,17 +329,31 @@ export function FinancialKanban() {
     }
   };
 
+  const classMap = classes.reduce((acc: Record<string, string>, cls) => {
+    acc[cls.id] = cls.name;
+    return acc;
+  }, {} as Record<string, string>);
+
+  const getTurmaName = (t: TuitionData) => (t.class_id ? classMap[t.class_id] ?? null : null);
+
+  // Filter by selected turma before splitting into columns
+  const scopedTuitions = tuitions.filter(t => {
+    if (classFilter === 'all') return true;
+    if (classFilter === 'no-class') return !t.class_id;
+    return t.class_id === classFilter;
+  });
+
   // Separate tuitions by status, but check for overdue ones
   const categorizedTuitions = {
-    pending: tuitions.filter(t => {
+    pending: scopedTuitions.filter(t => {
       const isOverdue = new Date(t.due_date) < new Date();
       return t.status === "pending" && !isOverdue;
     }),
-    overdue: tuitions.filter(t => {
+    overdue: scopedTuitions.filter(t => {
       const isOverdue = new Date(t.due_date) < new Date();
       return (t.status === "pending" && isOverdue) || t.status === "overdue";
     }),
-    paid: tuitions.filter(t => t.status === "paid"),
+    paid: scopedTuitions.filter(t => t.status === "paid"),
   };
 
   const getTotalAmount = (tuitionList: TuitionData[]) => {
@@ -338,20 +392,38 @@ export function FinancialKanban() {
   return (
     <>
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <span className="text-sm font-medium text-muted-foreground">Filtrar por mês:</span>
-        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {MONTH_OPTIONS.map(opt => (
-              <SelectItem key={opt.value} value={opt.value}>
-                {opt.label.charAt(0).toUpperCase() + opt.label.slice(1)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-medium text-muted-foreground">Filtrar por mês:</span>
+          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {MONTH_OPTIONS.map(opt => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label.charAt(0).toUpperCase() + opt.label.slice(1)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-medium text-muted-foreground">Turma:</span>
+          <Select value={classFilter} onValueChange={setClassFilter}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as turmas</SelectItem>
+              {classes.map(cls => (
+                <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
+              ))}
+              <SelectItem value="no-class">Sem turma</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       <div className="space-y-4">
@@ -374,6 +446,7 @@ export function FinancialKanban() {
             <TuitionCard
               key={tuition.id}
               tuition={tuition}
+              turmaName={getTurmaName(tuition)}
               onRegisterPayment={setPayingTuition}
             />
           ))}
@@ -403,6 +476,7 @@ export function FinancialKanban() {
             <TuitionCard
               key={tuition.id}
               tuition={tuition}
+              turmaName={getTurmaName(tuition)}
               onRegisterPayment={setPayingTuition}
             />
           ))}
@@ -432,6 +506,7 @@ export function FinancialKanban() {
             <TuitionCard
               key={tuition.id}
               tuition={tuition}
+              turmaName={getTurmaName(tuition)}
               onRegisterPayment={setPayingTuition}
             />
           ))}
