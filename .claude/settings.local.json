@@ -3,7 +3,9 @@
     "allow": [
       "Bash(npx kill-port:*)",
       "Bash(npm run:*)",
-      "Bash(netstat -ano)"
+      "Bash(netstat -ano)",
+      "Bash(npx tsc:*)",
+      "Bash(grep -A 15 \"CREATE TABLE.*enrollments\" supabase/migrations/*.sql)"
     ]
   }
 }
