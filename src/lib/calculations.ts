@@ -57,7 +57,7 @@ export function isTuitionOverdue(
   dueDate: string,
   status: string
 ): boolean {
-  return new Date(dueDate) < new Date() && status === "pending";
+  return status === "overdue" || (status === "pending" && new Date(dueDate) < new Date());
 }
 
 /**

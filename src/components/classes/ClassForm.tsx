@@ -159,8 +159,22 @@ export const ClassForm: React.FC<ClassFormProps> = ({
               <FormItem>
                 <FormLabel>Capacidade máxima</FormLabel>
                 <FormControl>
-                  <Input type="number" min="1" max="50" {...field}
-                    onChange={e => field.onChange(parseInt(e.target.value) || 30)} />
+                  {/* `parseInt(...) || 30` used to snap the field to 30 the
+                      instant it went empty mid-typing (e.g. selecting all to
+                      type a fresh value), which made it feel like only the
+                      up/down arrows worked (QA #7). Keep the field empty
+                      while the user is typing and only fall back to 30 if
+                      it's left empty on blur. */}
+                  <Input type="number" min="1" max="50"
+                    value={field.value ?? ''}
+                    onChange={e => {
+                      const val = e.target.value;
+                      field.onChange(val === '' ? undefined : parseInt(val, 10));
+                    }}
+                    onBlur={() => {
+                      if (!field.value) field.onChange(30);
+                      field.onBlur();
+                    }} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useSchool } from '@/contexts/SchoolContext';
 import { TeacherForm } from '@/components/teachers/TeacherForm';
 import { TeacherTable } from '@/components/teachers/TeacherTable';
+import { getFriendlyErrorMessage } from '@/lib/friendlyError';
 
 const Teachers = () => {
   const { schoolId } = useSchool();
@@ -66,9 +67,12 @@ const Teachers = () => {
       setIsFormOpen(false);
       setEditingTeacher(null);
     } catch (error) {
+      // QA #6: the unique-email constraint (teachers_email_unique) already
+      // blocked duplicates, but surfaced Postgres's raw error text — this
+      // maps that specific case to a message a non-technical user understands.
       toast({
         title: 'Erro',
-        description: 'Erro ao salvar professor: ' + error.message,
+        description: getFriendlyErrorMessage(error, 'Erro ao salvar professor: ' + error.message),
         variant: 'destructive',
       });
     } finally {
@@ -138,15 +142,22 @@ const Teachers = () => {
               Novo Professor
             </Button>
           </DialogTrigger>
-          <TeacherForm
-            teacher={editingTeacher}
-            onSubmit={handleSubmit}
-            onCancel={() => {
-              setIsFormOpen(false);
-              setEditingTeacher(null);
-            }}
-            isLoading={isLoading}
-          />
+          {/* Only mount the form while the dialog is actually open. Radix keeps
+              its content instance alive during the close animation, which was
+              letting react-hook-form's internal state survive from one "Novo
+              Professor" click to the next — conditionally rendering here forces
+              a real unmount/remount so the form always starts blank (QA #5). */}
+          {isFormOpen && (
+            <TeacherForm
+              teacher={editingTeacher}
+              onSubmit={handleSubmit}
+              onCancel={() => {
+                setIsFormOpen(false);
+                setEditingTeacher(null);
+              }}
+              isLoading={isLoading}
+            />
+          )}
         </Dialog>
       </div>
 

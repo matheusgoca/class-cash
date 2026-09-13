@@ -131,11 +131,19 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  // Depend on user?.id (a stable primitive), not the `user` object itself.
+  // Supabase re-emits onAuthStateChange with a brand-new `user` object on
+  // every session revalidation (e.g. when the tab regains focus), even when
+  // it's the exact same logged-in user. Depending on the object reference
+  // re-ran this effect on every tab switch, which flashed schoolStatus to
+  // 'loading' and made ProtectedRoute swap the whole page tree for a
+  // spinner — silently wiping any form the user had open (QA item #1).
   useEffect(() => {
     if (authLoading) return;
     setSchoolStatus('loading');
     fetchSchool();
-  }, [user, authLoading, viewingSchoolId, isMasterAdmin]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, authLoading, viewingSchoolId, isMasterAdmin]);
 
   const loading = authLoading || schoolStatus === 'loading';
 

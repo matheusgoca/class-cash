@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CurrencyInput } from '@/components/ui/currency-input';
+import { PhoneInput } from '@/components/ui/phone-input';
 
 const teacherSchema = z.object({
   full_name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
@@ -105,10 +107,7 @@ export const TeacherForm: React.FC<TeacherFormProps> = ({
               <FormItem>
                 <FormLabel>Telefone</FormLabel>
                 <FormControl>
-                  <Input 
-                    placeholder="(11) 99999-9999" 
-                    {...field} 
-                  />
+                  <PhoneInput value={field.value} onChange={field.onChange} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -122,15 +121,7 @@ export const TeacherForm: React.FC<TeacherFormProps> = ({
               <FormItem>
                 <FormLabel>Salário (R$)</FormLabel>
                 <FormControl>
-                  <Input 
-                    type="number" 
-                    min="0" 
-                    step="0.01"
-                    placeholder="3000.00"
-                    {...field}
-                    value={field.value ?? ''}
-                    onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}
-                  />
+                  <CurrencyInput value={field.value} onChange={field.onChange} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

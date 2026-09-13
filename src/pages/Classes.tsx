@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useSchool } from '@/contexts/SchoolContext';
 import { ClassForm } from '@/components/classes/ClassForm';
 import { ClassTable } from '@/components/classes/ClassTable';
+import { getFriendlyErrorMessage } from '@/lib/friendlyError';
 
 const Classes = () => {
   const { schoolId } = useSchool();
@@ -47,6 +48,7 @@ const Classes = () => {
       if (classError) throw classError;
 
       // Get student counts for each class via enrollments
+      // enrollments has no school_id — class_ids already scoped to this school above
       const { data: enrollments, error: enrollmentError } = await (supabase as any)
         .from('enrollments')
         .select('class_id');
@@ -99,39 +101,30 @@ const Classes = () => {
     setIsLoading(true);
     try {
       const { teacher_ids, ...classFields } = formData;
-      const dataToSubmit = { ...classFields, school_id: schoolId };
 
-      let classId: string;
+      // Creating/editing a class + syncing its teachers used to be two
+      // separate writes from here — if the second one failed, the first had
+      // already committed, leaving a class with no teacher (QA #9). Both now
+      // happen inside a single Postgres function call, so either both
+      // succeed or neither does.
+      const { error } = await (supabase as any).rpc('save_class_with_teachers', {
+        p_class_id: editingClass?.id ?? null,
+        p_school_id: schoolId,
+        p_name: classFields.name,
+        p_grade: classFields.grade ?? null,
+        p_description: classFields.description ?? null,
+        p_max_capacity: classFields.max_capacity,
+        p_monthly_fee: classFields.monthly_fee ?? null,
+        p_color: classFields.color,
+        p_teacher_ids: teacher_ids ?? [],
+      });
 
-      if (editingClass) {
-        const { error } = await supabase
-          .from('classes')
-          .update(dataToSubmit)
-          .eq('id', editingClass.id);
+      if (error) throw error;
 
-        if (error) throw error;
-        classId = editingClass.id;
-        toast({ title: 'Sucesso', description: 'Turma atualizada com sucesso!' });
-      } else {
-        const { data: created, error } = await supabase
-          .from('classes')
-          .insert([dataToSubmit])
-          .select('id')
-          .single();
-
-        if (error) throw error;
-        classId = created.id;
-        toast({ title: 'Sucesso', description: 'Turma criada com sucesso!' });
-      }
-
-      // Sync class_teachers: replace all existing rows for this class
-      await (supabase as any).from('class_teachers').delete().eq('class_id', classId);
-
-      if (teacher_ids && teacher_ids.length > 0) {
-        const rows = teacher_ids.map((tid: string) => ({ class_id: classId, teacher_id: tid }));
-        const { error: ctError } = await (supabase as any).from('class_teachers').insert(rows);
-        if (ctError) throw ctError;
-      }
+      toast({
+        title: 'Sucesso',
+        description: editingClass ? 'Turma atualizada com sucesso!' : 'Turma criada com sucesso!',
+      });
 
       fetchClasses();
       setIsFormOpen(false);
@@ -139,7 +132,7 @@ const Classes = () => {
     } catch (error) {
       toast({
         title: 'Erro',
-        description: 'Erro ao salvar turma: ' + error.message,
+        description: getFriendlyErrorMessage(error, 'Erro ao salvar turma: ' + error.message),
         variant: 'destructive',
       });
     } finally {
@@ -209,16 +202,22 @@ const Classes = () => {
               Nova Turma
             </Button>
           </DialogTrigger>
-          <ClassForm
-            classData={editingClass}
-            onSubmit={handleSubmit}
-            onCancel={() => {
-              setIsFormOpen(false);
-              setEditingClass(null);
-            }}
-            teachers={teachers}
-            isLoading={isLoading}
-          />
+          {/* Only mount the form while the dialog is actually open — same fix
+              as Teachers.tsx, same bug: Radix kept the previous form instance
+              alive during the close animation, so react-hook-form's state
+              survived from one "Nova Turma" click to the next (QA #8). */}
+          {isFormOpen && (
+            <ClassForm
+              classData={editingClass}
+              onSubmit={handleSubmit}
+              onCancel={() => {
+                setIsFormOpen(false);
+                setEditingClass(null);
+              }}
+              teachers={teachers}
+              isLoading={isLoading}
+            />
+          )}
         </Dialog>
       </div>
 
