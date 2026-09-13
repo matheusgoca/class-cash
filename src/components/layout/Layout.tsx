@@ -13,8 +13,12 @@ const PAGE_TITLES: Record<string, string> = {
   "/turmas": "Gestão de Turmas",
   "/contratos": "Gestão de Contratos",
   "/mensalidades": "Mensalidades",
+  "/despesas": "Despesas",
   "/relatorios": "Relatórios",
   "/configuracoes": "Configurações",
+  "/equipe": "Equipe",
+  "/master": "Painel Master",
+  "/admin/gerar-mensalidades": "Gerar Mensalidades",
 };
 
 interface LayoutProps {

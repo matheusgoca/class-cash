@@ -15,6 +15,8 @@ import {
   BarChart3,
   ShieldCheck,
   UserPlus,
+  Wallet,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSchool } from "@/contexts/SchoolContext";
@@ -68,7 +70,6 @@ const menuItems: MenuItem[] = [
       { title: "Alunos",      url: "/alunos",      icon: Users,         roles: ['admin', 'financial', 'teacher'] },
       { title: "Professores", url: "/professores", icon: GraduationCap, roles: ['admin', 'financial'] },
       { title: "Turmas",      url: "/turmas",      icon: BookOpen,      roles: ['admin', 'financial', 'teacher'] },
-      { title: "Equipe",      url: "/equipe",      icon: UserPlus,      roles: ['admin'] },
     ],
   },
   {
@@ -78,14 +79,18 @@ const menuItems: MenuItem[] = [
     items: [
       { title: "Contratos",   url: "/contratos",   icon: FileText,  roles: ['admin', 'financial'] },
       { title: "Mensalidades",url: "/mensalidades", icon: Receipt,   roles: ['admin', 'financial'] },
+      { title: "Despesas",    url: "/despesas",    icon: Wallet,    roles: ['admin', 'financial'] },
       { title: "Relatórios",  url: "/relatorios",  icon: BarChart3, roles: ['admin', 'financial'] },
     ],
   },
   {
     title: "Configurações",
-    url: "/configuracoes",
-    icon: Settings,
+    icon: SlidersHorizontal,
     roles: ['admin'],
+    items: [
+      { title: "Geral",  url: "/configuracoes", icon: Settings, roles: ['admin'] },
+      { title: "Equipe", url: "/equipe",        icon: UserPlus, roles: ['admin'] },
+    ],
   },
 ];
 
@@ -98,7 +103,7 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const currentPath = location.pathname;
-  const [openGroups, setOpenGroups] = useState<string[]>(["Gestão", "Financeiro"]);
+  const [openGroups, setOpenGroups] = useState<string[]>(["Gestão", "Financeiro", "Configurações"]);
 
   const isActive = (path: string) => currentPath === path;
   const getNavCls = (active: boolean) =>

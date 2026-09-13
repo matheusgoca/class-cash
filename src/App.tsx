@@ -17,6 +17,7 @@ import Teachers from "./pages/Teachers";
 import Classes from "./pages/Classes";
 import Contracts from "./pages/Contracts";
 import Tuitions from "./pages/Tuitions";
+import Expenses from "./pages/Expenses";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
@@ -115,6 +116,16 @@ const App = () => (
                     <ProtectedRoute requireSchool allowedRoles={['admin', 'financial']}>
                       <Layout>
                         <Tuitions />
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/despesas"
+                  element={
+                    <ProtectedRoute requireSchool allowedRoles={['admin', 'financial']}>
+                      <Layout>
+                        <Expenses />
                       </Layout>
                     </ProtectedRoute>
                   }
