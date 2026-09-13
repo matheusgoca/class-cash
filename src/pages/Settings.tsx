@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useSchool } from '@/contexts/SchoolContext';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { ImportSection } from '@/components/settings/ImportSection';
 
 const SEGMENTS = [
   { value: 'infantil',    label: 'Educação Infantil', icon: Lightbulb,     description: 'Berçário ao Pré' },
@@ -166,6 +167,7 @@ const Settings = () => {
       </div>
 
       <SchoolProfileSection />
+      <ImportSection />
     </div>
   );
 };
