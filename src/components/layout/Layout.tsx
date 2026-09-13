@@ -2,6 +2,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { MasterBanner } from "./MasterBanner";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { DebugReportButton } from "@/components/debug/DebugReportButton";
 import { ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { useSchool } from "@/contexts/SchoolContext";
@@ -47,6 +48,7 @@ export function Layout({ children }: LayoutProps) {
                 </span>
               )}
             </div>
+            <DebugReportButton />
             <ThemeToggle />
           </header>
 
