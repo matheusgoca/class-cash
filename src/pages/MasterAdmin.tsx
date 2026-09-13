@@ -14,7 +14,6 @@ import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { useMasterAdmin } from "@/contexts/MasterAdminContext";
 import { useSchool } from "@/contexts/SchoolContext";
-import { DebugReportsSection } from "@/components/master/DebugReportsSection";
 
 interface SchoolRow {
   id: string;
@@ -256,8 +255,6 @@ export default function MasterAdmin() {
           ))}
         </div>
       )}
-
-      <DebugReportsSection />
 
       {/* Edit modal */}
       <Dialog open={!!editingSchool} onOpenChange={(open) => { if (!open) setEditingSchool(null); }}>

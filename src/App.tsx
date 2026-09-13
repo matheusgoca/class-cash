@@ -26,6 +26,7 @@ import Landing from "./pages/Landing";
 import NotFound from "./pages/NotFound";
 import AdminSyncTuitions from "./pages/AdminSyncTuitions";
 import MasterAdmin from "./pages/MasterAdmin";
+import MasterBugs from "./pages/MasterBugs";
 import Team from "./pages/Team";
 
 const queryClient = new QueryClient();
@@ -174,6 +175,16 @@ const App = () => (
                     <ProtectedRoute requireMasterAdmin>
                       <Layout>
                         <MasterAdmin />
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/master/bugs"
+                  element={
+                    <ProtectedRoute requireMasterAdmin>
+                      <Layout>
+                        <MasterBugs />
                       </Layout>
                     </ProtectedRoute>
                   }
