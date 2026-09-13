@@ -18,6 +18,7 @@ import { captureScreenshot } from '@/lib/captureScreenshot';
 import { startScreenRecording, type ScreenRecordingHandle } from '@/lib/screenRecording';
 import { submitDebugReport } from '@/lib/debugReport';
 import { getFriendlyErrorMessage } from '@/lib/friendlyError';
+import { ClickToZoomImage } from './ClickToZoomImage';
 
 interface DebugReportSheetProps {
   open: boolean;
@@ -184,7 +185,14 @@ export function DebugReportSheet({ open, onOpenChange }: DebugReportSheetProps) 
             </div>
           </div>
           {screenshotUrl ? (
-            <img src={screenshotUrl} alt="Print da tela" className="max-h-48 w-full rounded border object-contain" />
+            <>
+              <ClickToZoomImage
+                src={screenshotUrl}
+                alt="Print da tela"
+                className="max-h-48 w-full rounded border object-contain"
+              />
+              <p className="text-xs text-muted-foreground">Clique no print para ver em tamanho real.</p>
+            </>
           ) : (
             <div className="flex h-24 items-center justify-center rounded border border-dashed text-sm text-muted-foreground">
               <Camera className="mr-2 h-4 w-4" /> Capturando print...

@@ -8,6 +8,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { getFriendlyErrorMessage } from '@/lib/friendlyError';
+import { ClickToZoomImage } from '@/components/debug/ClickToZoomImage';
 
 interface DebugReportRow {
   id: string;
@@ -149,7 +150,11 @@ export function DebugReportsSection() {
                     {report.page_url} • {report.user_agent}
                   </p>
                   {urls?.screenshot && (
-                    <img src={urls.screenshot} alt="Print" className="max-h-64 rounded border object-contain" />
+                    <ClickToZoomImage
+                      src={urls.screenshot}
+                      alt="Print"
+                      className="max-h-64 rounded border object-contain"
+                    />
                   )}
                   {urls?.video && (
                     <video src={urls.video} controls className="max-h-64 w-full rounded border" />
