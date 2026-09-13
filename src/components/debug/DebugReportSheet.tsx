@@ -163,7 +163,7 @@ export function DebugReportSheet({ open, onOpenChange }: DebugReportSheetProps) 
         </SheetHeader>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">O que aconteceu?</label>
+          <label className="block text-sm font-medium">O que aconteceu?</label>
           <Textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
@@ -193,7 +193,7 @@ export function DebugReportSheet({ open, onOpenChange }: DebugReportSheetProps) 
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">Vídeo (opcional)</label>
+          <label className="block text-sm font-medium">Vídeo (opcional)</label>
           {videoUrl ? (
             <video src={videoUrl} controls className="max-h-48 w-full rounded border" />
           ) : recording ? (
