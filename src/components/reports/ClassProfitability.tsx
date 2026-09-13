@@ -1,10 +1,13 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useSchool } from "@/contexts/SchoolContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { formatCurrency } from "@/lib/calculations";
+import { computeClassCosts } from "@/lib/classCost";
 
 interface ClassRow {
   id: string;
@@ -12,55 +15,57 @@ interface ClassRow {
   level: string;
   studentCount: number;
   revenue: number;       // mensalidades pagas no período
-  cost: number;          // soma dos salários dos professores da turma
+  salaryCost: number;    // salário de professor, dividido entre as turmas dele
+  expenseCost: number;   // despesas diretas + rateadas da turma
+  cost: number;          // salaryCost + expenseCost
   profit: number;
   margin: number;        // %
 }
 
-const fmt = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
-
 export function ClassProfitability() {
+  const { schoolId } = useSchool();
   const [rows, setRows] = useState<ClassRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (schoolId) fetchData();
+  }, [schoolId]);
 
   const fetchData = async () => {
     try {
-      // 1. Classes with their teachers (via class_teachers)
-      const { data: classes, error: classErr } = await supabase
-        .from("classes")
-        .select("id, name, level");
+      const [
+        { data: classes, error: classErr },
+        { data: tuitions, error: tErr },
+        { data: enrollments, error: eErr },
+        { data: expensesData, error: expErr },
+      ] = await Promise.all([
+        // Classes with embedded teacher salary info
+        (supabase as any)
+          .from("classes")
+          .select(`id, name, level, class_teachers ( teacher_id, teachers ( salary ) )`)
+          .eq("school_id", schoolId),
+        // Paid tuitions joined to class via contracts
+        (supabase as any)
+          .from("tuitions")
+          .select("final_amount, amount, contracts(class_id)")
+          .eq("school_id", schoolId)
+          .eq("status", "paid"),
+        // Student counts per class — enrollments has no school_id, scoped via class_id
+        (supabase as any)
+          .from("enrollments")
+          .select("class_id"),
+        // Paid expenses with allocation method for cost apportionment
+        (supabase as any)
+          .from("expenses")
+          .select("amount, class_id, expense_categories(allocation_method)")
+          .eq("school_id", schoolId)
+          .eq("status", "paid"),
+      ]);
+
       if (classErr) throw classErr;
-
-      // 2. class_teachers + teacher salaries
-      const { data: ct, error: ctErr } = await (supabase as any)
-        .from("class_teachers")
-        .select("class_id, teachers(salary)");
-      if (ctErr) throw ctErr;
-
-      // 3. tuitions paid — join via contracts to get class_id
-      const { data: tuitions, error: tErr } = await (supabase as any)
-        .from("tuitions")
-        .select("final_amount, amount, contract_id, contracts(class_id)")
-        .eq("status", "paid");
       if (tErr) throw tErr;
-
-      // 4. student count per class (from enrollments)
-      const { data: enrollments, error: eErr } = await (supabase as any)
-        .from("enrollments")
-        .select("class_id");
       if (eErr) throw eErr;
-
-      // Build maps
-      const costByClass: Record<string, number> = {};
-      for (const row of ct || []) {
-        const salary = Number(row.teachers?.salary || 0);
-        costByClass[row.class_id] = (costByClass[row.class_id] || 0) + salary;
-      }
+      if (expErr) throw expErr;
 
       const revenueByClass: Record<string, number> = {};
       for (const t of tuitions || []) {
@@ -75,9 +80,37 @@ export function ClassProfitability() {
         studentsByClass[e.class_id] = (studentsByClass[e.class_id] || 0) + 1;
       }
 
-      const result: ClassRow[] = (classes || []).map((cls) => {
+      // One row per class-teacher link, for salary apportionment
+      const teacherAssignments = (classes || []).flatMap((cls: any) =>
+        (cls.class_teachers || [])
+          .filter((ct: any) => ct.teacher_id)
+          .map((ct: any) => ({
+            classId: cls.id,
+            teacherId: ct.teacher_id,
+            salary: Number(ct.teachers?.salary || 0),
+          }))
+      );
+
+      const expenseInputs = (expensesData || []).map((e: any) => ({
+        amount: Number(e.amount || 0),
+        classId: e.class_id ?? null,
+        allocationMethod: e.expense_categories?.allocation_method || 'school',
+      }));
+
+      const classInputs = (classes || []).map((cls: any) => ({
+        id: cls.id,
+        studentCount: studentsByClass[cls.id] || 0,
+      }));
+
+      const { salaryCost, expenseCost, totalCost } = computeClassCosts(
+        classInputs,
+        teacherAssignments,
+        expenseInputs
+      );
+
+      const result: ClassRow[] = (classes || []).map((cls: any) => {
         const revenue = revenueByClass[cls.id] || 0;
-        const cost = costByClass[cls.id] || 0;
+        const cost = totalCost[cls.id] || 0;
         const profit = revenue - cost;
         const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
         return {
@@ -86,6 +119,8 @@ export function ClassProfitability() {
           level: cls.level,
           studentCount: studentsByClass[cls.id] || 0,
           revenue,
+          salaryCost: salaryCost[cls.id] || 0,
+          expenseCost: expenseCost[cls.id] || 0,
           cost,
           profit,
           margin,
@@ -125,15 +160,15 @@ export function ClassProfitability() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Receita Total (paga)</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-success">{fmt(totRevenue)}</p>
+            <p className="text-2xl font-bold text-success">{formatCurrency(totRevenue)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-1">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Custo Total (salários)</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Custo Total (salários + despesas)</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-warning">{fmt(totCost)}</p>
+            <p className="text-2xl font-bold text-warning">{formatCurrency(totCost)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -142,7 +177,7 @@ export function ClassProfitability() {
           </CardHeader>
           <CardContent>
             <p className={`text-2xl font-bold ${totProfit >= 0 ? "text-success" : "text-destructive"}`}>
-              {fmt(totProfit)}
+              {formatCurrency(totProfit)}
             </p>
           </CardContent>
         </Card>
@@ -178,12 +213,17 @@ export function ClassProfitability() {
                       <Badge variant="outline" className="text-xs">{row.level}</Badge>
                     </TableCell>
                     <TableCell className="text-right">{row.studentCount}</TableCell>
-                    <TableCell className="text-right">{fmt(row.revenue)}</TableCell>
-                    <TableCell className="text-right">{fmt(row.cost)}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(row.revenue)}</TableCell>
+                    <TableCell className="text-right">
+                      <div>{formatCurrency(row.cost)}</div>
+                      <p className="text-xs text-muted-foreground">
+                        {formatCurrency(row.salaryCost)} salário + {formatCurrency(row.expenseCost)} despesas
+                      </p>
+                    </TableCell>
                     <TableCell className="text-right">
                       <span className={`flex items-center justify-end gap-1 font-semibold ${positive ? "text-success" : "text-destructive"}`}>
                         <Icon className="h-3.5 w-3.5" />
-                        {fmt(row.profit)}
+                        {formatCurrency(row.profit)}
                       </span>
                     </TableCell>
                     <TableCell>

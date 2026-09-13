@@ -2,15 +2,14 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/contexts/SchoolContext";
+import { formatCurrency } from "@/lib/calculations";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line, Legend,
+  Cell, LineChart, Line, Legend, ReferenceLine,
 } from "recharts";
+import { Users } from "lucide-react";
 
 const COLORS = ["#3B82F6","#10B981","#F59E0B","#EF4444","#8B5CF6","#F97316","#06B6D4","#84CC16","#EC4899","#14B8A6","#6366F1","#A78BFA"];
-
-const fmt = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
 export function DashboardCharts() {
   const { schoolId } = useSchool();
@@ -24,30 +23,7 @@ export function DashboardCharts() {
 
   const fetchChartData = async () => {
     try {
-      // ── 1. Student distribution per class ──────────────────
-      const { data: classes } = await supabase
-        .from("classes")
-        .select("id, name, color")
-        .eq("school_id", schoolId);
-
-      const { data: enrollments } = await (supabase as any).from("enrollments").select("class_id");
-
-      const countByClass: Record<string, number> = {};
-      for (const e of enrollments || []) {
-        countByClass[e.class_id] = (countByClass[e.class_id] || 0) + 1;
-      }
-
-      const dist = (classes || [])
-        .map((c: any, i: number) => ({
-          name: c.name,
-          value: countByClass[c.id] || 0,
-          color: c.color || COLORS[i % COLORS.length],
-        }))
-        .filter((c: any) => c.value > 0);
-
-      setStudentDist(dist);
-
-      // ── 2. Monthly revenue + cost trend (last 6 months) ────
+      // Build 6-month window once — used for both queries and bucketing
       const now = new Date();
       const months: { key: string; name: string }[] = [];
       for (let i = 5; i >= 0; i--) {
@@ -57,38 +33,68 @@ export function DashboardCharts() {
           name: d.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" }),
         });
       }
+      const sixMonthsAgo = months[0].key + "-01";
 
-      // Paid tuitions (use final_amount when available)
-      const { data: tuitions } = await supabase
-        .from("tuitions")
-        .select("final_amount, amount, paid_date")
-        .eq("school_id", schoolId)
-        .eq("status", "paid")
-        .not("paid_date", "is", null);
+      const [
+        { data: classes },
+        { data: enrollments },
+        { data: tuitions },
+        { data: teachers },
+        { data: expenses },
+      ] = await Promise.all([
+        supabase.from("classes").select("id, name, color, max_capacity").eq("school_id", schoolId).order("name"),
+        // enrollments has no school_id — scoped implicitly via class_id cross-reference
+        (supabase as any).from("enrollments").select("class_id"),
+        supabase.from("tuitions").select("final_amount, amount, paid_date")
+          .eq("school_id", schoolId).eq("status", "paid")
+          .not("paid_date", "is", null).gte("paid_date", sixMonthsAgo),
+        supabase.from("teachers").select("salary").eq("school_id", schoolId).eq("status", "active"),
+        (supabase as any).from("expenses").select("amount, paid_date")
+          .eq("school_id", schoolId).eq("status", "paid")
+          .not("paid_date", "is", null).gte("paid_date", sixMonthsAgo),
+      ]);
 
+      // ── 1. Student distribution per class ──────────────────
+      const countByClass: Record<string, number> = {};
+      for (const e of enrollments || []) {
+        countByClass[e.class_id] = (countByClass[e.class_id] || 0) + 1;
+      }
+      // Include all classes (even empty ones) so the admin sees gaps
+      const dist = (classes || []).map((c: any, i: number) => ({
+        name: c.name,
+        alunos: countByClass[c.id] || 0,
+        capacidade: c.max_capacity || 0,
+        color: c.color || COLORS[i % COLORS.length],
+      }));
+      setStudentDist(dist);
+
+      // ── 2. Monthly revenue + cost trend (last 6 months) ────
       const revenueByMonth: Record<string, number> = Object.fromEntries(months.map(m => [m.key, 0]));
       for (const t of tuitions || []) {
-        const key = t.paid_date?.slice(0, 7);
-        if (key && key in revenueByMonth) {
-          revenueByMonth[key] += Number(t.final_amount ?? t.amount ?? 0);
-        }
+        const d = new Date(t.paid_date!);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        if (key in revenueByMonth) revenueByMonth[key] += Number(t.final_amount ?? t.amount ?? 0);
       }
 
-      // Monthly teacher salary cost (static — same every month)
-      const { data: teachers } = await supabase
-        .from("teachers")
-        .select("salary")
-        .eq("school_id", schoolId)
-        .eq("status", "active");
-
+      // Salary has no month-by-month history today — same value repeated across months
       const totalSalary = (teachers || []).reduce((s: number, t: any) => s + Number(t.salary || 0), 0);
 
-      const trend = months.map(m => ({
-        name: m.name,
-        receita: revenueByMonth[m.key],
-        custo: totalSalary,
-      }));
+      const expensesByMonth: Record<string, number> = Object.fromEntries(months.map(m => [m.key, 0]));
+      for (const e of expenses || []) {
+        const d = new Date(e.paid_date!);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        if (key in expensesByMonth) expensesByMonth[key] += Number(e.amount ?? 0);
+      }
 
+      const trend = months.map(m => {
+        const custo = totalSalary + expensesByMonth[m.key];
+        return {
+          name: m.name,
+          receita: revenueByMonth[m.key],
+          custo,
+          resultado: revenueByMonth[m.key] - custo,
+        };
+      });
       setMonthlyTrend(trend);
     } catch (err) {
       console.error("DashboardCharts error:", err);
@@ -96,6 +102,9 @@ export function DashboardCharts() {
       setLoading(false);
     }
   };
+
+  const totalStudents = studentDist.reduce((s, c) => s + c.alunos, 0);
+  const totalCapacity = studentDist.reduce((s, c) => s + c.capacidade, 0);
 
   if (loading) {
     return (
@@ -110,33 +119,71 @@ export function DashboardCharts() {
     );
   }
 
+  // Chart height scales with number of classes so bars don't get squished
+  const distChartHeight = Math.max(200, studentDist.length * 52);
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
       {/* Distribuição de alunos por turma */}
       <Card>
-        <CardHeader>
-          <CardTitle>Distribuição de Alunos por Turma</CardTitle>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle>Alunos por Turma</CardTitle>
+            {totalCapacity > 0 && (
+              <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Users className="h-4 w-4" />
+                {totalStudents}/{totalCapacity}
+                <span className="text-xs">({Math.round(totalStudents / totalCapacity * 100)}% ocupado)</span>
+              </span>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
+          {studentDist.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-48 text-muted-foreground gap-2">
+              <Users className="h-8 w-8 opacity-30" />
+              <p className="text-sm">Nenhuma turma cadastrada</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={distChartHeight}>
+              <BarChart
                 data={studentDist}
-                cx="50%"
-                cy="50%"
-                outerRadius={90}
-                dataKey="value"
-                label={({ name, value }) => `${name}: ${value}`}
-                labelLine={false}
+                layout="vertical"
+                margin={{ left: 8, right: 32, top: 4, bottom: 4 }}
+                barSize={18}
               >
-                {studentDist.map((entry, i) => (
-                  <Cell key={i} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(v: any) => [`${v} alunos`]} />
-            </PieChart>
-          </ResponsiveContainer>
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                <XAxis
+                  type="number"
+                  allowDecimals={false}
+                  tick={{ fontSize: 11 }}
+                  tickLine={false}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  width={110}
+                  tick={{ fontSize: 12 }}
+                  tickLine={false}
+                />
+                <Tooltip
+                  cursor={{ fill: "hsl(var(--muted))", opacity: 0.4 }}
+                  formatter={(value: any, name: string) => [
+                    `${value} alunos`,
+                    name === "alunos" ? "Matriculados" : "Capacidade",
+                  ]}
+                />
+                {/* Capacity shown as a faint background bar */}
+                <Bar dataKey="capacidade" fill="hsl(var(--muted))" radius={[0, 4, 4, 0]} opacity={0.4} />
+                <Bar dataKey="alunos" radius={[0, 4, 4, 0]} label={{ position: "right", fontSize: 11, fill: "hsl(var(--muted-foreground))" }}>
+                  {studentDist.map((entry, i) => (
+                    <Cell key={i} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </CardContent>
       </Card>
 
@@ -149,10 +196,10 @@ export function DashboardCharts() {
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={monthlyTrend} barGap={4}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis tickFormatter={v => fmt(v)} width={90} />
-              <Tooltip formatter={(v: any, name: string) => [fmt(Number(v)), name === "receita" ? "Receita" : "Custo"]} />
-              <Legend formatter={v => v === "receita" ? "Receita" : "Custo (salários)"} />
+              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+              <YAxis tickFormatter={v => formatCurrency(v)} width={90} tick={{ fontSize: 11 }} />
+              <Tooltip formatter={(v: any, name: string) => [formatCurrency(Number(v)), name === "receita" ? "Receita" : "Custo"]} />
+              <Legend formatter={v => v === "receita" ? "Receita" : "Custo (salários + despesas)"} />
               <Bar dataKey="receita" fill="#10B981" radius={[4, 4, 0, 0]} />
               <Bar dataKey="custo"   fill="#EF4444" radius={[4, 4, 0, 0]} />
             </BarChart>
@@ -160,21 +207,22 @@ export function DashboardCharts() {
         </CardContent>
       </Card>
 
-      {/* Evolução da receita */}
+      {/* Evolução do resultado líquido */}
       <Card className="lg:col-span-2">
         <CardHeader>
-          <CardTitle>Evolução da Receita Recebida (Últimos 6 Meses)</CardTitle>
+          <CardTitle>Evolução do Resultado Líquido (Últimos 6 Meses)</CardTitle>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={monthlyTrend}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis tickFormatter={v => fmt(v)} width={90} />
-              <Tooltip formatter={(v: any) => [fmt(Number(v)), "Receita"]} />
+              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+              <YAxis tickFormatter={v => formatCurrency(v)} width={90} tick={{ fontSize: 11 }} />
+              <Tooltip formatter={(v: any) => [formatCurrency(Number(v)), "Resultado (receita − custo)"]} />
+              <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="4 4" />
               <Line
                 type="monotone"
-                dataKey="receita"
+                dataKey="resultado"
                 stroke="#3B82F6"
                 strokeWidth={2}
                 dot={{ fill: "#3B82F6", r: 4 }}

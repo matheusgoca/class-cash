@@ -4,7 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/contexts/SchoolContext";
-import { Users, TrendingUp, DollarSign } from "lucide-react";
+import { formatCurrency, isTuitionOverdue } from "@/lib/calculations";
+import { Users, DollarSign, AlertTriangle } from "lucide-react";
 
 interface ClassHealth {
   id: string;
@@ -18,8 +19,7 @@ interface ClassHealth {
   potential_revenue: number;
   capacity_percentage: number;
   revenue_percentage: number;
-  paid_students: number;
-  payment_percentage: number;
+  default_rate: number;
   status: 'excellent' | 'good' | 'warning' | 'critical';
 }
 
@@ -27,25 +27,21 @@ const statusConfig = {
   excellent: {
     label: "Excelente",
     color: "bg-success",
-    textColor: "text-success-foreground",
     badgeVariant: "default" as const,
   },
   good: {
     label: "Bom",
     color: "bg-success",
-    textColor: "text-success-foreground",
     badgeVariant: "secondary" as const,
   },
   warning: {
     label: "Atenção",
     color: "bg-warning",
-    textColor: "text-warning-foreground",
     badgeVariant: "secondary" as const,
   },
   critical: {
     label: "Crítico",
     color: "bg-destructive",
-    textColor: "text-destructive-foreground",
     badgeVariant: "destructive" as const,
   },
 };
@@ -56,13 +52,6 @@ interface ClassHealthCardProps {
 
 function ClassHealthCard({ health }: ClassHealthCardProps) {
   const config = statusConfig[health.status];
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value);
-  };
 
   return (
     <Card className="overflow-hidden">
@@ -138,9 +127,17 @@ function ClassHealthCard({ health }: ClassHealthCardProps) {
 
         <div className="pt-2 border-t">
           <div className="flex items-center gap-2 text-sm">
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <AlertTriangle
+              className={`h-4 w-4 ${
+                health.default_rate >= 15
+                  ? 'text-destructive'
+                  : health.default_rate > 0
+                    ? 'text-warning'
+                    : 'text-muted-foreground'
+              }`}
+            />
             <span className="text-muted-foreground">
-              Eficiência financeira: <span className="font-medium">{health.revenue_percentage.toFixed(1)}%</span>
+              Inadimplência da turma: <span className="font-medium">{health.default_rate.toFixed(1)}%</span>
             </span>
           </div>
         </div>
@@ -160,54 +157,53 @@ export function ClassHealthCards() {
 
   const fetchClassData = async () => {
     try {
-      // Simplified version - just show basic class info
-      const { data: classData, error: classError } = await (supabase as any)
-        .from('classes')
-        .select(`
-          id,
-          name,
-          level,
-          color,
-          max_capacity,
-          monthly_fee,
-          class_teachers (
-            teachers (
-              id,
-              full_name
-            )
-          )
-        `)
-        .eq('school_id', schoolId)
-        .order('name');
+      // Limit tuition history to the last 12 months — older data doesn't affect
+      // current health metrics but can be a large payload for mature schools.
+      const twelveMonthsAgo = new Date();
+      twelveMonthsAgo.setFullYear(twelveMonthsAgo.getFullYear() - 1);
+      const cutoff = twelveMonthsAgo.toISOString().slice(0, 10);
+
+      const [
+        { data: classData, error: classError },
+        { data: enrollmentsData, error: enrollmentsError },
+        { data: tuitionsData },
+      ] = await Promise.all([
+        (supabase as any)
+          .from('classes')
+          .select(`id, name, level, color, max_capacity, monthly_fee,
+            class_teachers ( teachers ( id, full_name ) )`)
+          .eq('school_id', schoolId)
+          .order('name'),
+        // enrollments has no school_id — scoped via class_id cross-reference
+        (supabase as any)
+          .from('enrollments')
+          .select('class_id, student_id'),
+        (supabase as any)
+          .from('tuitions')
+          .select('final_amount, amount, status, due_date, contracts(class_id)')
+          .eq('school_id', schoolId)
+          .gte('due_date', cutoff),
+      ]);
 
       if (classError) throw classError;
-
-      // Fetch enrollments to count students per class
-      const { data: enrollmentsData, error: enrollmentsError } = await (supabase as any)
-        .from('enrollments')
-        .select('class_id, student_id');
-
       if (enrollmentsError) throw enrollmentsError;
 
-      // Count students per class
-      const classStudentCounts = (enrollmentsData || []).reduce((acc: any, enrollment: any) => {
-        if (enrollment.class_id) {
-          acc[enrollment.class_id] = (acc[enrollment.class_id] || 0) + 1;
-        }
+      const classStudentCounts = (enrollmentsData || []).reduce((acc: Record<string, number>, e: any) => {
+        if (e.class_id) acc[e.class_id] = (acc[e.class_id] || 0) + 1;
         return acc;
       }, {});
 
-      // Fetch paid tuitions per class (via contracts)
-      const { data: tuitionsData } = await (supabase as any)
-        .from('tuitions')
-        .select('final_amount, amount, contracts(class_id)')
-        .eq('school_id', schoolId)
-        .eq('status', 'paid');
-
       const revenueByClass: Record<string, number> = {};
+      const overdueByClass: Record<string, number> = {};
       for (const t of tuitionsData || []) {
         const cid = t.contracts?.class_id;
-        if (cid) revenueByClass[cid] = (revenueByClass[cid] || 0) + Number(t.final_amount ?? t.amount ?? 0);
+        if (!cid) continue;
+        const value = Number(t.final_amount ?? t.amount ?? 0);
+        if (t.status === 'paid') {
+          revenueByClass[cid] = (revenueByClass[cid] || 0) + value;
+        } else if (isTuitionOverdue(t.due_date, t.status)) {
+          overdueByClass[cid] = (overdueByClass[cid] || 0) + value;
+        }
       }
 
       const COLORS = ['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6','#F97316','#06B6D4','#84CC16'];
@@ -217,15 +213,23 @@ export function ClassHealthCards() {
         const maxCapacity        = cls.max_capacity || 30;
         const capacityPercentage = (studentCount / maxCapacity) * 100;
         const totalRevenue       = revenueByClass[cls.id] || 0;
+        const overdueRevenue     = overdueByClass[cls.id] || 0;
         const potentialRevenue   = maxCapacity * (cls.monthly_fee || 0);
         const revenuePercentage  = potentialRevenue > 0
           ? (totalRevenue / potentialRevenue) * 100
           : 0;
+        // Denominator: only tuitions already due (paid + overdue);
+        // pending within due date don't count against the class.
+        const duedBase = totalRevenue + overdueRevenue;
+        const defaultRate = duedBase > 0 ? (overdueRevenue / duedBase) * 100 : 0;
 
-        let status: ClassHealth['status'] = 'critical';
-        if (capacityPercentage >= 80) status = 'excellent';
-        else if (capacityPercentage >= 60) status = 'good';
-        else if (capacityPercentage >= 40) status = 'warning';
+        // Status factors in both occupancy AND default rate — a full class with
+        // many overdue tuitions should not appear as "Excelente".
+        let status: ClassHealth['status'];
+        if (capacityPercentage >= 80 && defaultRate < 5) status = 'excellent';
+        else if (capacityPercentage >= 60 && defaultRate < 15) status = 'good';
+        else if (capacityPercentage >= 40 && defaultRate < 30) status = 'warning';
+        else status = 'critical';
 
         const teacherNames: string[] = (cls.class_teachers || [])
           .map((ct: any) => ct.teachers?.full_name)
@@ -243,8 +247,7 @@ export function ClassHealthCards() {
           potential_revenue: potentialRevenue,
           capacity_percentage: Math.min(capacityPercentage, 100),
           revenue_percentage: revenuePercentage,
-          paid_students: studentCount,
-          payment_percentage: capacityPercentage,
+          default_rate: defaultRate,
           status,
         };
       });
