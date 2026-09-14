@@ -15,6 +15,8 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useSchool } from "@/contexts/SchoolContext";
 import { getFriendlyErrorMessage } from "@/lib/friendlyError";
+import { calculateTuitionWithPenalty } from "@/lib/calculations";
+import { parseLocalDate } from "@/lib/dateUtils";
 
 interface Student {
   id: string;
@@ -50,11 +52,11 @@ export function TuitionForm({ tuition, onSubmit, onCancel }: TuitionFormProps) {
   const [formData, setFormData] = useState<TuitionFormData>({
     student_id: tuition?.student_id || "",
     amount: tuition?.amount || 0,
-    due_date: tuition?.due_date ? new Date(tuition.due_date) : new Date(),
+    due_date: tuition?.due_date ? parseLocalDate(tuition.due_date) : new Date(),
     description: tuition?.description || `Mensalidade ${format(new Date(), "MM/yyyy", { locale: ptBR })}`,
     payment_method: tuition?.payment_method || "",
     status: tuition?.status || "pending",
-    paid_date: tuition?.paid_date ? new Date(tuition.paid_date) : undefined,
+    paid_date: tuition?.paid_date ? parseLocalDate(tuition.paid_date) : undefined,
   });
 
   useEffect(() => {
@@ -118,6 +120,15 @@ export function TuitionForm({ tuition, onSubmit, onCancel }: TuitionFormProps) {
         paid_date: formData.status === 'paid' && formData.paid_date
           ? format(formData.paid_date, 'yyyy-MM-dd')
           : null,
+        // Só preenchido quando o status vira "paid" — mesma fórmula usada em
+        // TuitionTable.tsx, respeitando desconto/multa já aplicados ao registro.
+        final_amount: formData.status === 'paid'
+          ? calculateTuitionWithPenalty(
+              formData.amount,
+              tuition?.discount_applied ?? 0,
+              tuition?.penalty_amount ?? 0,
+            )
+          : null,
       };
 
       let error;
@@ -127,7 +138,8 @@ export function TuitionForm({ tuition, onSubmit, onCancel }: TuitionFormProps) {
         const { error: updateError } = await supabase
           .from('tuitions')
           .update(submitData)
-          .eq('id', tuition.id);
+          .eq('id', tuition.id)
+          .eq('school_id', schoolId);
         error = updateError;
       } else {
         // Create new tuition

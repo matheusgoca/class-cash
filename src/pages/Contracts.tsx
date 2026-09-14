@@ -133,7 +133,9 @@ const Contracts = () => {
       (acc, contract) => {
         acc.total += 1;
         const monthlyValue = contract.monthly_amount * (1 - contract.discount / 100);
-        acc.totalRevenue += monthlyValue;
+        // Contrato cancelado não representa receita nenhuma — mesma convenção
+        // já usada em Tuitions.tsx (exclui cancelled do total).
+        if (contract.status !== "cancelled") acc.totalRevenue += monthlyValue;
         switch (contract.status) {
           case "active":
             acc.active += 1;

@@ -33,6 +33,8 @@ import { useToast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
 import { generateTuitions } from "@/lib/generateTuitions";
 import { getFriendlyErrorMessage } from "@/lib/friendlyError";
+import { useSchool } from "@/contexts/SchoolContext";
+import { toDateStr } from "@/lib/dateUtils";
 
 interface ContractData {
   id: string;
@@ -62,6 +64,7 @@ interface ContractTableProps {
 
 export function ContractTable({ data, loading, onEdit, onRefresh }: ContractTableProps) {
   const { toast } = useToast();
+  const { schoolId } = useSchool();
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -98,9 +101,24 @@ export function ContractTable({ data, loading, onEdit, onRefresh }: ContractTabl
       const { error } = await supabase
         .from('contracts')
         .update({ status: newStatus })
-        .eq('id', contractId);
+        .eq('id', contractId)
+        .eq('school_id', schoolId);
 
       if (error) throw error;
+
+      // Cancelar o contrato (não suspender — é temporário) também cancela as
+      // mensalidades futuras ainda não vencidas geradas por ele. Sem isso,
+      // elas ficavam "pendentes" pra sempre e apareciam no relatório de
+      // inadimplência como se a família ainda devesse.
+      if (newStatus === 'cancelled') {
+        await supabase
+          .from('tuitions')
+          .update({ status: 'cancelled' })
+          .eq('contract_id', contractId)
+          .eq('school_id', schoolId)
+          .eq('status', 'pending')
+          .gt('due_date', toDateStr(new Date()));
+      }
 
       toast({
         title: "Sucesso",

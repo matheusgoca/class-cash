@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { addMonths, format, parseISO } from "date-fns";
+import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { parseLocalDate } from "@/lib/dateUtils";
+import { getFriendlyErrorMessage } from "@/lib/friendlyError";
 
 interface OverdueTuition {
   id: string;
@@ -62,17 +64,15 @@ export function RenegotiationModal({
       .in("status", ["pending", "overdue"])
       .order("due_date");
 
-    console.log("[RenegotiationModal] student_id:", studentId, "school_id:", schoolId);
-    console.log("[RenegotiationModal] query result:", { data, error });
-
     if (error) {
       toast({ title: "Erro", description: "Não foi possível carregar mensalidades em atraso.", variant: "destructive" });
     } else {
       // Inclui status='overdue' E pending com due_date < hoje
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
       const overdue = (data || []).filter(
-        (t) => t.status === "overdue" || new Date(t.due_date) < new Date()
+        (t) => t.status === "overdue" || parseLocalDate(t.due_date) < todayStart
       );
-      console.log("[RenegotiationModal] overdue after filter:", overdue);
       setOverdueTuitions(overdue);
     }
     setLoadingTuitions(false);
@@ -103,66 +103,27 @@ export function RenegotiationModal({
     setSubmitting(true);
 
     try {
-      // 1. Insert renegotiation record
-      const { data: reneg, error: renegError } = await supabase
-        .from("renegotiations")
-        .insert({
-          student_id: studentId,
-          school_id: schoolId,
-          original_amount: originalAmount,
-          new_installment_amount: parsedInstallmentAmount,
-          installments: parsedInstallments,
-          total_renegotiated: totalRenegotiated,
-          first_due_date: firstDueDate,
-          notes: notes.trim() || null,
-          created_by: user?.id ?? null,
-        })
-        .select("id")
-        .single();
+      // Tudo isso roda atomicamente numa função no banco (renegotiate_tuitions)
+      // — insere a renegociação, cancela as mensalidades atrasadas (revalidando
+      // que ainda estão pending/overdue) e gera as novas parcelas, tudo ou nada.
+      const { error } = await supabase.rpc("renegotiate_tuitions", {
+        p_student_id: studentId,
+        p_school_id: schoolId,
+        p_tuition_ids: overdueTuitions.map((t) => t.id),
+        p_new_installment_amount: parsedInstallmentAmount,
+        p_installments: parsedInstallments,
+        p_first_due_date: firstDueDate,
+        p_notes: notes.trim() || null,
+        p_created_by: user?.id ?? null,
+      });
 
-      if (renegError) throw renegError;
-
-      // 2. Cancel all overdue tuitions (status 'overdue' or 'pending' past due), linking to this renegotiation
-      const { error: cancelError } = await supabase
-        .from("tuitions")
-        .update({ status: "cancelled", renegotiation_id: reneg.id })
-        .in("id", overdueTuitions.map((t) => t.id));
-
-      if (cancelError) throw cancelError;
-
-      // 3. Generate new tuitions
-      const contractId = overdueTuitions[0]?.contract_id ?? null;
-      const firstDate = parseISO(firstDueDate); // YYYY-MM-DD → local date, no timezone shift
-      const numInstallments = Math.max(1, parseInt(installments) || 1);
-      const installmentAmount = parseFloat(newInstallmentAmount.replace(",", "."));
-      const newTuitions = [];
-      for (let i = 0; i < numInstallments; i++) {
-        const dueDate = addMonths(firstDate, i);
-        console.log(`[RenegotiationModal] parcela ${i + 1}: due_date=${format(dueDate, "yyyy-MM-dd")}`);
-        newTuitions.push({
-          student_id: studentId,
-          school_id: schoolId,
-          contract_id: contractId,
-          amount: installmentAmount,
-          final_amount: installmentAmount,
-          due_date: format(dueDate, "yyyy-MM-dd"),
-          status: "pending",
-          description: `Parcela renegociada ${i + 1}/${numInstallments}`,
-          renegotiation_id: reneg.id,
-          category: "tuition",
-          discount_applied: 0,
-          penalty_amount: 0,
-        });
-      }
-
-      const { error: insertError } = await supabase.from("tuitions").insert(newTuitions);
-      if (insertError) throw insertError;
+      if (error) throw error;
 
       toast({ title: "Renegociação registrada!", description: `${parsedInstallments} nova(s) parcela(s) gerada(s).` });
       onSuccess();
     } catch (err: any) {
       console.error("Renegotiation error:", err);
-      toast({ title: "Erro", description: err.message ?? "Erro ao registrar renegociação.", variant: "destructive" });
+      toast({ title: "Erro", description: getFriendlyErrorMessage(err, "Erro ao registrar renegociação."), variant: "destructive" });
     } finally {
       setSubmitting(false);
     }

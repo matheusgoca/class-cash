@@ -12,8 +12,9 @@ import { ArrowUpDown, Edit, CheckCircle, Search, RefreshCw } from "lucide-react"
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
-import { isTuitionOverdue } from "@/lib/calculations";
+import { isTuitionOverdue, calculateTuitionWithPenalty } from "@/lib/calculations";
 import { getFriendlyErrorMessage } from "@/lib/friendlyError";
+import { useSchool } from "@/contexts/SchoolContext";
 
 interface TuitionData {
   id: string;
@@ -62,6 +63,7 @@ type SortField = 'student_name' | 'class_name' | 'amount' | 'status' | 'due_date
 
 export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, initialSearch = "" }: TuitionTableProps) {
   const { toast } = useToast();
+  const { schoolId } = useSchool();
   const [sortField, setSortField] = useState<SortField>("due_date");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [currentPage, setCurrentPage] = useState(1);
@@ -153,9 +155,14 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
           status: 'paid',
           paid_date: format(new Date(), 'yyyy-MM-dd'),
           payment_method: tuition.payment_method || 'Não informado',
-          final_amount: tuition.amount,
+          final_amount: calculateTuitionWithPenalty(
+            tuition.amount,
+            tuition.discount_applied,
+            tuition.penalty_amount,
+          ),
         })
-        .eq('id', tuition.id);
+        .eq('id', tuition.id)
+        .eq('school_id', schoolId);
 
       if (error) throw error;
 
