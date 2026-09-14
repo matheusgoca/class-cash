@@ -91,7 +91,10 @@ export function validateClassesRows(
         description: normalizeText(row['descricao']) || null,
         max_capacity: maxCapacity,
         monthly_fee: monthlyFee ?? null,
-        color: normalizeText(row['cor']) || randomClassColor(idx),
+        // Offset pela quantidade de turmas já existentes — sem isso, toda
+        // sessão de import começava a paleta do zero e repetia as mesmas
+        // cores de uma importação anterior.
+        color: normalizeText(row['cor']) || randomClassColor(context.existingClasses.length + idx),
         teacher_ids: teacherIds,
       },
     });

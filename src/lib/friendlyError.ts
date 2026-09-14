@@ -37,5 +37,10 @@ export function getFriendlyErrorMessage(error: any, fallback?: string): string {
     return 'Aguarde um momento antes de tentar novamente.';
   }
 
+  // Postgres check_violation (ex: due_day fora de 1-28, discount fora de 0-100)
+  if (code === '23514' || /violates check constraint/i.test(message)) {
+    return 'Um dos valores informados está fora do permitido — confira os campos e tente novamente.';
+  }
+
   return fallback ?? message ?? 'Ocorreu um erro inesperado.';
 }

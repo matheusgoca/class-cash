@@ -154,13 +154,22 @@ const Expenses = () => {
         .eq("school_id", schoolId);
       if (error) throw error;
 
+      // Sem contar quantos foram gerados, reativar uma recorrente pausada há
+      // muito tempo podia jogar vários anos de lançamento "atrasado" na tela
+      // sem nenhum aviso — o admin só descobria depois, olhando a lista.
+      let insertedCount = 0;
       if (!r.active) {
-        // Reactivating: backfill any missing instances
-        await generateExpenses(r.id, schoolId);
+        const result = await generateExpenses(r.id, schoolId);
+        insertedCount = result.inserted;
         await fetchExpenses();
       }
       await fetchRecurring();
-      toast({ title: r.active ? "Despesa recorrente pausada" : "Despesa recorrente reativada" });
+      toast({
+        title: r.active ? "Despesa recorrente pausada" : "Despesa recorrente reativada",
+        description: !r.active && insertedCount > 0
+          ? `${insertedCount} lançamento${insertedCount !== 1 ? 's' : ''} gerado${insertedCount !== 1 ? 's' : ''}, incluindo os meses em atraso desde ${format(parseLocalDate(r.start_date), "MM/yyyy", { locale: ptBR })}.`
+          : undefined,
+      });
     } catch (error: any) {
       toast({
         title: "Erro",

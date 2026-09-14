@@ -57,8 +57,10 @@ export function ServiceCatalogSection() {
   };
 
   const handleCreate = async () => {
-    const price = parseFloat(newPrice);
-    if (!newName.trim() || !schoolId || !price || price <= 0) return;
+    // Number() (não parseFloat) rejeita lixo à direita como "10abc", que
+    // parseFloat aceitaria silenciosamente como 10.
+    const price = Number(newPrice);
+    if (!newName.trim() || !schoolId || !price || Number.isNaN(price) || price <= 0) return;
     setCreating(true);
     try {
       const { data, error } = await (supabase as any)
@@ -152,8 +154,8 @@ export function ServiceCatalogSection() {
                   type="number" min="0" step="0.01"
                   defaultValue={s.price}
                   onBlur={(e) => {
-                    const value = parseFloat(e.target.value);
-                    if (!(value > 0)) {
+                    const value = Number(e.target.value);
+                    if (Number.isNaN(value) || !(value > 0)) {
                       toast({ title: 'Preço inválido', description: 'Informe um valor maior que zero.', variant: 'destructive' });
                       e.target.value = String(s.price);
                       return;
