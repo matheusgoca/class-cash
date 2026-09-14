@@ -35,12 +35,7 @@ const Students = () => {
       // Fetch all students
       const { data: studentsData, error: studentsError } = await supabase
         .from('students')
-        .select(`
-          *,
-          classes:class_id (
-            name
-          )
-        `)
+        .select('*')
         .eq('school_id', schoolId)
         .order('name');
 
@@ -59,13 +54,27 @@ const Students = () => {
 
       if (enrollmentsError) throw enrollmentsError;
 
-      // Merge student data with enrollment data
+      // Active contract's final_amount — the "Mensalidade" column shows this
+      // when a contract exists, since that's what actually generates
+      // cobranças; students.full_tuition_value/discount are only a reference
+      // for students who don't have a contract yet (e.g. pré-matrícula).
+      const { data: contractsData, error: contractsError } = await (supabase as any)
+        .from('contracts')
+        .select('student_id, final_amount')
+        .eq('school_id', schoolId)
+        .eq('status', 'active');
+
+      if (contractsError) throw contractsError;
+
+      // Merge student data with enrollment and active-contract data
       const studentsWithClasses = (studentsData || []).map(student => {
         const enrollment = (enrollmentsData || []).find((e: any) => e.student_id === student.id);
+        const activeContract = (contractsData || []).find((c: any) => c.student_id === student.id);
         return {
           ...student,
           enrollment_class_id: enrollment?.classes?.id,
           enrollment_class_name: enrollment?.classes?.name,
+          active_contract_final_amount: activeContract?.final_amount ?? undefined,
         };
       });
 
@@ -223,7 +232,7 @@ const Students = () => {
 
   const filteredStudents = students.filter(student => {
     const matchesSearch = ( student.full_name ?? '').toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesClass = !classFilter || classFilter === 'all' || student.class_id === classFilter || student.enrollment_class_id === classFilter;
+    const matchesClass = !classFilter || classFilter === 'all' || student.enrollment_class_id === classFilter;
     return matchesSearch && matchesClass;
   });
 

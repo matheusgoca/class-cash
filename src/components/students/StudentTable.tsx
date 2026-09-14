@@ -24,6 +24,7 @@ interface Student {
   full_tuition_value?: number;
   discount?: number;
   final_tuition_value?: number;
+  active_contract_final_amount?: number;
   status: 'active' | 'inactive';
 }
 
@@ -124,13 +125,14 @@ export const StudentTable: React.FC<StudentTableProps> = ({
                       : '-'}
                   </TableCell>
                   <TableCell>
-                    {student.final_tuition_value ? 
-                      new Intl.NumberFormat("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      }).format(student.final_tuition_value)
-                      : '-'
-                    }
+                    {(() => {
+                      // Contrato ativo é a fonte real de cobrança — só cai pro
+                      // valor de referência do cadastro quando não há contrato.
+                      const value = student.active_contract_final_amount ?? student.final_tuition_value;
+                      return value
+                        ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value)
+                        : '-';
+                    })()}
                   </TableCell>
                   <TableCell>{getClassName(student)}</TableCell>
                   <TableCell>
