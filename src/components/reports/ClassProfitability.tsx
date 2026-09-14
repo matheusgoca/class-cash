@@ -38,6 +38,7 @@ export function ClassProfitability() {
         { data: tuitions, error: tErr },
         { data: enrollments, error: eErr },
         { data: expensesData, error: expErr },
+        { data: serviceCharges, error: scErr },
       ] = await Promise.all([
         // Classes with embedded teacher salary info
         (supabase as any)
@@ -50,14 +51,21 @@ export function ClassProfitability() {
           .select("final_amount, amount, contracts(class_id)")
           .eq("school_id", schoolId)
           .eq("status", "paid"),
-        // Student counts per class — enrollments has no school_id, scoped via class_id
+        // Student counts per class, and student→class attribution for service
+        // revenue below — enrollments has no school_id, scoped via class_id
         (supabase as any)
           .from("enrollments")
-          .select("class_id"),
+          .select("student_id, class_id"),
         // Paid expenses with allocation method for cost apportionment
         (supabase as any)
           .from("expenses")
           .select("amount, class_id, expense_categories(allocation_method)")
+          .eq("school_id", schoolId)
+          .eq("status", "paid"),
+        // Paid service charges (alimentação, cursos extras...), attributed via student's enrollment
+        (supabase as any)
+          .from("service_charges")
+          .select("amount, student_id")
           .eq("school_id", schoolId)
           .eq("status", "paid"),
       ]);
@@ -66,6 +74,7 @@ export function ClassProfitability() {
       if (tErr) throw tErr;
       if (eErr) throw eErr;
       if (expErr) throw expErr;
+      if (scErr) throw scErr;
 
       const revenueByClass: Record<string, number> = {};
       for (const t of tuitions || []) {
@@ -76,8 +85,16 @@ export function ClassProfitability() {
       }
 
       const studentsByClass: Record<string, number> = {};
+      const classByStudent: Record<string, string> = {};
       for (const e of enrollments || []) {
         studentsByClass[e.class_id] = (studentsByClass[e.class_id] || 0) + 1;
+        classByStudent[e.student_id] = e.class_id;
+      }
+
+      for (const sc of serviceCharges || []) {
+        const classId = classByStudent[sc.student_id];
+        if (!classId) continue;
+        revenueByClass[classId] = (revenueByClass[classId] || 0) + Number(sc.amount || 0);
       }
 
       // One row per class-teacher link, for salary apportionment

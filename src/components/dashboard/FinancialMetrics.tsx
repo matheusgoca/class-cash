@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/contexts/SchoolContext";
 import { formatCurrency, isTuitionOverdue } from "@/lib/calculations";
-import { DollarSign, TrendingUp, TrendingDown, AlertTriangle, Users, UserCheck, Calculator, Wallet } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, AlertTriangle, Users, UserCheck, Calculator, Wallet, Sparkles } from "lucide-react";
 
 export function FinancialMetrics() {
   const { schoolId } = useSchool();
@@ -11,6 +11,7 @@ export function FinancialMetrics() {
     totalRevenue: 0,
     paidRevenue: 0,
     monthlyRevenue: 0,
+    monthlyServiceRevenue: 0,
     pendingRevenue: 0,
     overdueRevenue: 0,
     totalStudents: 0,
@@ -41,17 +42,20 @@ export function FinancialMetrics() {
         { data: teachers, error: teachersError },
         { data: tuitions, error: tuitionsError },
         { data: expenses, error: expensesError },
+        { data: serviceCharges, error: serviceChargesError },
       ] = await Promise.all([
         (supabase as any).from('students').select('id').eq('school_id', schoolId).eq('status', 'active'),
         (supabase as any).from('teachers').select('id, salary').eq('school_id', schoolId).eq('status', 'active'),
         (supabase as any).from('tuitions').select('amount, status, due_date').eq('school_id', schoolId),
         (supabase as any).from('expenses').select('amount, status, due_date').eq('school_id', schoolId).gte('due_date', twoMonthsAgo),
+        (supabase as any).from('service_charges').select('amount, status, due_date').eq('school_id', schoolId),
       ]);
 
       if (studentsError) throw studentsError;
       if (teachersError) throw teachersError;
       if (tuitionsError) throw tuitionsError;
       if (expensesError) throw expensesError;
+      if (serviceChargesError) throw serviceChargesError;
 
       // Cancelled tuitions (e.g. replaced by a renegotiation) are not revenue —
       // exclude them everywhere, same as the expenses bucket below already does.
@@ -76,6 +80,18 @@ export function FinancialMetrics() {
         else if (y === prevRef.getFullYear() && m === prevRef.getMonth()) previousMonthRevenue += Number(t.amount);
       }
 
+      // Same bucketing for service charges (cancelled excluded)
+      const activeServiceCharges = serviceCharges?.filter((s: any) => s.status !== "cancelled") || [];
+      let monthlyServiceRevenue = 0;
+      let previousMonthServiceRevenue = 0;
+      for (const s of activeServiceCharges) {
+        const due = new Date(s.due_date);
+        const y = due.getFullYear();
+        const m = due.getMonth();
+        if (y === currentYear && m === currentMonth) monthlyServiceRevenue += Number(s.amount);
+        else if (y === prevRef.getFullYear() && m === prevRef.getMonth()) previousMonthServiceRevenue += Number(s.amount);
+      }
+
       const totalSalaries = teachers?.reduce((sum: number, t: any) => sum + (Number(t.salary) || 0), 0) || 0;
 
       // Bucket expenses into current and previous month in a single pass
@@ -90,15 +106,16 @@ export function FinancialMetrics() {
         else if (y === prevRef.getFullYear() && m === prevRef.getMonth()) previousMonthExpenses += Number(e.amount);
       }
 
-      const financialBalance = monthlyRevenue - totalSalaries - monthlyExpenses;
+      const financialBalance = monthlyRevenue + monthlyServiceRevenue - totalSalaries - monthlyExpenses;
       // Salary has no month-by-month history today — using current total as an
       // approximation for the previous month is sufficient for a trend indicator.
-      const previousBalance = previousMonthRevenue - totalSalaries - previousMonthExpenses;
+      const previousBalance = previousMonthRevenue + previousMonthServiceRevenue - totalSalaries - previousMonthExpenses;
 
       setMetrics({
         totalRevenue,
         paidRevenue,
         monthlyRevenue,
+        monthlyServiceRevenue,
         pendingRevenue,
         overdueRevenue,
         totalStudents: students?.length || 0,
@@ -147,8 +164,8 @@ export function FinancialMetrics() {
             ))}
           </div>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          {[1, 2, 3, 4, 5].map((i) => (
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
             <div key={i} className="h-16 bg-muted rounded-lg animate-pulse" />
           ))}
         </div>
@@ -229,7 +246,7 @@ export function FinancialMetrics() {
       </div>
 
       {/* Faixa secundária — operacional, peso visual menor que o financeiro acima */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
         <div className="flex items-center gap-3 rounded-lg border p-3">
           <div className="rounded-md p-2 bg-muted/50">
             <UserCheck className="h-4 w-4 text-muted-foreground" />
@@ -257,6 +274,16 @@ export function FinancialMetrics() {
           <div>
             <p className="text-xs text-muted-foreground">Despesas do mês</p>
             <p className="text-sm font-semibold">{formatCurrency(metrics.monthlyExpenses)}</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 rounded-lg border p-3">
+          <div className="rounded-md p-2 bg-muted/50">
+            <Sparkles className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Receita de serviços</p>
+            <p className="text-sm font-semibold">{formatCurrency(metrics.monthlyServiceRevenue)}</p>
           </div>
         </div>
 

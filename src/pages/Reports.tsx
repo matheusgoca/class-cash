@@ -376,6 +376,37 @@ const Reports = () => {
     }));
   };
 
+  interface ServiceExportRow {
+    studentName: string;
+    serviceName: string;
+    amount: number;
+    status: string;
+    due_date: string;
+    paid_date: string | null;
+  }
+
+  const fetchServiceChargesForExport = async (): Promise<ServiceExportRow[]> => {
+    let query = (supabase as any)
+      .from("service_charges")
+      .select("amount, status, due_date, paid_date, students(full_name), school_services(name)")
+      .eq("school_id", schoolId!);
+
+    if (filters.startDate) query = query.gte("due_date", filters.startDate);
+    if (filters.endDate) query = query.lte("due_date", filters.endDate);
+
+    const { data, error } = await query.order("due_date", { ascending: false });
+    if (error) throw error;
+
+    return (data || []).map((item: any) => ({
+      studentName: item.students?.full_name ?? "N/A",
+      serviceName: item.school_services?.name ?? "N/A",
+      amount: Number(item.amount),
+      status: item.status,
+      due_date: item.due_date,
+      paid_date: item.paid_date,
+    }));
+  };
+
   const exportToCSV = async () => {
     let expenseRows: ExpenseExportRow[];
     try {
@@ -391,6 +422,21 @@ const Reports = () => {
     const expensesTotal = expenseRows
       .filter((e) => e.status !== "cancelled")
       .reduce((sum, e) => sum + e.amount, 0);
+
+    let serviceRows: ServiceExportRow[];
+    try {
+      serviceRows = await fetchServiceChargesForExport();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getFriendlyErrorMessage(error, "Erro ao carregar serviços para o relatório"),
+        variant: "destructive",
+      });
+      return;
+    }
+    const servicesTotal = serviceRows
+      .filter((s) => s.status !== "cancelled")
+      .reduce((sum, s) => sum + s.amount, 0);
 
     const summary = calculateSummary();
     const csvData = [
@@ -465,10 +511,25 @@ const Reports = () => {
       { "Descrição": "Total de Despesas", "Categoria": "", "Turma": `${expenseRows.length} registros`, "Valor": expensesTotal, "Status": "", "Data de Vencimento": "", "Data de Pagamento": "" },
     ];
 
+    const serviceCsvData = [
+      ...serviceRows.map((s) => ({
+        "Aluno": s.studentName,
+        "Serviço": s.serviceName,
+        "Valor": s.amount,
+        "Status": expenseStatusLabel(s.status),
+        "Data de Vencimento": formatDate(s.due_date),
+        "Data de Pagamento": s.paid_date ? formatDate(s.paid_date) : "N/A",
+      })),
+      {},
+      { "Aluno": "Total de Serviços", "Serviço": "", "Valor": servicesTotal, "Status": "", "Data de Vencimento": "", "Data de Pagamento": "" },
+    ];
+
     const csv =
       Papa.unparse(csvData) +
       "\n\n\nDESPESAS\n\n" +
-      Papa.unparse(expenseCsvData);
+      Papa.unparse(expenseCsvData) +
+      "\n\n\nSERVIÇOS\n\n" +
+      Papa.unparse(serviceCsvData);
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
@@ -495,6 +556,21 @@ const Reports = () => {
     const expensesTotal = expenseRows
       .filter((e) => e.status !== "cancelled")
       .reduce((sum, e) => sum + e.amount, 0);
+
+    let serviceRows: ServiceExportRow[];
+    try {
+      serviceRows = await fetchServiceChargesForExport();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getFriendlyErrorMessage(error, "Erro ao carregar serviços para o relatório"),
+        variant: "destructive",
+      });
+      return;
+    }
+    const servicesTotal = serviceRows
+      .filter((s) => s.status !== "cancelled")
+      .reduce((sum, s) => sum + s.amount, 0);
 
     const summary = calculateSummary();
 
@@ -533,9 +609,25 @@ const Reports = () => {
       ["Total de Despesas", `${expenseRows.length} registros`, expensesTotal],
     ];
 
+    const servicesWorksheetData = [
+      ["Aluno", "Serviço", "Valor", "Status", "Data de Vencimento", "Data de Pagamento"],
+      ...serviceRows.map((s) => [
+        s.studentName,
+        s.serviceName,
+        s.amount,
+        expenseStatusLabel(s.status),
+        formatDate(s.due_date),
+        s.paid_date ? formatDate(s.paid_date) : "N/A",
+      ]),
+      [],
+      ["RESUMO"],
+      ["Total de Serviços", `${serviceRows.length} registros`, servicesTotal],
+    ];
+
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(worksheetData), "Mensalidades");
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(expensesWorksheetData), "Despesas");
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(servicesWorksheetData), "Serviços");
     XLSX.writeFile(workbook, `relatorio-financeiro-${format(new Date(), "yyyy-MM-dd")}.xlsx`);
   };
 
