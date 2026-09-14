@@ -1,16 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-
-// Formats a Date as 'YYYY-MM-DD' using its local fields — never toISOString(),
-// which converts to UTC first and can shift the date by a day in timezones
-// with a positive offset (e.g. midnight in Europe/Asia rolls back to the
-// previous day in UTC), breaking both the stored due_date and the
-// existingDates idempotency check below.
-function toDateStr(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
+import { toDateStr } from '@/lib/dateUtils';
 
 interface Contract {
   id: string;

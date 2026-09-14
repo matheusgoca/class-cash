@@ -20,6 +20,7 @@ import { useSchool } from "@/contexts/SchoolContext";
 import { RenegotiationModal } from "@/components/tuitions/RenegotiationModal";
 import { isTuitionOverdue } from "@/lib/calculations";
 import { getFriendlyErrorMessage } from "@/lib/friendlyError";
+import { parseLocalDate } from "@/lib/dateUtils";
 import { useToast } from "@/hooks/use-toast";
 
 interface TuitionReport {
@@ -322,7 +323,7 @@ const Reports = () => {
   };
 
   const formatDate = (date: string) => {
-    return format(new Date(date), "dd/MM/yyyy", { locale: ptBR });
+    return format(parseLocalDate(date), "dd/MM/yyyy", { locale: ptBR });
   };
 
   const getStatusBadge = (status: string) => {

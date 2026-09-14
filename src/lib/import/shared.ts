@@ -4,6 +4,8 @@
 // or Date, depending on how the user filled it in Excel/Sheets), not from a
 // controlled text input.
 
+import { toDateStr } from '@/lib/dateUtils';
+
 /**
  * Accepts "650,00", "650.00", "R$ 650,00", or an already-numeric cell and
  * returns a plain number. Returns undefined for an empty cell.
@@ -44,7 +46,7 @@ export function parseDateBR(value: unknown): Date | undefined {
 }
 
 export function toISODate(date: Date): string {
-  return date.toISOString().split('T')[0];
+  return toDateStr(date);
 }
 
 export function parsePercent(value: unknown): number | undefined {

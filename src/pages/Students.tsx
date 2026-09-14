@@ -10,6 +10,7 @@ import { StudentTable } from '@/components/students/StudentTable';
 import { getFriendlyErrorMessage } from '@/lib/friendlyError';
 import { PlanLimitBanner } from '@/components/PlanLimitBanner';
 import { isOverPlanLimit, STARTER_LIMITS } from '@/lib/planLimits';
+import { toDateStr } from '@/lib/dateUtils';
 
 const Students = () => {
   const { schoolId, school } = useSchool();
@@ -108,8 +109,8 @@ const Students = () => {
       const dataToSubmit = {
         ...studentData,
         full_name: studentData.full_name,
-        birth_date: birth_date instanceof Date ? birth_date.toISOString().split('T')[0] : birth_date,
-        enrollment_date: enrollment_date instanceof Date ? enrollment_date.toISOString().split('T')[0] : enrollment_date,
+        birth_date: birth_date instanceof Date ? toDateStr(birth_date) : birth_date,
+        enrollment_date: enrollment_date instanceof Date ? toDateStr(enrollment_date) : enrollment_date,
         final_tuition_value: finalTuitionValue,
         school_id: schoolId,
       };

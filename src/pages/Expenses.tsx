@@ -17,6 +17,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { isTuitionOverdue } from "@/lib/calculations";
 import { getFriendlyErrorMessage } from "@/lib/friendlyError";
+import { parseLocalDate } from "@/lib/dateUtils";
 
 interface ExpenseTableRow extends ExpenseRecord {
   category: { name: string; color: string } | null;
@@ -349,8 +350,8 @@ const Expenses = () => {
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
                           {formatCurrency(r.amount)} · todo dia {r.due_day} · {r.className || "Escola toda"} · desde{" "}
-                          {format(new Date(r.start_date), "MM/yyyy", { locale: ptBR })}
-                          {r.end_date ? ` até ${format(new Date(r.end_date), "MM/yyyy", { locale: ptBR })}` : ""}
+                          {format(parseLocalDate(r.start_date), "MM/yyyy", { locale: ptBR })}
+                          {r.end_date ? ` até ${format(parseLocalDate(r.end_date), "MM/yyyy", { locale: ptBR })}` : ""}
                         </p>
                       </div>
                       <div className="flex items-center gap-3 shrink-0">

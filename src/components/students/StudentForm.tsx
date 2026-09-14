@@ -14,6 +14,7 @@ import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/compon
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import { parseLocalDate } from '@/lib/dateUtils';
 import { StudentServicesSection } from './StudentServicesSection';
 import { useSchool } from '@/contexts/SchoolContext';
 
@@ -53,8 +54,8 @@ export const StudentForm: React.FC<StudentFormProps> = ({
       full_name:          student?.full_name ?? '',
       email:              student?.email ?? '',
       phone:              student?.phone ?? '',
-      birth_date:         student?.birth_date ? new Date(student.birth_date) : undefined,
-      enrollment_date:    student?.enrollment_date ? new Date(student.enrollment_date) : new Date(),
+      birth_date:         student?.birth_date ? parseLocalDate(student.birth_date) : undefined,
+      enrollment_date:    student?.enrollment_date ? parseLocalDate(student.enrollment_date) : new Date(),
       guardian_contact:   student?.guardian_contact ?? '',
       class_id:           student?.enrollment_class_id ?? null,
       full_tuition_value: student?.full_tuition_value ?? undefined,
@@ -70,8 +71,8 @@ export const StudentForm: React.FC<StudentFormProps> = ({
         full_name:          student.full_name ?? '',
         email:              student.email ?? '',
         phone:              student.phone ?? '',
-        birth_date:         student.birth_date ? new Date(student.birth_date) : undefined,
-        enrollment_date:    student.enrollment_date ? new Date(student.enrollment_date) : new Date(),
+        birth_date:         student.birth_date ? parseLocalDate(student.birth_date) : undefined,
+        enrollment_date:    student.enrollment_date ? parseLocalDate(student.enrollment_date) : new Date(),
         guardian_contact:   student.guardian_contact ?? '',
         class_id:           student.enrollment_class_id ?? null,
         full_tuition_value: student.full_tuition_value ?? undefined,

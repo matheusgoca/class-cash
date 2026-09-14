@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/contexts/SchoolContext";
 import { formatCurrency } from "@/lib/calculations";
+import { parseLocalDate } from "@/lib/dateUtils";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   Cell, LineChart, Line, Legend, ReferenceLine,
@@ -71,7 +72,7 @@ export function DashboardCharts() {
       // ── 2. Monthly revenue + cost trend (last 6 months) ────
       const revenueByMonth: Record<string, number> = Object.fromEntries(months.map(m => [m.key, 0]));
       for (const t of tuitions || []) {
-        const d = new Date(t.paid_date!);
+        const d = parseLocalDate(t.paid_date!);
         const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
         if (key in revenueByMonth) revenueByMonth[key] += Number(t.final_amount ?? t.amount ?? 0);
       }
@@ -81,7 +82,7 @@ export function DashboardCharts() {
 
       const expensesByMonth: Record<string, number> = Object.fromEntries(months.map(m => [m.key, 0]));
       for (const e of expenses || []) {
-        const d = new Date(e.paid_date!);
+        const d = parseLocalDate(e.paid_date!);
         const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
         if (key in expensesByMonth) expensesByMonth[key] += Number(e.amount ?? 0);
       }

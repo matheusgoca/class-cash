@@ -17,6 +17,7 @@ import { CalendarIcon, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { parseLocalDate } from "@/lib/dateUtils";
 
 interface ExpenseCategory {
   id: string;
@@ -73,9 +74,9 @@ export function ExpenseForm({ expense, onSubmit, onCancel }: ExpenseFormProps) {
   const [status, setStatus] = useState<ExpenseRecord["status"]>(expense?.status ?? "pending");
 
   // One-off fields
-  const [dueDate, setDueDate] = useState<Date>(expense?.due_date ? new Date(expense.due_date) : new Date());
+  const [dueDate, setDueDate] = useState<Date>(expense?.due_date ? parseLocalDate(expense.due_date) : new Date());
   const [paidDate, setPaidDate] = useState<Date | undefined>(
-    expense?.paid_date ? new Date(expense.paid_date) : undefined
+    expense?.paid_date ? parseLocalDate(expense.paid_date) : undefined
   );
 
   // Recurring fields

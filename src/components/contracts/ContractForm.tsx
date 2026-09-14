@@ -17,16 +17,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { generateTuitions } from "@/lib/generateTuitions";
 import { getFriendlyErrorMessage } from "@/lib/friendlyError";
-
-// Local date as 'YYYY-MM-DD' — nunca toISOString(), que converte pra UTC
-// primeiro e pode voltar um dia em fusos positivos (mesmo cuidado do
-// generateTuitions.ts).
-function toDateStr(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
+import { toDateStr } from "@/lib/dateUtils";
 
 const contractSchema = z.object({
   student_id:     z.string().min(1, "Aluno é obrigatório"),
@@ -209,8 +200,8 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
         student_id:     data.student_id,
         class_id:       data.class_id || null,
         period:         data.period,
-        start_date:     data.start_date.toISOString().split('T')[0],
-        end_date:       data.end_date.toISOString().split('T')[0],
+        start_date:     toDateStr(data.start_date),
+        end_date:       toDateStr(data.end_date),
         monthly_amount: data.monthly_amount,
         discount:       data.discount,
         due_day:        data.due_day,
