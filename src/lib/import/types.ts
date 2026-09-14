@@ -86,5 +86,6 @@ export interface ImportContext {
   schoolId: string;
   existingClasses: Array<{ id: string; name: string }>;
   existingTeachers: Array<{ id: string; email: string }>;
-  existingStudents: Array<{ id: string; full_name: string; email: string | null }>;
+  existingStudents: Array<{ id: string; full_name: string; email: string | null; birth_date: string | null }>;
+  existingActiveContractStudentIds: Set<string>;
 }

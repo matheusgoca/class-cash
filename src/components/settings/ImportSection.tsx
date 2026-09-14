@@ -30,10 +30,13 @@ const ENTITY_HELP: Record<ImportEntityKey, string> = {
 };
 
 async function fetchImportContext(schoolId: string): Promise<ImportContext> {
-  const [classesRes, teachersRes, studentsRes] = await Promise.all([
+  const [classesRes, teachersRes, studentsRes, contractsRes] = await Promise.all([
     supabase.from('classes').select('id, name').eq('school_id', schoolId),
-    supabase.from('teachers').select('id, email').eq('school_id', schoolId),
-    (supabase as any).from('students').select('id, full_name, email').eq('school_id', schoolId),
+    // Só ativos — um professor/aluno desligado não deveria casar com o import
+    // de Turmas/Contratos, que criaria vínculo/cobrança pra quem já saiu.
+    supabase.from('teachers').select('id, email').eq('school_id', schoolId).eq('status', 'active'),
+    (supabase as any).from('students').select('id, full_name, email, birth_date').eq('school_id', schoolId).eq('status', 'active'),
+    (supabase as any).from('contracts').select('student_id').eq('school_id', schoolId).eq('status', 'active'),
   ]);
 
   return {
@@ -41,6 +44,7 @@ async function fetchImportContext(schoolId: string): Promise<ImportContext> {
     existingClasses: classesRes.data ?? [],
     existingTeachers: teachersRes.data ?? [],
     existingStudents: studentsRes.data ?? [],
+    existingActiveContractStudentIds: new Set((contractsRes.data ?? []).map((c: any) => c.student_id)),
   };
 }
 

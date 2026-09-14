@@ -214,11 +214,13 @@ export default function Team() {
     if (!selectedMember) return;
     setSubmitting(true);
 
-    // Remove todas as roles atuais e insere a nova
-    await supabase.from("user_roles").delete().eq("user_id", selectedMember.user_id);
+    // Upsert (não delete + insert) — user_roles tem UNIQUE(user_id), então isso
+    // é um único UPDATE/INSERT atômico. O padrão antigo (apagar a role e só
+    // depois inserir a nova) deixava o membro sem NENHUMA role se o insert
+    // falhasse depois do delete ter tido sucesso — travado do sistema.
     const { error } = await supabase
       .from("user_roles")
-      .insert({ user_id: selectedMember.user_id, role: newRole as any });
+      .upsert({ user_id: selectedMember.user_id, role: newRole as any }, { onConflict: "user_id" });
 
     if (error) {
       toast({ title: "Erro", description: getFriendlyErrorMessage(error, error.message), variant: "destructive" });

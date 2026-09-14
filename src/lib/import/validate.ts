@@ -168,6 +168,15 @@ export function validateStudentsRows(
   const errors: ImportRowError[] = [];
   const valid: Array<{ row: number; data: ValidatedStudentRow }> = [];
 
+  // Mesmo nome + mesma data de nascimento já cadastrado (ou repetido na
+  // própria planilha) quase certamente é reenvio do mesmo aluno — sem essa
+  // checagem, reenviar a planilha (ex: depois de corrigir uma linha com
+  // erro) duplicava todo mundo que já tinha sido importado com sucesso.
+  const existingKeys = new Set(
+    context.existingStudents.map((s: any) => `${s.full_name.trim().toLowerCase()}|${s.birth_date ?? ''}`)
+  );
+  const keysInFile = new Set<string>();
+
   rows.forEach((row, idx) => {
     const rowNum = idx + 2;
     const fullName = normalizeText(row['nome_completo']);
@@ -181,6 +190,16 @@ export function validateStudentsRows(
     const birthDate = parseDateBR(birthDateRaw);
     if (!birthDate) {
       errors.push({ row: rowNum, field: 'data_nascimento', message: `Data de nascimento obrigatória e precisa estar no formato DD/MM/AAAA (recebido: "${birthDateRaw}").` });
+      return;
+    }
+
+    const dedupKey = `${fullName.toLowerCase()}|${toISODate(birthDate)}`;
+    if (existingKeys.has(dedupKey)) {
+      errors.push({ row: rowNum, field: 'nome_completo', message: `Já existe um aluno "${fullName}" com essa mesma data de nascimento nesta escola.` });
+      return;
+    }
+    if (keysInFile.has(dedupKey)) {
+      errors.push({ row: rowNum, field: 'nome_completo', message: `Aluno "${fullName}" (mesma data de nascimento) repetido em outra linha desta planilha.` });
       return;
     }
 
@@ -214,6 +233,7 @@ export function validateStudentsRows(
       classId = found.id;
     }
 
+    keysInFile.add(dedupKey);
     valid.push({
       row: rowNum,
       data: {
@@ -238,6 +258,10 @@ export function validateContractsRows(
 ): ImportValidationResult<ValidatedContractRow> {
   const errors: ImportRowError[] = [];
   const valid: Array<{ row: number; data: ValidatedContractRow }> = [];
+  // Alunos já usados nesta planilha — sem isso, duas linhas pro mesmo aluno
+  // (ex: reenviar o arquivo depois de corrigir uma linha) criavam dois
+  // contratos ativos, e generateTuitions rodava pros dois — cobrança em dobro.
+  const studentIdsInFile = new Set<string>();
 
   rows.forEach((row, idx) => {
     const rowNum = idx + 2;
@@ -268,6 +292,15 @@ export function validateContractsRows(
         return;
       }
       student = disambiguated;
+    }
+
+    if (context.existingActiveContractStudentIds.has(student.id)) {
+      errors.push({ row: rowNum, field: 'aluno', message: `"${studentName}" já tem um contrato ativo nesta escola. Encerre o contrato atual antes de importar um novo.` });
+      return;
+    }
+    if (studentIdsInFile.has(student.id)) {
+      errors.push({ row: rowNum, field: 'aluno', message: `"${studentName}" aparece em mais de uma linha desta planilha de contratos.` });
+      return;
     }
 
     const monthlyAmountRaw = row['valor_mensalidade'];
@@ -330,6 +363,7 @@ export function validateContractsRows(
       classId = found.id;
     }
 
+    studentIdsInFile.add(student.id);
     valid.push({
       row: rowNum,
       data: {
