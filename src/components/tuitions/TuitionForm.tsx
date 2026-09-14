@@ -13,6 +13,8 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { useSchool } from "@/contexts/SchoolContext";
+import { getFriendlyErrorMessage } from "@/lib/friendlyError";
 
 interface Student {
   id: string;
@@ -40,6 +42,7 @@ interface TuitionFormProps {
 
 export function TuitionForm({ tuition, onSubmit, onCancel }: TuitionFormProps) {
   const { toast } = useToast();
+  const { schoolId } = useSchool();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -59,17 +62,19 @@ export function TuitionForm({ tuition, onSubmit, onCancel }: TuitionFormProps) {
   }, []);
 
   const fetchStudents = async () => {
+    if (!schoolId) return;
     try {
       setLoading(true);
       const { data, error } = await (supabase as any)
         .from('students')
         .select('id, full_name')
+        .eq('school_id', schoolId)
         .eq('status', 'active')
         .order('full_name');
 
       if (error) throw error;
-      setStudents((data || []).map((s: any) => ({ 
-        id: s.id, 
+      setStudents((data || []).map((s: any) => ({
+        id: s.id,
         name: s.full_name,
         classes: undefined
       })));
@@ -77,7 +82,7 @@ export function TuitionForm({ tuition, onSubmit, onCancel }: TuitionFormProps) {
       console.error('Error fetching students:', error);
       toast({
         title: "Erro",
-        description: "Erro ao carregar alunos",
+        description: getFriendlyErrorMessage(error, "Erro ao carregar alunos"),
         variant: "destructive",
       });
     } finally {
@@ -87,7 +92,9 @@ export function TuitionForm({ tuition, onSubmit, onCancel }: TuitionFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    if (!schoolId) return;
+
     if (!formData.student_id || !formData.amount || !formData.due_date) {
       toast({
         title: "Erro",
@@ -101,19 +108,20 @@ export function TuitionForm({ tuition, onSubmit, onCancel }: TuitionFormProps) {
       setSubmitting(true);
 
       const submitData = {
+        school_id: schoolId,
         student_id: formData.student_id,
         amount: formData.amount,
         due_date: format(formData.due_date, 'yyyy-MM-dd'),
         description: formData.description,
         payment_method: formData.payment_method || null,
         status: formData.status,
-        paid_date: formData.status === 'paid' && formData.paid_date 
-          ? format(formData.paid_date, 'yyyy-MM-dd') 
+        paid_date: formData.status === 'paid' && formData.paid_date
+          ? format(formData.paid_date, 'yyyy-MM-dd')
           : null,
       };
 
       let error;
-      
+
       if (tuition) {
         // Update existing tuition
         const { error: updateError } = await supabase
@@ -141,7 +149,7 @@ export function TuitionForm({ tuition, onSubmit, onCancel }: TuitionFormProps) {
       console.error('Error saving tuition:', error);
       toast({
         title: "Erro",
-        description: "Erro ao salvar mensalidade",
+        description: getFriendlyErrorMessage(error, "Erro ao salvar mensalidade"),
         variant: "destructive",
       });
     } finally {

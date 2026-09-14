@@ -144,8 +144,10 @@ const App = () => (
                 <Route
                   path="/admin/gerar-mensalidades"
                   element={
-                    <ProtectedRoute requireSchool>
-                      <AdminSyncTuitions />
+                    <ProtectedRoute requireSchool allowedRoles={['admin', 'financial']}>
+                      <Layout>
+                        <AdminSyncTuitions />
+                      </Layout>
                     </ProtectedRoute>
                   }
                 />

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { School, BookOpen, GraduationCap, Building2, Lightbulb, Save } from 'lucide-react';
+import { School, BookOpen, GraduationCap, Building2, Lightbulb, Save, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -12,6 +13,7 @@ import { useSchool } from '@/contexts/SchoolContext';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { ImportSection } from '@/components/settings/ImportSection';
+import { getFriendlyErrorMessage } from '@/lib/friendlyError';
 
 const SEGMENTS = [
   { value: 'infantil',    label: 'Educação Infantil', icon: Lightbulb,     description: 'Berçário ao Pré' },
@@ -72,7 +74,7 @@ function SchoolProfileSection() {
       await refreshSchool();
       toast({ title: 'Escola atualizada com sucesso!' });
     } catch (err: any) {
-      toast({ title: 'Erro ao salvar', description: err.message, variant: 'destructive' });
+      toast({ title: 'Erro ao salvar', description: getFriendlyErrorMessage(err, 'Erro ao salvar: ' + err.message), variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -168,6 +170,24 @@ const Settings = () => {
 
       <SchoolProfileSection />
       <ImportSection />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Receipt className="h-4 w-4" />
+            Gerar mensalidades em lote
+          </CardTitle>
+          <CardDescription>
+            Útil depois de importar vários contratos de uma vez — gera as mensalidades pendentes
+            de todos os contratos ativos, sem precisar abrir um por um em Contratos.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild variant="outline">
+            <Link to="/admin/gerar-mensalidades">Abrir gerador em lote</Link>
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 };

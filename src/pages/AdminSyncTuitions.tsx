@@ -1,16 +1,17 @@
 /**
- * PÁGINA TEMPORÁRIA — remover após uso
- * Rota: /admin/gerar-mensalidades
- *
- * Gera mensalidades para todos os contratos ativos da escola.
+ * Utilitário de geração de mensalidades em lote — roda generateTuitions()
+ * para todos os contratos ativos da escola de uma vez. Útil depois de
+ * importar contratos em massa (ver ImportSection em Configurações), quando
+ * gerar mensalidade contrato por contrato (em Contratos) seria lento.
  */
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { generateTuitions } from "@/lib/generateTuitions";
 import { useSchool } from "@/contexts/SchoolContext";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { getFriendlyErrorMessage } from "@/lib/friendlyError";
 
 interface Result {
   contractId: string;
@@ -41,7 +42,12 @@ export default function AdminSyncTuitions() {
       .eq("status", "active");
 
     if (error || !contracts) {
-      setResults([{ contractId: "", studentName: "—", inserted: 0, error: error?.message ?? "Erro ao buscar contratos" }]);
+      setResults([{
+        contractId: "",
+        studentName: "—",
+        inserted: 0,
+        error: getFriendlyErrorMessage(error, "Erro ao buscar contratos"),
+      }]);
       setRunning(false);
       return;
     }
@@ -70,16 +76,17 @@ export default function AdminSyncTuitions() {
   const progress      = total > 0 ? Math.round((processed / total) * 100) : 0;
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6">
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Gerar Mensalidades em Lote</h1>
+        <p className="text-muted-foreground">
+          Gera as mensalidades pendentes para todos os contratos ativos da escola de uma vez —
+          operação idempotente, meses já gerados são ignorados.
+        </p>
+      </div>
+
       <Card className="w-full max-w-2xl">
-        <CardHeader>
-          <CardTitle>Geração em lote de mensalidades</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Executa <code>generateTuitions</code> para todos os contratos ativos da escola.
-            Operação idempotente — meses já existentes são ignorados.
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-6 pt-6">
 
           {!running && !done && (
             <Button onClick={run} disabled={!schoolId}>

@@ -8,6 +8,7 @@ import { Plus } from "lucide-react";
 import { ContractForm } from "@/components/contracts/ContractForm";
 import { ContractTable } from "@/components/contracts/ContractTable";
 import { useToast } from "@/hooks/use-toast";
+import { getFriendlyErrorMessage } from "@/lib/friendlyError";
 
 interface ContractData {
   id: string;
@@ -89,7 +90,11 @@ const Contracts = () => {
       setContracts(typedData);
     } catch (error) {
       console.error('Error fetching contracts:', error);
-      toast({ title: "Erro", description: "Erro ao carregar contratos", variant: "destructive" });
+      toast({
+        title: "Erro",
+        description: getFriendlyErrorMessage(error, "Erro ao carregar contratos"),
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -151,7 +156,7 @@ const Contracts = () => {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Gestão de Contratos</h1>
           <p className="text-muted-foreground">
-            Controle os contratos dos alunos e geração automática de mensalidades
+            Controle os contratos dos alunos — gere as mensalidades pelo menu de ações de cada contrato
           </p>
         </div>
         <Button onClick={handleAddNew}>
@@ -175,7 +180,7 @@ const Contracts = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-card-foreground font-medium text-sm flex items-center justify-between">
               Ativos
-              <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full">{summary.active}</span>
+              <span className="bg-success text-success-foreground text-xs px-2 py-1 rounded-full">{summary.active}</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -188,7 +193,7 @@ const Contracts = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-card-foreground font-medium text-sm flex items-center justify-between">
               Suspensos
-              <span className="bg-yellow-500 text-slate-900 text-xs px-2 py-1 rounded-full">{summary.suspended}</span>
+              <span className="bg-warning text-warning-foreground text-xs px-2 py-1 rounded-full">{summary.suspended}</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -201,7 +206,7 @@ const Contracts = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-card-foreground font-medium text-sm flex items-center justify-between">
               Cancelados
-              <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">{summary.cancelled}</span>
+              <span className="bg-danger text-danger-foreground text-xs px-2 py-1 rounded-full">{summary.cancelled}</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -219,16 +224,18 @@ const Contracts = () => {
       />
 
       <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingContract ? 'Editar Contrato' : 'Novo Contrato'}</DialogTitle>
-          </DialogHeader>
-          <ContractForm
-            contract={editingContract}
-            onSubmit={handleFormSubmit}
-            onCancel={handleFormCancel}
-          />
-        </DialogContent>
+        {showForm && (
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{editingContract ? 'Editar Contrato' : 'Novo Contrato'}</DialogTitle>
+            </DialogHeader>
+            <ContractForm
+              contract={editingContract}
+              onSubmit={handleFormSubmit}
+              onCancel={handleFormCancel}
+            />
+          </DialogContent>
+        )}
       </Dialog>
     </div>
   );

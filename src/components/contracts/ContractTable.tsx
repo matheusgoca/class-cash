@@ -27,9 +27,12 @@ import {
   X,
   Loader2,
   Search,
+  Receipt,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
+import { generateTuitions } from "@/lib/generateTuitions";
+import { getFriendlyErrorMessage } from "@/lib/friendlyError";
 
 interface ContractData {
   id: string;
@@ -79,11 +82,11 @@ export function ContractTable({ data, loading, onEdit, onRefresh }: ContractTabl
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "active":
-        return <Badge className="bg-green-500 text-white">Ativo</Badge>;
+        return <Badge className="bg-success text-success-foreground">Ativo</Badge>;
       case "suspended":
-        return <Badge className="bg-yellow-500 text-slate-900">Suspenso</Badge>;
+        return <Badge className="bg-warning text-warning-foreground">Suspenso</Badge>;
       case "cancelled":
-        return <Badge className="bg-red-500 text-white">Cancelado</Badge>;
+        return <Badge className="bg-danger text-danger-foreground">Cancelado</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
@@ -109,7 +112,39 @@ export function ContractTable({ data, loading, onEdit, onRefresh }: ContractTabl
       console.error('Error updating contract status:', error);
       toast({
         title: "Erro",
-        description: "Erro ao alterar status do contrato",
+        description: getFriendlyErrorMessage(error, "Erro ao alterar status do contrato"),
+        variant: "destructive",
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleGenerateTuitions = async (contractId: string) => {
+    try {
+      setActionLoading(contractId);
+      const result = await generateTuitions(contractId);
+
+      if (result.error) {
+        toast({
+          title: "Erro",
+          description: getFriendlyErrorMessage(new Error(result.error), "Erro ao gerar mensalidades"),
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Sucesso",
+        description: result.inserted > 0
+          ? `${result.inserted} mensalidade${result.inserted !== 1 ? 's' : ''} gerada${result.inserted !== 1 ? 's' : ''}.`
+          : "As mensalidades deste contrato já estavam todas geradas.",
+      });
+    } catch (error) {
+      console.error('Error generating tuitions:', error);
+      toast({
+        title: "Erro",
+        description: getFriendlyErrorMessage(error, "Erro ao gerar mensalidades"),
         variant: "destructive",
       });
     } finally {
@@ -227,7 +262,14 @@ export function ContractTable({ data, loading, onEdit, onRefresh }: ContractTabl
                         <Edit className="mr-2 h-4 w-4" />
                         Editar
                       </DropdownMenuItem>
-                      
+
+                      {contract.status === "active" && (
+                        <DropdownMenuItem onClick={() => handleGenerateTuitions(contract.id)}>
+                          <Receipt className="mr-2 h-4 w-4" />
+                          Gerar mensalidades
+                        </DropdownMenuItem>
+                      )}
+
                       {contract.status === "active" && (
                         <DropdownMenuItem 
                           onClick={() => handleStatusChange(contract.id, "suspended")}

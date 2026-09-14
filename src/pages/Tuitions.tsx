@@ -4,11 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/contexts/SchoolContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Plus } from "lucide-react";
 import { TuitionForm } from "@/components/tuitions/TuitionForm";
 import { TuitionTable } from "@/components/tuitions/TuitionTable";
 import { RenegotiationModal } from "@/components/tuitions/RenegotiationModal";
 import { useToast } from "@/hooks/use-toast";
+import { isTuitionOverdue } from "@/lib/calculations";
+import { getFriendlyErrorMessage } from "@/lib/friendlyError";
 
 interface TuitionData {
   id: string;
@@ -113,7 +116,7 @@ const Tuitions = () => {
       if (error) throw error;
 
       const typedData: TuitionData[] = (data || []).map(item => {
-        const isOverdue = new Date(item.due_date) < new Date() && item.status === "pending";
+        const isOverdue = isTuitionOverdue(item.due_date, item.status);
         return {
           ...item,
           status: (isOverdue ? "overdue" : item.status) as "pending" | "paid" | "overdue" | "cancelled",
@@ -127,10 +130,19 @@ const Tuitions = () => {
       setTuitions(typedData);
     } catch (error) {
       console.error('Error fetching tuitions:', error);
-      toast({ title: "Erro", description: "Erro ao carregar mensalidades", variant: "destructive" });
+      toast({
+        title: "Erro",
+        description: getFriendlyErrorMessage(error, "Erro ao carregar mensalidades"),
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleNew = () => {
+    setEditingTuition(null);
+    setShowForm(true);
   };
 
   const handleEdit = (tuition: TuitionData) => {
@@ -152,10 +164,13 @@ const Tuitions = () => {
   const calculateSummary = (): TuitionSummary => {
     return tuitions.reduce(
       (acc, tuition) => {
-        const isOverdue = new Date(tuition.due_date) < new Date() && tuition.status === "pending";
+        const isOverdue = isTuitionOverdue(tuition.due_date, tuition.status);
         const status = isOverdue ? "overdue" : tuition.status;
         acc.total += 1;
-        acc.totalAmount += Number(tuition.final_amount || tuition.amount);
+        // Cancelled tuitions (e.g. replaced by a renegotiation) are not revenue.
+        if (status !== "cancelled") {
+          acc.totalAmount += Number(tuition.final_amount || tuition.amount);
+        }
         switch (status) {
           case "pending":
             acc.pending += 1;
@@ -190,9 +205,29 @@ const Tuitions = () => {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Gestão de Mensalidades</h1>
           <p className="text-muted-foreground">
-            Controle as mensalidades geradas automaticamente pelos contratos
+            Mensalidades geradas pelos contratos, mais lançamentos avulsos
           </p>
         </div>
+        <Dialog open={showForm} onOpenChange={setShowForm}>
+          <DialogTrigger asChild>
+            <Button onClick={handleNew}>
+              <Plus className="h-4 w-4 mr-2" />
+              Nova Mensalidade
+            </Button>
+          </DialogTrigger>
+          {showForm && (
+            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>{editingTuition ? 'Editar Mensalidade' : 'Nova Mensalidade'}</DialogTitle>
+              </DialogHeader>
+              <TuitionForm
+                tuition={editingTuition}
+                onSubmit={handleFormSubmit}
+                onCancel={handleFormCancel}
+              />
+            </DialogContent>
+          )}
+        </Dialog>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -210,7 +245,7 @@ const Tuitions = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-card-foreground font-medium text-sm flex items-center justify-between">
               Pendentes
-              <span className="bg-yellow-500 text-slate-900 text-xs px-2 py-1 rounded-full">{summary.pending}</span>
+              <span className="bg-pending text-primary-foreground text-xs px-2 py-1 rounded-full">{summary.pending}</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -222,7 +257,7 @@ const Tuitions = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-card-foreground font-medium text-sm flex items-center justify-between">
               Pagos
-              <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full">{summary.paid}</span>
+              <span className="bg-paid text-success-foreground text-xs px-2 py-1 rounded-full">{summary.paid}</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -234,7 +269,7 @@ const Tuitions = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-card-foreground font-medium text-sm flex items-center justify-between">
               Atrasados
-              <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">{summary.overdue}</span>
+              <span className="bg-overdue text-danger-foreground text-xs px-2 py-1 rounded-full">{summary.overdue}</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -260,21 +295,6 @@ const Tuitions = () => {
           onSuccess={() => { setRenegotiatingTuition(null); fetchTuitions(); }}
           onClose={() => setRenegotiatingTuition(null)}
         />
-      )}
-
-      {showForm && editingTuition && (
-        <Dialog open={showForm} onOpenChange={setShowForm}>
-          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Editar Mensalidade</DialogTitle>
-            </DialogHeader>
-            <TuitionForm
-              tuition={editingTuition}
-              onSubmit={handleFormSubmit}
-              onCancel={handleFormCancel}
-            />
-          </DialogContent>
-        </Dialog>
       )}
     </div>
   );
