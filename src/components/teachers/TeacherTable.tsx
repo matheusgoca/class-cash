@@ -35,7 +35,12 @@ export const TeacherTable: React.FC<TeacherTableProps> = ({
 }) => {
   const [page, setPage] = useState(1);
   const totalPages = Math.max(1, Math.ceil(teachers.length / PAGE_SIZE));
-  const paginated = teachers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  // Clamp instead of trusting `page` blindly — a search/filter that shrinks
+  // the list (or a teacher being deleted) could otherwise leave `page`
+  // pointing past the end, showing "Nenhum professor encontrado" even though
+  // matches exist on an earlier page.
+  const currentPage = Math.min(page, totalPages);
+  const paginated = teachers.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const getStatusColor = (status: string) => {
     return status === 'active' ? 'bg-success text-success-foreground' : 'bg-muted text-muted-foreground';
@@ -134,7 +139,7 @@ export const TeacherTable: React.FC<TeacherTableProps> = ({
                             <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
                             <AlertDialogDescription>
                               Tem certeza que deseja excluir o professor "{teacher.full_name}"? Esta ação não pode ser desfeita.
-                              Classes associadas a este professor ficarão sem professor atribuído.
+                              Se ele estiver atribuído a alguma turma, a exclusão será bloqueada — desvincule das turmas primeiro.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
@@ -157,13 +162,13 @@ export const TeacherTable: React.FC<TeacherTableProps> = ({
       {totalPages > 1 && (
         <div className="flex items-center justify-between pt-2">
           <p className="text-sm text-muted-foreground">
-            Página {page} de {totalPages} — {teachers.length} professores
+            Página {currentPage} de {totalPages} — {teachers.length} professores
           </p>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
+            <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+            <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>

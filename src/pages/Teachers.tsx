@@ -35,7 +35,7 @@ const Teachers = () => {
     } catch (error) {
       toast({
         title: 'Erro',
-        description: 'Erro ao carregar professores: ' + error.message,
+        description: getFriendlyErrorMessage(error, 'Erro ao carregar professores: ' + error.message),
         variant: 'destructive',
       });
     }
@@ -50,7 +50,8 @@ const Teachers = () => {
         const { error } = await supabase
           .from('teachers')
           .update(dataToSubmit)
-          .eq('id', editingTeacher.id);
+          .eq('id', editingTeacher.id)
+          .eq('school_id', schoolId);
 
         if (error) throw error;
         toast({ title: 'Sucesso', description: 'Professor atualizado com sucesso!' });
@@ -90,7 +91,8 @@ const Teachers = () => {
       const { data: classMappings, error: classError } = await (supabase as any)
         .from('class_teachers')
         .select('class_id')
-        .eq('teacher_id', teacherId);
+        .eq('teacher_id', teacherId)
+        .eq('school_id', schoolId);
 
       if (classError) throw classError;
 
@@ -106,7 +108,8 @@ const Teachers = () => {
       const { error } = await supabase
         .from('teachers')
         .delete()
-        .eq('id', teacherId);
+        .eq('id', teacherId)
+        .eq('school_id', schoolId);
 
       if (error) throw error;
 
@@ -115,7 +118,7 @@ const Teachers = () => {
     } catch (error) {
       toast({
         title: 'Erro',
-        description: 'Erro ao excluir professor: ' + error.message,
+        description: getFriendlyErrorMessage(error, 'Erro ao excluir professor: ' + error.message),
         variant: 'destructive',
       });
     }
