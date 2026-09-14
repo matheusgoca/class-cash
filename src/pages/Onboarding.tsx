@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -34,6 +34,42 @@ export default function Onboarding() {
   const { user } = useAuth();
   const { refetch: refreshSchool } = useSchool();
   const [isLoading, setIsLoading] = useState(false);
+  const [autoCreating, setAutoCreating] = useState(false);
+
+  // If master invited this user with school metadata, auto-create the school on first login
+  useEffect(() => {
+    const meta = user?.user_metadata;
+    if (!meta?.pending_school_name || !user) return;
+    setAutoCreating(true);
+    (async () => {
+      try {
+        const { data: school, error: schoolError } = await (supabase as any)
+          .from('schools')
+          .insert({
+            name:          meta.pending_school_name,
+            segments:      meta.pending_school_segments ?? [],
+            plan:          meta.pending_school_plan ?? 'starter',
+            owner_user_id: user.id,
+          })
+          .select('id')
+          .single();
+        if (schoolError) throw schoolError;
+
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ school_id: school.id })
+          .eq('user_id', user.id);
+        if (profileError) throw profileError;
+
+        await refreshSchool();
+        toast({ title: 'Escola criada!', description: `Bem-vindo ao ${meta.pending_school_name}` });
+        navigate('/dashboard');
+      } catch (error: any) {
+        toast({ title: 'Erro ao configurar escola', description: getFriendlyErrorMessage(error, error.message), variant: 'destructive' });
+        setAutoCreating(false);
+      }
+    })();
+  }, [user?.id]);
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -83,6 +119,15 @@ export default function Onboarding() {
       setIsLoading(false);
     }
   };
+
+  if (autoCreating) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
+        <p className="text-muted-foreground text-sm">Configurando sua escola...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6">

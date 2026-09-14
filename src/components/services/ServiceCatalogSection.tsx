@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useSchool } from '@/contexts/SchoolContext';
@@ -15,6 +16,7 @@ interface SchoolService {
   name: string;
   price: number;
   active: boolean;
+  type: 'avulso' | 'mensal';
 }
 
 export function ServiceCatalogSection() {
@@ -24,6 +26,7 @@ export function ServiceCatalogSection() {
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState('');
   const [newPrice, setNewPrice] = useState('');
+  const [newType, setNewType] = useState<'avulso' | 'mensal'>('avulso');
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -36,7 +39,7 @@ export function ServiceCatalogSection() {
     try {
       const { data, error } = await (supabase as any)
         .from('school_services')
-        .select('id, name, price, active')
+        .select('id, name, price, active, type')
         .eq('school_id', schoolId)
         .order('name');
       if (error) throw error;
@@ -60,8 +63,8 @@ export function ServiceCatalogSection() {
     try {
       const { data, error } = await (supabase as any)
         .from('school_services')
-        .insert({ school_id: schoolId, name: newName.trim(), price })
-        .select('id, name, price, active')
+        .insert({ school_id: schoolId, name: newName.trim(), price, type: newType })
+        .select('id, name, price, active, type')
         .single();
       if (error) throw error;
       setServices((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
@@ -138,7 +141,7 @@ export function ServiceCatalogSection() {
                     const value = e.target.value.trim();
                     if (value && value !== s.name) updateService(s.id, { name: value });
                   }}
-                  className="max-w-[200px]"
+                  className="max-w-[180px]"
                 />
                 <Input
                   type="number" min="0" step="0.01"
@@ -147,9 +150,20 @@ export function ServiceCatalogSection() {
                     const value = parseFloat(e.target.value);
                     if (value > 0 && value !== s.price) updateService(s.id, { price: value });
                   }}
-                  className="max-w-[140px]"
+                  className="max-w-[120px]"
                 />
-                <span className="text-xs text-muted-foreground">{formatCurrency(s.price)}/mês</span>
+                <Select
+                  value={s.type}
+                  onValueChange={(v) => updateService(s.id, { type: v as 'avulso' | 'mensal' })}
+                >
+                  <SelectTrigger className="w-[110px] h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="avulso">Avulso</SelectItem>
+                    <SelectItem value="mensal">Mensal</SelectItem>
+                  </SelectContent>
+                </Select>
                 <div className="flex items-center gap-2 ml-auto">
                   <span className="text-xs text-muted-foreground">Ativo</span>
                   <Switch
@@ -175,19 +189,28 @@ export function ServiceCatalogSection() {
 
         <div className="flex gap-2 pt-2 flex-wrap">
           <Input
-            placeholder="Nome (ex: Inglês)"
+            placeholder="Nome (ex: Uniforme)"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            className="max-w-[220px]"
+            className="max-w-[200px]"
           />
           <Input
             type="number" min="0" step="0.01"
-            placeholder="Preço mensal"
+            placeholder="Preço (R$)"
             value={newPrice}
             onChange={(e) => setNewPrice(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-            className="max-w-[160px]"
+            className="max-w-[130px]"
           />
+          <Select value={newType} onValueChange={(v) => setNewType(v as 'avulso' | 'mensal')}>
+            <SelectTrigger className="w-[110px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="avulso">Avulso</SelectItem>
+              <SelectItem value="mensal">Mensal</SelectItem>
+            </SelectContent>
+          </Select>
           <Button type="button" variant="outline" onClick={handleCreate}
             disabled={creating || !newName.trim() || !newPrice} className="gap-2">
             <Plus className="h-4 w-4" />

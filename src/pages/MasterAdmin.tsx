@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Edit, ShieldCheck, GraduationCap, DollarSign, AlertTriangle, CalendarDays, Mail } from "lucide-react";
+import { Edit, ShieldCheck, GraduationCap, DollarSign, AlertTriangle, CalendarDays, Mail, Plus, Lightbulb, BookOpen, Building2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
@@ -52,6 +52,9 @@ export default function MasterAdmin() {
   const [editForm, setEditForm] = useState({ name: "", plan: "starter", status: "active" });
   const [saving, setSaving] = useState(false);
   const [waitingForSchool, setWaitingForSchool] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [createForm, setCreateForm] = useState({ name: '', ownerEmail: '', plan: 'starter', segments: [] as string[] });
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     fetchSchools();
@@ -148,6 +151,54 @@ export default function MasterAdmin() {
     }
   };
 
+  const SEGMENTS = [
+    { value: 'infantil', label: 'Ed. Infantil', icon: Lightbulb },
+    { value: 'fundamental', label: 'Fundamental', icon: BookOpen },
+    { value: 'medio', label: 'Ensino Médio', icon: GraduationCap },
+    { value: 'tecnico', label: 'Técnico', icon: Building2 },
+  ];
+
+  const toggleSegment = (value: string) => {
+    setCreateForm((f) => ({
+      ...f,
+      segments: f.segments.includes(value)
+        ? f.segments.filter((s) => s !== value)
+        : [...f.segments, value],
+    }));
+  };
+
+  const handleCreateSchool = async () => {
+    if (!createForm.name.trim() || !createForm.ownerEmail.trim() || createForm.segments.length === 0) {
+      toast({ title: 'Preencha nome, e-mail do dono e pelo menos um segmento', variant: 'destructive' });
+      return;
+    }
+    setCreating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('invite-school-owner', {
+        body: {
+          email:       createForm.ownerEmail.trim().toLowerCase(),
+          school_name: createForm.name.trim(),
+          segments:    createForm.segments,
+          plan:        createForm.plan,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast({
+        title: 'Convite enviado!',
+        description: `${createForm.ownerEmail} receberá um e-mail para criar o acesso à escola "${createForm.name}".`,
+      });
+      setShowCreate(false);
+      setCreateForm({ name: '', ownerEmail: '', plan: 'starter', segments: [] });
+    } catch (err: any) {
+      toast({ title: 'Erro ao convidar', description: err.message, variant: 'destructive' });
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const handleEnterSchool = (schoolRow: SchoolRow) => {
     setWaitingForSchool(true);
     enterSchool(schoolRow.id, schoolRow.name);
@@ -156,14 +207,20 @@ export default function MasterAdmin() {
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500 text-white">
-          <ShieldCheck className="h-5 w-5" />
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500 text-white">
+            <ShieldCheck className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Class Cash — Painel Master</h1>
+            <p className="text-sm text-muted-foreground">Visão geral de todas as escolas cadastradas</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Class Cash — Painel Master</h1>
-          <p className="text-sm text-muted-foreground">Visão geral de todas as escolas cadastradas</p>
-        </div>
+        <Button onClick={() => setShowCreate(true)} className="gap-2">
+          <Plus className="h-4 w-4" />
+          Nova Escola
+        </Button>
       </div>
 
       {/* Counter */}
@@ -255,6 +312,74 @@ export default function MasterAdmin() {
           ))}
         </div>
       )}
+
+      {/* Create school modal */}
+      <Dialog open={showCreate} onOpenChange={(open) => { if (!open) setShowCreate(false); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nova Escola</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label>E-mail do cliente</Label>
+              <Input
+                type="email"
+                placeholder="cliente@exemplo.com"
+                value={createForm.ownerEmail}
+                onChange={(e) => setCreateForm((f) => ({ ...f, ownerEmail: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground mt-1">Um e-mail de convite será enviado com o link de primeiro acesso.</p>
+            </div>
+            <div>
+              <Label>Nome da escola</Label>
+              <Input
+                placeholder="Ex: Colégio São Paulo"
+                value={createForm.name}
+                onChange={(e) => setCreateForm((f) => ({ ...f, name: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label>Plano</Label>
+              <Select value={createForm.plan} onValueChange={(v) => setCreateForm((f) => ({ ...f, plan: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="starter">Starter</SelectItem>
+                  <SelectItem value="pro">Pro</SelectItem>
+                  <SelectItem value="enterprise">Enterprise</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="mb-2 block">Segmentos</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {SEGMENTS.map((seg) => {
+                  const Icon = seg.icon;
+                  const active = createForm.segments.includes(seg.value);
+                  return (
+                    <button
+                      key={seg.value}
+                      type="button"
+                      onClick={() => toggleSegment(seg.value)}
+                      className={`flex items-center gap-2 rounded-lg border-2 px-3 py-2 text-sm font-medium transition-all ${
+                        active ? 'border-primary bg-primary/5 text-primary' : 'border-border hover:border-primary/40'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4 flex-shrink-0" />
+                      {seg.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreate(false)}>Cancelar</Button>
+            <Button onClick={handleCreateSchool} disabled={creating}>
+              {creating ? 'Enviando...' : 'Enviar convite'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit modal */}
       <Dialog open={!!editingSchool} onOpenChange={(open) => { if (!open) setEditingSchool(null); }}>
