@@ -120,7 +120,8 @@ const Students = () => {
         const { error: studentError } = await supabase
           .from('students')
           .update(dataToSubmit)
-          .eq('id', editingStudent.id);
+          .eq('id', editingStudent.id)
+          .eq('school_id', schoolId);
 
         if (studentError) throw studentError;
 
@@ -204,7 +205,8 @@ const Students = () => {
       const { error } = await supabase
         .from('students')
         .delete()
-        .eq('id', studentId);
+        .eq('id', studentId)
+        .eq('school_id', schoolId);
 
       if (error) throw error;
 
