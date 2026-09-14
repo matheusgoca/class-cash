@@ -18,6 +18,9 @@ import { ClassProfitability } from "@/components/reports/ClassProfitability";
 import { PaginationCompact } from "@/components/ui/pagination-compact";
 import { useSchool } from "@/contexts/SchoolContext";
 import { RenegotiationModal } from "@/components/tuitions/RenegotiationModal";
+import { isTuitionOverdue } from "@/lib/calculations";
+import { getFriendlyErrorMessage } from "@/lib/friendlyError";
+import { useToast } from "@/hooks/use-toast";
 
 interface TuitionReport {
   id: string;
@@ -70,6 +73,7 @@ interface RenegotiationTarget {
 
 const Reports = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const { schoolId } = useSchool();
   const [data, setData] = useState<TuitionReport[]>([]);
   const [renegotiationTarget, setRenegotiationTarget] = useState<RenegotiationTarget | null>(null);
@@ -175,7 +179,7 @@ const Reports = () => {
       }, {});
 
       const formattedData: TuitionReport[] = (tuitionsRes.data || []).map((item: any) => {
-        const isOverdue = new Date(item.due_date) < new Date() && item.status === "pending";
+        const isOverdue = isTuitionOverdue(item.due_date, item.status);
         return {
           id: item.id,
           student_id: item.student_id,
@@ -192,6 +196,11 @@ const Reports = () => {
       setData(formattedData);
     } catch (error) {
       console.error('Error fetching tuitions:', error);
+      toast({
+        title: "Erro",
+        description: getFriendlyErrorMessage(error, "Erro ao carregar mensalidades"),
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -209,6 +218,11 @@ const Reports = () => {
       setClasses(classesData || []);
     } catch (error) {
       console.error('Error fetching classes:', error);
+      toast({
+        title: "Erro",
+        description: getFriendlyErrorMessage(error, "Erro ao carregar turmas"),
+        variant: "destructive",
+      });
     }
   };
 
@@ -314,17 +328,70 @@ const Reports = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "pending":
-        return <Badge className="bg-yellow-500 text-slate-900">Pendente</Badge>;
+        return <Badge className="bg-pending text-primary-foreground">Pendente</Badge>;
       case "paid":
-        return <Badge className="bg-green-500 text-white">Pago</Badge>;
+        return <Badge className="bg-paid text-success-foreground">Pago</Badge>;
       case "overdue":
-        return <Badge className="bg-red-500 text-white">Atrasado</Badge>;
+        return <Badge className="bg-overdue text-danger-foreground">Atrasado</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
   };
 
-  const exportToCSV = () => {
+  interface ExpenseExportRow {
+    description: string;
+    category_name: string | null;
+    class_name: string | null;
+    amount: number;
+    status: string;
+    due_date: string;
+    paid_date: string | null;
+  }
+
+  const expenseStatusLabel = (status: string) =>
+    status === "pending" ? "Pendente" : status === "paid" ? "Paga" : status === "cancelled" ? "Cancelada" : "Atrasada";
+
+  // Despesas seguem o mesmo range de datas dos filtros de mensalidade (quando definido),
+  // para os dois relatórios saírem cobrindo o mesmo período.
+  const fetchExpensesForExport = async (): Promise<ExpenseExportRow[]> => {
+    let query = (supabase as any)
+      .from("expenses")
+      .select("description, amount, status, due_date, paid_date, expense_categories(name), classes(name)")
+      .eq("school_id", schoolId!);
+
+    if (filters.startDate) query = query.gte("due_date", filters.startDate);
+    if (filters.endDate) query = query.lte("due_date", filters.endDate);
+
+    const { data, error } = await query.order("due_date", { ascending: false });
+    if (error) throw error;
+
+    return (data || []).map((item: any) => ({
+      description: item.description,
+      category_name: item.expense_categories?.name ?? null,
+      class_name: item.classes?.name ?? null,
+      amount: Number(item.amount),
+      status: item.status,
+      due_date: item.due_date,
+      paid_date: item.paid_date,
+    }));
+  };
+
+  const exportToCSV = async () => {
+    let expenseRows: ExpenseExportRow[];
+    try {
+      expenseRows = await fetchExpensesForExport();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getFriendlyErrorMessage(error, "Erro ao carregar despesas para o relatório"),
+        variant: "destructive",
+      });
+      return;
+    }
+    const expensesTotal = expenseRows
+      .filter((e) => e.status !== "cancelled")
+      .reduce((sum, e) => sum + e.amount, 0);
+
     const summary = calculateSummary();
     const csvData = [
       ...filteredData.map(item => ({
@@ -384,7 +451,24 @@ const Reports = () => {
       }
     ];
 
-    const csv = Papa.unparse(csvData);
+    const expenseCsvData = [
+      ...expenseRows.map((e) => ({
+        "Descrição": e.description,
+        "Categoria": e.category_name || "N/A",
+        "Turma": e.class_name || "Escola toda",
+        "Valor": e.amount,
+        "Status": expenseStatusLabel(e.status),
+        "Data de Vencimento": formatDate(e.due_date),
+        "Data de Pagamento": e.paid_date ? formatDate(e.paid_date) : "N/A",
+      })),
+      {},
+      { "Descrição": "Total de Despesas", "Categoria": "", "Turma": `${expenseRows.length} registros`, "Valor": expensesTotal, "Status": "", "Data de Vencimento": "", "Data de Pagamento": "" },
+    ];
+
+    const csv =
+      Papa.unparse(csvData) +
+      "\n\n\nDESPESAS\n\n" +
+      Papa.unparse(expenseCsvData);
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
@@ -396,9 +480,24 @@ const Reports = () => {
     document.body.removeChild(link);
   };
 
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
+    let expenseRows: ExpenseExportRow[];
+    try {
+      expenseRows = await fetchExpensesForExport();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getFriendlyErrorMessage(error, "Erro ao carregar despesas para o relatório"),
+        variant: "destructive",
+      });
+      return;
+    }
+    const expensesTotal = expenseRows
+      .filter((e) => e.status !== "cancelled")
+      .reduce((sum, e) => sum + e.amount, 0);
+
     const summary = calculateSummary();
-    
+
     const worksheetData = [
       ["Nome do Aluno", "Turma", "Valor", "Status", "Data de Vencimento", "Data de Pagamento", "Descrição"],
       ...filteredData.map(item => [
@@ -418,9 +517,25 @@ const Reports = () => {
       ["Atrasados", `${summary.overdue} registros`, summary.overdueAmount]
     ];
 
-    const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+    const expensesWorksheetData = [
+      ["Descrição", "Categoria", "Turma", "Valor", "Status", "Data de Vencimento", "Data de Pagamento"],
+      ...expenseRows.map((e) => [
+        e.description,
+        e.category_name || "N/A",
+        e.class_name || "Escola toda",
+        e.amount,
+        expenseStatusLabel(e.status),
+        formatDate(e.due_date),
+        e.paid_date ? formatDate(e.paid_date) : "N/A",
+      ]),
+      [],
+      ["RESUMO"],
+      ["Total de Despesas", `${expenseRows.length} registros`, expensesTotal],
+    ];
+
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Relatório Financeiro");
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(worksheetData), "Mensalidades");
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(expensesWorksheetData), "Despesas");
     XLSX.writeFile(workbook, `relatorio-financeiro-${format(new Date(), "yyyy-MM-dd")}.xlsx`);
   };
 
@@ -461,7 +576,7 @@ const Reports = () => {
           <CardHeader className="pb-3">
             <CardTitle className="font-medium text-sm text-muted-foreground flex items-center justify-between">
               Pendentes
-              <Badge className="bg-yellow-500 text-white text-xs">{summary.pending}</Badge>
+              <Badge className="bg-pending text-primary-foreground text-xs">{summary.pending}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -473,7 +588,7 @@ const Reports = () => {
           <CardHeader className="pb-3">
             <CardTitle className="font-medium text-sm text-muted-foreground flex items-center justify-between">
               Pagos
-              <Badge className="bg-green-500 text-white text-xs">{summary.paid}</Badge>
+              <Badge className="bg-paid text-success-foreground text-xs">{summary.paid}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -485,7 +600,7 @@ const Reports = () => {
           <CardHeader className="pb-3">
             <CardTitle className="font-medium text-sm text-muted-foreground flex items-center justify-between">
               Atrasados
-              <Badge className="bg-red-500 text-white text-xs">{summary.overdue}</Badge>
+              <Badge className="bg-overdue text-danger-foreground text-xs">{summary.overdue}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
