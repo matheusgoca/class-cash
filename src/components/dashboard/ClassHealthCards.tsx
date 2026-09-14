@@ -168,11 +168,12 @@ export function ClassHealthCards() {
         { data: classData, error: classError },
         { data: enrollmentsData, error: enrollmentsError },
         { data: tuitionsData },
+        { data: teachersData },
       ] = await Promise.all([
         (supabase as any)
           .from('classes')
           .select(`id, name, level, color, max_capacity, monthly_fee,
-            class_teachers ( teachers ( id, full_name ) )`)
+            class_teachers ( teacher_id )`)
           .eq('school_id', schoolId)
           .order('name'),
         // enrollments has no school_id — scoped via class_id cross-reference
@@ -184,10 +185,24 @@ export function ClassHealthCards() {
           .select('final_amount, amount, status, due_date, contracts(class_id)')
           .eq('school_id', schoolId)
           .gte('due_date', cutoff),
+        // teachers.salary é restrito a admin/financial no RLS — o Dashboard é
+        // aberto a qualquer role, então o nome vem da view sem salário.
+        (supabase as any)
+          .from('teachers_directory')
+          .select('id, full_name')
+          .eq('school_id', schoolId),
       ]);
 
       if (classError) throw classError;
       if (enrollmentsError) throw enrollmentsError;
+
+      const teacherNameById: Record<string, string> = (teachersData || []).reduce(
+        (acc: Record<string, string>, t: any) => {
+          acc[t.id] = t.full_name;
+          return acc;
+        },
+        {}
+      );
 
       const classStudentCounts = (enrollmentsData || []).reduce((acc: Record<string, number>, e: any) => {
         if (e.class_id) acc[e.class_id] = (acc[e.class_id] || 0) + 1;
@@ -246,7 +261,7 @@ export function ClassHealthCards() {
         else status = 'critical';
 
         const teacherNames: string[] = (cls.class_teachers || [])
-          .map((ct: any) => ct.teachers?.full_name)
+          .map((ct: any) => teacherNameById[ct.teacher_id])
           .filter(Boolean);
 
         return {

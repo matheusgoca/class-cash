@@ -40,7 +40,7 @@ export function DashboardCharts() {
         { data: classes },
         { data: enrollments },
         { data: tuitions },
-        { data: teachers },
+        { data: totalSalaryData },
         { data: expenses },
       ] = await Promise.all([
         supabase.from("classes").select("id, name, color, max_capacity").eq("school_id", schoolId).order("name"),
@@ -49,7 +49,10 @@ export function DashboardCharts() {
         supabase.from("tuitions").select("final_amount, amount, paid_date")
           .eq("school_id", schoolId).eq("status", "paid")
           .not("paid_date", "is", null).gte("paid_date", sixMonthsAgo),
-        supabase.from("teachers").select("salary").eq("school_id", schoolId).eq("status", "active"),
+        // teachers.salary é restrito a admin/financial no RLS — o Dashboard é
+        // aberto a qualquer role, então usamos uma função que só retorna o
+        // agregado, sem expor salário individual.
+        (supabase as any).rpc("get_active_teachers_salary_sum", { p_school_id: schoolId }),
         (supabase as any).from("expenses").select("amount, paid_date")
           .eq("school_id", schoolId).eq("status", "paid")
           .not("paid_date", "is", null).gte("paid_date", sixMonthsAgo),
@@ -78,7 +81,7 @@ export function DashboardCharts() {
       }
 
       // Salary has no month-by-month history today — same value repeated across months
-      const totalSalary = (teachers || []).reduce((s: number, t: any) => s + Number(t.salary || 0), 0);
+      const totalSalary = Number(totalSalaryData || 0);
 
       const expensesByMonth: Record<string, number> = Object.fromEntries(months.map(m => [m.key, 0]));
       for (const e of expenses || []) {

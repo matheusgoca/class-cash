@@ -1,12 +1,26 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+// Só a origem real do app — nunca "*". Cada função já valida o Bearer token
+// internamente, mas CORS aberto facilita phishing/cópia do endpoint por site
+// de terceiro.
+const ALLOWED_ORIGINS = [
+  "https://class-cash-tan.vercel.app",
+  "http://localhost:8080",
+  "http://localhost:8081",
+];
+
+function buildCorsHeaders(req: Request) {
+  const origin = req.headers.get("origin");
+  return {
+    "Access-Control-Allow-Origin": origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Vary": "Origin",
+  };
+}
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {

@@ -40,13 +40,18 @@ export function FinancialMetrics() {
 
       const [
         { data: students, error: studentsError },
+        // teachers.salary é restrito a admin/financial no RLS — o Dashboard é
+        // aberto a qualquer role, então a contagem vem da view sem salário, e
+        // o total de salário vem de uma função que só retorna o agregado.
         { data: teachers, error: teachersError },
+        { data: totalSalariesData, error: salaryError },
         { data: tuitions, error: tuitionsError },
         { data: expenses, error: expensesError },
         { data: serviceCharges, error: serviceChargesError },
       ] = await Promise.all([
         (supabase as any).from('students').select('id').eq('school_id', schoolId).eq('status', 'active'),
-        (supabase as any).from('teachers').select('id, salary').eq('school_id', schoolId).eq('status', 'active'),
+        (supabase as any).from('teachers_directory').select('id').eq('school_id', schoolId).eq('status', 'active'),
+        (supabase as any).rpc('get_active_teachers_salary_sum', { p_school_id: schoolId }),
         (supabase as any).from('tuitions').select('amount, status, due_date').eq('school_id', schoolId),
         (supabase as any).from('expenses').select('amount, status, due_date').eq('school_id', schoolId).gte('due_date', twoMonthsAgo),
         (supabase as any).from('service_charges').select('amount, status, due_date').eq('school_id', schoolId),
@@ -54,6 +59,7 @@ export function FinancialMetrics() {
 
       if (studentsError) throw studentsError;
       if (teachersError) throw teachersError;
+      if (salaryError) throw salaryError;
       if (tuitionsError) throw tuitionsError;
       if (expensesError) throw expensesError;
       if (serviceChargesError) throw serviceChargesError;
@@ -110,7 +116,7 @@ export function FinancialMetrics() {
         }
       }
 
-      const totalSalaries = teachers?.reduce((sum: number, t: any) => sum + (Number(t.salary) || 0), 0) || 0;
+      const totalSalaries = Number(totalSalariesData || 0);
 
       // Bucket expenses into current and previous month in a single pass
       let monthlyExpenses = 0;

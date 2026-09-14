@@ -81,9 +81,12 @@ const Classes = () => {
 
   const fetchTeachers = async () => {
     try {
-      const { data, error } = await supabase
-        .from('teachers')
-        .select('*')
+      // Turmas é acessível a qualquer role (inclusive professor), e
+      // teachers.salary agora é restrito a admin/financial no RLS — usa a
+      // view sem salário, que é tudo que o checkbox de professor precisa.
+      const { data, error } = await (supabase as any)
+        .from('teachers_directory')
+        .select('id, full_name, status')
         .eq('school_id', schoolId)
         .eq('status', 'active')
         .order('full_name');
