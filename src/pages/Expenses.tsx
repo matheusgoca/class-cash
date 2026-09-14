@@ -150,12 +150,13 @@ const Expenses = () => {
       const { error } = await (supabase as any)
         .from("recurring_expenses")
         .update({ active: !r.active })
-        .eq("id", r.id);
+        .eq("id", r.id)
+        .eq("school_id", schoolId);
       if (error) throw error;
 
       if (!r.active) {
         // Reactivating: backfill any missing instances
-        await generateExpenses(r.id);
+        await generateExpenses(r.id, schoolId);
         await fetchExpenses();
       }
       await fetchRecurring();
@@ -172,7 +173,7 @@ const Expenses = () => {
   const handleDeleteRecurring = async () => {
     if (!deletingRecurringId) return;
     try {
-      const { error } = await (supabase as any).from("recurring_expenses").delete().eq("id", deletingRecurringId);
+      const { error } = await (supabase as any).from("recurring_expenses").delete().eq("id", deletingRecurringId).eq("school_id", schoolId);
       if (error) throw error;
       toast({ title: "Despesa recorrente removida", description: "Os lançamentos já gerados foram mantidos." });
       setDeletingRecurringId(null);

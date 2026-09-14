@@ -164,7 +164,7 @@ export function ExpenseForm({ expense, onSubmit, onCancel }: ExpenseFormProps) {
           paid_date: status === "paid" && paidDate ? toDateStr(paidDate) : null,
           notes: notes || null,
         };
-        const { error } = await (supabase as any).from("expenses").update(updateData).eq("id", expense!.id);
+        const { error } = await (supabase as any).from("expenses").update(updateData).eq("id", expense!.id).eq("school_id", schoolId);
         if (error) throw error;
         toast({ title: "Sucesso", description: "Despesa atualizada com sucesso!" });
         onSubmit();
@@ -208,7 +208,7 @@ export function ExpenseForm({ expense, onSubmit, onCancel }: ExpenseFormProps) {
         .single();
       if (createError) throw createError;
 
-      const { inserted, error: genError } = await generateExpenses(created.id);
+      const { inserted, error: genError } = await generateExpenses(created.id, schoolId);
       if (genError) {
         toast({
           title: "Despesa recorrente criada",

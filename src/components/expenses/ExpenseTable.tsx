@@ -14,6 +14,8 @@ import { useToast } from "@/hooks/use-toast";
 import type { ExpenseRecord } from "./ExpenseForm";
 import { isTuitionOverdue } from "@/lib/calculations";
 import { getFriendlyErrorMessage } from "@/lib/friendlyError";
+import { parseLocalDate } from "@/lib/dateUtils";
+import { useSchool } from "@/contexts/SchoolContext";
 
 interface ExpenseTableRow extends ExpenseRecord {
   category: { name: string; color: string } | null;
@@ -44,6 +46,7 @@ export function ExpenseTable({
   onRefresh,
 }: ExpenseTableProps) {
   const { toast } = useToast();
+  const { schoolId } = useSchool();
   const [sortField, setSortField] = useState<SortField>("due_date");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [currentPage, setCurrentPage] = useState(1);
@@ -64,11 +67,6 @@ export function ExpenseTable({
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
-
-  const parseLocalDate = (date: string) => {
-    const [y, m, d] = date.split("-").map(Number);
-    return new Date(y, m - 1, d);
-  };
 
   const formatDate = (date: string) => format(parseLocalDate(date), "dd/MM/yyyy", { locale: ptBR });
 
@@ -108,7 +106,8 @@ export function ExpenseTable({
           paid_date: format(new Date(), "yyyy-MM-dd"),
           payment_method: expense.payment_method || "Não informado",
         })
-        .eq("id", expense.id);
+        .eq("id", expense.id)
+        .eq("school_id", schoolId);
 
       if (error) throw error;
       toast({ title: "Sucesso", description: "Despesa marcada como paga!" });

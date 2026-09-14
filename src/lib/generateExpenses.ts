@@ -25,6 +25,7 @@ interface RecurringExpense {
  */
 export async function generateExpenses(
   recurringExpenseId: string,
+  schoolId: string,
   monthsAhead: number = 12
 ): Promise<{ inserted: number; error?: string }> {
   // 1. Fetch recurring expense
@@ -32,6 +33,7 @@ export async function generateExpenses(
     .from('recurring_expenses')
     .select('id, school_id, category_id, class_id, description, amount, due_day, start_date, end_date')
     .eq('id', recurringExpenseId)
+    .eq('school_id', schoolId)
     .single();
 
   if (fetchError || !recurring) {
