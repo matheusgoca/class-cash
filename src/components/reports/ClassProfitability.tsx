@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { formatCurrency } from "@/lib/calculations";
 import { computeClassCosts } from "@/lib/classCost";
+import { toDateStr } from "@/lib/dateUtils";
 
 interface ClassRow {
   id: string;
@@ -33,6 +34,15 @@ export function ClassProfitability() {
 
   const fetchData = async () => {
     try {
+      // Custo de salário vem de teachers.salary, que é um valor MENSAL — sem
+      // limitar receita/despesa/serviço ao mesmo mês, a comparação mistura
+      // unidades (ex: 24 meses de mensalidade paga contra 1 mês de salário),
+      // fazendo toda turma parecer cada vez mais lucrativa quanto mais tempo
+      // a escola usa o sistema.
+      const now = new Date();
+      const monthStart = toDateStr(new Date(now.getFullYear(), now.getMonth(), 1));
+      const monthEnd = toDateStr(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+
       const [
         { data: classes, error: classErr },
         { data: tuitions, error: tErr },
@@ -45,29 +55,37 @@ export function ClassProfitability() {
           .from("classes")
           .select(`id, name, level, class_teachers ( teacher_id, teachers ( salary ) )`)
           .eq("school_id", schoolId),
-        // Paid tuitions joined to class via contracts
+        // Paid tuitions joined to class via contracts — só o mês corrente,
+        // pra bater com o salário (mensal) usado no custo
         (supabase as any)
           .from("tuitions")
           .select("final_amount, amount, contracts(class_id)")
           .eq("school_id", schoolId)
-          .eq("status", "paid"),
+          .eq("status", "paid")
+          .gte("paid_date", monthStart)
+          .lte("paid_date", monthEnd),
         // Student counts per class, and student→class attribution for service
         // revenue below — enrollments has no school_id, scoped via class_id
         (supabase as any)
           .from("enrollments")
           .select("student_id, class_id"),
-        // Paid expenses with allocation method for cost apportionment
+        // Paid expenses with allocation method for cost apportionment — só o mês corrente
         (supabase as any)
           .from("expenses")
           .select("amount, class_id, expense_categories(allocation_method)")
           .eq("school_id", schoolId)
-          .eq("status", "paid"),
-        // Paid service charges (alimentação, cursos extras...), attributed via student's enrollment
+          .eq("status", "paid")
+          .gte("paid_date", monthStart)
+          .lte("paid_date", monthEnd),
+        // Paid service charges (alimentação, cursos extras...), attributed via
+        // student's enrollment — só o mês corrente
         (supabase as any)
           .from("service_charges")
           .select("amount, student_id")
           .eq("school_id", schoolId)
-          .eq("status", "paid"),
+          .eq("status", "paid")
+          .gte("paid_date", monthStart)
+          .lte("paid_date", monthEnd),
       ]);
 
       if (classErr) throw classErr;
@@ -129,7 +147,8 @@ export function ClassProfitability() {
         const revenue = revenueByClass[cls.id] || 0;
         const cost = totalCost[cls.id] || 0;
         const profit = revenue - cost;
-        const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
+        // revenue=0 com custo>0 é prejuízo total (-100%), não "neutro" (0%)
+        const margin = revenue > 0 ? (profit / revenue) * 100 : (cost > 0 ? -100 : 0);
         return {
           id: cls.id,
           name: cls.name,
@@ -174,7 +193,7 @@ export function ClassProfitability() {
       <div className="grid grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-1">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Receita Total (paga)</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Receita do Mês (paga)</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-success">{formatCurrency(totRevenue)}</p>

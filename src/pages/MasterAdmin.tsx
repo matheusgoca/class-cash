@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMasterAdmin } from "@/contexts/MasterAdminContext";
 import { useSchool } from "@/contexts/SchoolContext";
 import { getFriendlyErrorMessage } from "@/lib/friendlyError";
+import { toDateStr } from "@/lib/dateUtils";
 
 interface PendingOwnerInvite {
   id: string;
@@ -97,11 +98,21 @@ export default function MasterAdmin() {
   const fetchSchools = async () => {
     setLoading(true);
     try {
+      // Só o mês corrente — sem isso, "receita mensal"/"% inadimplência" somava
+      // o histórico inteiro de cada escola, inflando os dois quanto mais tempo
+      // a escola usa o sistema.
+      const now = new Date();
+      const monthStart = toDateStr(new Date(now.getFullYear(), now.getMonth(), 1));
+      const monthEnd = toDateStr(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+
       const [schoolsRes, profilesRes, studentsRes, tuitionsRes] = await Promise.all([
         (supabase as any).from("schools").select("id, name, plan, status, created_at, owner_user_id").order("created_at", { ascending: false }),
         (supabase as any).from("profiles").select("user_id, email"),
         (supabase as any).from("students").select("school_id").eq("status", "active"),
-        (supabase as any).from("tuitions").select("school_id, amount, status").neq("status", "cancelled"),
+        (supabase as any).from("tuitions").select("school_id, amount, status")
+          .neq("status", "cancelled")
+          .gte("due_date", monthStart)
+          .lte("due_date", monthEnd),
       ]);
 
       const profileMap: Record<string, string> = (profilesRes.data || []).reduce((acc: any, p: any) => {

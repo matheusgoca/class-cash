@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/contexts/SchoolContext";
 import { formatCurrency, isTuitionOverdue } from "@/lib/calculations";
+import { parseLocalDate } from "@/lib/dateUtils";
 import { DollarSign, TrendingUp, TrendingDown, AlertTriangle, Users, UserCheck, Calculator, Wallet, Sparkles } from "lucide-react";
 
 export function FinancialMetrics() {
@@ -69,27 +70,44 @@ export function FinancialMetrics() {
       const overdueRevenue = activeTuitions.filter((t: any) => isTuitionOverdue(t.due_date, t.status))
         .reduce((sum: number, t: any) => sum + Number(t.amount), 0);
 
-      // Bucket tuitions into current and previous month in a single pass
+      // Bucket tuitions into current and previous month in a single pass.
+      // monthlyRevenue (all non-cancelled statuses) is kept for its own
+      // display; monthlyPaidRevenue (paid only) is what actually entered the
+      // caixa and is the only one allowed into financialBalance below — a
+      // "Lucro/Prejuízo" card mixing faturado com recebido would show green
+      // even in a month where nothing was actually paid yet.
       let monthlyRevenue = 0;
-      let previousMonthRevenue = 0;
+      let monthlyPaidRevenue = 0;
+      let previousMonthPaidRevenue = 0;
       for (const t of activeTuitions) {
-        const due = new Date(t.due_date);
+        const due = parseLocalDate(t.due_date);
         const y = due.getFullYear();
         const m = due.getMonth();
-        if (y === currentYear && m === currentMonth) monthlyRevenue += Number(t.amount);
-        else if (y === prevRef.getFullYear() && m === prevRef.getMonth()) previousMonthRevenue += Number(t.amount);
+        const isCurrent = y === currentYear && m === currentMonth;
+        const isPrevious = y === prevRef.getFullYear() && m === prevRef.getMonth();
+        if (isCurrent) monthlyRevenue += Number(t.amount);
+        if (t.status === 'paid') {
+          if (isCurrent) monthlyPaidRevenue += Number(t.amount);
+          else if (isPrevious) previousMonthPaidRevenue += Number(t.amount);
+        }
       }
 
       // Same bucketing for service charges (cancelled excluded)
       const activeServiceCharges = serviceCharges?.filter((s: any) => s.status !== "cancelled") || [];
       let monthlyServiceRevenue = 0;
-      let previousMonthServiceRevenue = 0;
+      let monthlyPaidServiceRevenue = 0;
+      let previousMonthPaidServiceRevenue = 0;
       for (const s of activeServiceCharges) {
-        const due = new Date(s.due_date);
+        const due = parseLocalDate(s.due_date);
         const y = due.getFullYear();
         const m = due.getMonth();
-        if (y === currentYear && m === currentMonth) monthlyServiceRevenue += Number(s.amount);
-        else if (y === prevRef.getFullYear() && m === prevRef.getMonth()) previousMonthServiceRevenue += Number(s.amount);
+        const isCurrent = y === currentYear && m === currentMonth;
+        const isPrevious = y === prevRef.getFullYear() && m === prevRef.getMonth();
+        if (isCurrent) monthlyServiceRevenue += Number(s.amount);
+        if (s.status === 'paid') {
+          if (isCurrent) monthlyPaidServiceRevenue += Number(s.amount);
+          else if (isPrevious) previousMonthPaidServiceRevenue += Number(s.amount);
+        }
       }
 
       const totalSalaries = teachers?.reduce((sum: number, t: any) => sum + (Number(t.salary) || 0), 0) || 0;
@@ -99,17 +117,17 @@ export function FinancialMetrics() {
       let previousMonthExpenses = 0;
       for (const e of expenses || []) {
         if (e.status === 'cancelled') continue;
-        const due = new Date(e.due_date);
+        const due = parseLocalDate(e.due_date);
         const y = due.getFullYear();
         const m = due.getMonth();
         if (y === currentYear && m === currentMonth) monthlyExpenses += Number(e.amount);
         else if (y === prevRef.getFullYear() && m === prevRef.getMonth()) previousMonthExpenses += Number(e.amount);
       }
 
-      const financialBalance = monthlyRevenue + monthlyServiceRevenue - totalSalaries - monthlyExpenses;
+      const financialBalance = monthlyPaidRevenue + monthlyPaidServiceRevenue - totalSalaries - monthlyExpenses;
       // Salary has no month-by-month history today — using current total as an
       // approximation for the previous month is sufficient for a trend indicator.
-      const previousBalance = previousMonthRevenue + previousMonthServiceRevenue - totalSalaries - previousMonthExpenses;
+      const previousBalance = previousMonthPaidRevenue + previousMonthPaidServiceRevenue - totalSalaries - previousMonthExpenses;
 
       setMetrics({
         totalRevenue,
@@ -206,7 +224,7 @@ export function FinancialMetrics() {
                 </span>
               )}
               <span className="text-sm text-muted-foreground">
-                {metrics.financialBalance >= 0 ? 'Lucro' : 'Prejuízo'} — receita do mês menos salários e despesas
+                {metrics.financialBalance >= 0 ? 'Lucro' : 'Prejuízo'} — receita recebida no mês menos salários e despesas
               </span>
             </div>
           </CardContent>

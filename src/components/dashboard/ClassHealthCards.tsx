@@ -5,6 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/contexts/SchoolContext";
 import { formatCurrency, isTuitionOverdue } from "@/lib/calculations";
+import { parseLocalDate } from "@/lib/dateUtils";
 import { Users, DollarSign, AlertTriangle } from "lucide-react";
 
 interface ClassHealth {
@@ -193,14 +194,26 @@ export function ClassHealthCards() {
         return acc;
       }, {});
 
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+
       const revenueByClass: Record<string, number> = {};
       const overdueByClass: Record<string, number> = {};
+      // Receita do MÊS atual, separada da janela de 12 meses acima — usada só
+      // pra comparar com potentialRevenue (que é mensal). Reusar a soma de 12
+      // meses ali fazia turma cheia e em dia parecer com 1200% de receita.
+      const monthlyRevenueByClass: Record<string, number> = {};
       for (const t of tuitionsData || []) {
         const cid = t.contracts?.class_id;
         if (!cid) continue;
         const value = Number(t.final_amount ?? t.amount ?? 0);
         if (t.status === 'paid') {
           revenueByClass[cid] = (revenueByClass[cid] || 0) + value;
+          const due = parseLocalDate(t.due_date);
+          if (due.getFullYear() === currentYear && due.getMonth() === currentMonth) {
+            monthlyRevenueByClass[cid] = (monthlyRevenueByClass[cid] || 0) + value;
+          }
         } else if (isTuitionOverdue(t.due_date, t.status)) {
           overdueByClass[cid] = (overdueByClass[cid] || 0) + value;
         }
@@ -215,8 +228,9 @@ export function ClassHealthCards() {
         const totalRevenue       = revenueByClass[cls.id] || 0;
         const overdueRevenue     = overdueByClass[cls.id] || 0;
         const potentialRevenue   = maxCapacity * (cls.monthly_fee || 0);
+        const monthlyRevenue     = monthlyRevenueByClass[cls.id] || 0;
         const revenuePercentage  = potentialRevenue > 0
-          ? (totalRevenue / potentialRevenue) * 100
+          ? (monthlyRevenue / potentialRevenue) * 100
           : 0;
         // Denominator: only tuitions already due (paid + overdue);
         // pending within due date don't count against the class.
