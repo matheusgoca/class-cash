@@ -14,6 +14,8 @@ import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/compon
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import { StudentServicesSection } from './StudentServicesSection';
+import { useSchool } from '@/contexts/SchoolContext';
 
 const studentSchema = z.object({
   full_name:          z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
@@ -44,6 +46,7 @@ const fmt = (v: number) =>
 export const StudentForm: React.FC<StudentFormProps> = ({
   student, onSubmit, onCancel, classes, isLoading,
 }) => {
+  const { schoolId } = useSchool();
   const form = useForm<StudentFormData>({
     resolver: zodResolver(studentSchema),
     defaultValues: {
@@ -252,6 +255,13 @@ export const StudentForm: React.FC<StudentFormProps> = ({
               <p className="text-2xl font-bold">{fmt(finalValue)}</p>
             </div>
           </div>
+
+          {student?.id && schoolId && (
+            <>
+              <Separator />
+              <StudentServicesSection studentId={student.id} schoolId={schoolId} />
+            </>
+          )}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
