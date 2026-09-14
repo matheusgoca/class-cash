@@ -8,9 +8,11 @@ import { useSchool } from '@/contexts/SchoolContext';
 import { StudentForm } from '@/components/students/StudentForm';
 import { StudentTable } from '@/components/students/StudentTable';
 import { getFriendlyErrorMessage } from '@/lib/friendlyError';
+import { PlanLimitBanner } from '@/components/PlanLimitBanner';
+import { isOverPlanLimit, STARTER_LIMITS } from '@/lib/planLimits';
 
 const Students = () => {
-  const { schoolId } = useSchool();
+  const { schoolId, school } = useSchool();
   const [students, setStudents] = useState([]);
   const [classes, setClasses] = useState([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -252,6 +254,12 @@ const Students = () => {
           )}
         </Dialog>
       </div>
+
+      {isOverPlanLimit(school?.plan, 'students', students.length) && (
+        <PlanLimitBanner
+          message={`Você atingiu o limite de ${STARTER_LIMITS.students} alunos do plano Starter.`}
+        />
+      )}
 
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
         <StudentTable

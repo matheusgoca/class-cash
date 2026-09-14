@@ -29,6 +29,7 @@ import AdminSyncTuitions from "./pages/AdminSyncTuitions";
 import MasterAdmin from "./pages/MasterAdmin";
 import MasterBugs from "./pages/MasterBugs";
 import Team from "./pages/Team";
+import { PrivacyPolicy, TermsOfUse } from "./pages/Legal";
 
 const queryClient = new QueryClient();
 
@@ -54,6 +55,8 @@ const App = () => (
               <Routes>
                 <Route path="/" element={<RootRoute />} />
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/privacidade" element={<PrivacyPolicy />} />
+                <Route path="/termos" element={<TermsOfUse />} />
                 <Route
                   path="/onboarding"
                   element={

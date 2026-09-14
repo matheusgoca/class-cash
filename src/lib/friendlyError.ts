@@ -20,5 +20,22 @@ export function getFriendlyErrorMessage(error: any, fallback?: string): string {
     return 'Já existe um registro com esse valor.';
   }
 
+  // Supabase Auth (login/cadastro/recuperação) — mensagens em inglês da GoTrue
+  if (/invalid login credentials/i.test(message)) {
+    return 'E-mail ou senha incorretos.';
+  }
+  if (/user already registered/i.test(message)) {
+    return 'Este e-mail já possui uma conta. Tente entrar ou recuperar sua senha.';
+  }
+  if (/email not confirmed/i.test(message)) {
+    return 'Confirme seu e-mail antes de entrar — verifique sua caixa de entrada.';
+  }
+  if (/password should be at least/i.test(message)) {
+    return 'A senha deve ter pelo menos 6 caracteres.';
+  }
+  if (/for security purposes.*after/i.test(message)) {
+    return 'Aguarde um momento antes de tentar novamente.';
+  }
+
   return fallback ?? message ?? 'Ocorreu um erro inesperado.';
 }

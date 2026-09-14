@@ -53,7 +53,7 @@ function Navbar() {
             <Link to="/auth">
               <Button variant="ghost" size="sm">Entrar</Button>
             </Link>
-            <Link to="/auth">
+            <Link to="/auth?mode=signup">
               <Button size="sm">Começar grátis</Button>
             </Link>
           </div>
@@ -73,7 +73,7 @@ function Navbar() {
             <a href="#faq" className="block text-sm text-gray-600 py-2" onClick={() => setMenuOpen(false)}>FAQ</a>
             <div className="flex gap-3 pt-2">
               <Link to="/auth" className="flex-1"><Button variant="outline" className="w-full" size="sm">Entrar</Button></Link>
-              <Link to="/auth" className="flex-1"><Button className="w-full" size="sm">Começar grátis</Button></Link>
+              <Link to="/auth?mode=signup" className="flex-1"><Button className="w-full" size="sm">Começar grátis</Button></Link>
             </div>
           </div>
         )}
@@ -102,7 +102,7 @@ function Hero() {
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link to="/auth">
+            <Link to="/auth?mode=signup">
               <Button size="lg" className="px-8 h-12 text-base font-semibold">
                 Começar grátis
                 <ArrowRight className="ml-2 h-4 w-4" />
@@ -161,23 +161,25 @@ function Hero() {
   );
 }
 
-// ─── Social proof ─────────────────────────────────────────────────────────────
-function SocialProof() {
-  const stats = [
-    { value: "500+", label: "Escolas ativas" },
-    { value: "R$ 2M+", label: "Gerenciados por mês" },
-    { value: "98%", label: "Satisfação dos clientes" },
-    { value: "24h", label: "Suporte disponível" },
+// ─── Trust bar ────────────────────────────────────────────────────────────────
+// Nota: antes tinha números de "prova social" (500+ escolas, 98% satisfação
+// etc.) sem lastro em dado real — trocado por afirmações verificáveis sobre o
+// próprio produto até existir dado real de uso para anunciar.
+function TrustBar() {
+  const points = [
+    { icon: Shield, label: "Dados isolados por escola — multi-tenant de verdade" },
+    { icon: Zap, label: "Mensalidades geradas automaticamente a partir do contrato" },
+    { icon: CheckCircle, label: "Sem cartão de crédito para começar" },
   ];
 
   return (
-    <section className="py-16 bg-white border-b border-gray-100">
+    <section className="py-12 bg-white border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-          {stats.map((s) => (
-            <div key={s.label}>
-              <p className="text-4xl font-extrabold text-primary mb-1">{s.value}</p>
-              <p className="text-sm text-gray-500">{s.label}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
+          {points.map((p) => (
+            <div key={p.label} className="flex flex-col items-center gap-2">
+              <p.icon className="h-5 w-5 text-primary" />
+              <p className="text-sm text-gray-600">{p.label}</p>
             </div>
           ))}
         </div>
@@ -327,12 +329,13 @@ function Pricing() {
       highlight: false,
       items: [
         "Até 50 alunos",
-        "1 turma",
+        "Até 5 turmas",
         "Dashboard básico",
         "Exportação CSV",
         "Suporte por e-mail",
       ],
       cta: "Criar conta grátis",
+      ctaHref: "/auth?mode=signup",
     },
     {
       name: "Pro",
@@ -349,7 +352,8 @@ function Pricing() {
         "Suporte prioritário",
         "Contratos automáticos",
       ],
-      cta: "Começar 14 dias grátis",
+      cta: "Falar com vendas",
+      ctaHref: "mailto:contato@classcash.com.br?subject=Interesse%20no%20plano%20Pro",
     },
     {
       name: "Enterprise",
@@ -366,6 +370,7 @@ function Pricing() {
         "Gerente de conta",
       ],
       cta: "Falar com vendas",
+      ctaHref: "mailto:contato@classcash.com.br?subject=Interesse%20no%20plano%20Enterprise",
     },
   ];
 
@@ -410,18 +415,33 @@ function Pricing() {
                 </span>
               </div>
 
-              <Link to="/auth">
-                <Button
-                  className={`w-full mb-8 ${
-                    plan.highlight
-                      ? "bg-white text-primary hover:bg-gray-100"
-                      : ""
-                  }`}
-                  variant={plan.highlight ? "secondary" : "outline"}
-                >
-                  {plan.cta}
-                </Button>
-              </Link>
+              {plan.ctaHref.startsWith("mailto:") ? (
+                <a href={plan.ctaHref}>
+                  <Button
+                    className={`w-full mb-8 ${
+                      plan.highlight
+                        ? "bg-white text-primary hover:bg-gray-100"
+                        : ""
+                    }`}
+                    variant={plan.highlight ? "secondary" : "outline"}
+                  >
+                    {plan.cta}
+                  </Button>
+                </a>
+              ) : (
+                <Link to={plan.ctaHref}>
+                  <Button
+                    className={`w-full mb-8 ${
+                      plan.highlight
+                        ? "bg-white text-primary hover:bg-gray-100"
+                        : ""
+                    }`}
+                    variant={plan.highlight ? "secondary" : "outline"}
+                  >
+                    {plan.cta}
+                  </Button>
+                </Link>
+              )}
 
               <ul className="space-y-3">
                 {plan.items.map((item) => (
@@ -525,7 +545,7 @@ function CTAFinal() {
           Junte-se a centenas de escolas que já simplificaram sua gestão financeira com o Class Cash.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Link to="/auth">
+          <Link to="/auth?mode=signup">
             <Button size="lg" className="bg-white text-primary hover:bg-gray-100 px-8 h-12 font-semibold">
               Criar conta grátis
               <ArrowRight className="ml-2 h-4 w-4" />
@@ -568,16 +588,14 @@ function Footer() {
             <div>
               <p className="text-white font-medium mb-3">Empresa</p>
               <ul className="space-y-2">
-                <li><a href="#" className="hover:text-white transition-colors">Sobre nós</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Blog</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Contato</a></li>
+                <li><a href="mailto:contato@classcash.com.br" className="hover:text-white transition-colors">Contato</a></li>
               </ul>
             </div>
             <div>
               <p className="text-white font-medium mb-3">Legal</p>
               <ul className="space-y-2">
-                <li><a href="#" className="hover:text-white transition-colors">Privacidade</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Termos de uso</a></li>
+                <li><Link to="/privacidade" className="hover:text-white transition-colors">Privacidade</Link></li>
+                <li><Link to="/termos" className="hover:text-white transition-colors">Termos de uso</Link></li>
               </ul>
             </div>
           </div>
@@ -597,7 +615,7 @@ const Landing = () => {
     <div className="min-h-screen">
       <Navbar />
       <Hero />
-      <SocialProof />
+      <TrustBar />
       <Features />
       <Segments />
       <Pricing />
