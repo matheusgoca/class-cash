@@ -1,13 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { generateServiceCharges } from '@/lib/generateServiceCharges';
-
-function todayStr(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
+import { toDateStr } from '@/lib/dateUtils';
 
 export interface SubscribeStudentToServiceParams {
   schoolId: string;
@@ -22,6 +15,22 @@ export async function subscribeStudentToService(
   params: SubscribeStudentToServiceParams
 ): Promise<{ inserted: number }> {
   const { schoolId, studentId, serviceId, price, dueDay, startDate } = params;
+
+  // Sem essa checagem, reabrir "Cobrar serviço" pro mesmo aluno/serviço criava
+  // uma segunda assinatura ativa, e cada uma gerava suas próprias cobranças
+  // mensais de forma independente — aluno cobrado em dobro todo mês.
+  const { data: existing } = await (supabase as any)
+    .from('student_services')
+    .select('id')
+    .eq('school_id', schoolId)
+    .eq('student_id', studentId)
+    .eq('service_id', serviceId)
+    .eq('active', true)
+    .maybeSingle();
+
+  if (existing) {
+    throw new Error('Este aluno já tem uma assinatura ativa deste serviço.');
+  }
 
   const { data: created, error } = await (supabase as any)
     .from('student_services')
@@ -44,11 +53,24 @@ export async function subscribeStudentToService(
   return { inserted };
 }
 
-export async function cancelStudentService(studentServiceId: string): Promise<void> {
+export async function cancelStudentService(schoolId: string, studentServiceId: string): Promise<void> {
   const { error } = await (supabase as any)
     .from('student_services')
-    .update({ active: false, end_date: todayStr() })
-    .eq('id', studentServiceId);
+    .update({ active: false, end_date: toDateStr(new Date()) })
+    .eq('id', studentServiceId)
+    .eq('school_id', schoolId);
 
   if (error) throw error;
+
+  // Sem isso, até 11 meses de cobrança futura já gerada continuavam
+  // "pending" ativas depois do cancelamento da assinatura.
+  const { error: chargesError } = await (supabase as any)
+    .from('service_charges')
+    .update({ status: 'cancelled' })
+    .eq('student_service_id', studentServiceId)
+    .eq('school_id', schoolId)
+    .eq('status', 'pending')
+    .gt('due_date', toDateStr(new Date()));
+
+  if (chargesError) throw chargesError;
 }

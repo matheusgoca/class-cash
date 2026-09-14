@@ -83,13 +83,16 @@ export function ServiceCatalogSection() {
 
   const updateService = async (id: string, patch: Partial<SchoolService>) => {
     setServices((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
-    const { error } = await (supabase as any).from('school_services').update(patch).eq('id', id);
+    const { error } = await (supabase as any).from('school_services').update(patch).eq('id', id).eq('school_id', schoolId);
     if (error) {
       toast({
         title: 'Erro ao salvar',
         description: getFriendlyErrorMessage(error, 'Erro ao salvar serviço'),
         variant: 'destructive',
       });
+      // refaz a lista com o valor real do servidor — os inputs abaixo usam
+      // key={id-valor} pra remontar e refletir a reversão (defaultValue
+      // não atualiza sozinho num input não controlado)
       fetchServices();
     }
   };
@@ -97,7 +100,7 @@ export function ServiceCatalogSection() {
   const handleDelete = async () => {
     if (!deletingId) return;
     try {
-      const { error } = await (supabase as any).from('school_services').delete().eq('id', deletingId);
+      const { error } = await (supabase as any).from('school_services').delete().eq('id', deletingId).eq('school_id', schoolId);
       if (error) throw error;
       setServices((prev) => prev.filter((s) => s.id !== deletingId));
       toast({ title: 'Serviço removido' });
@@ -136,6 +139,7 @@ export function ServiceCatalogSection() {
             {services.map((s) => (
               <div key={s.id} className="flex items-center gap-3 rounded-lg border px-3 py-2.5 flex-wrap">
                 <Input
+                  key={`${s.id}-name-${s.name}`}
                   defaultValue={s.name}
                   onBlur={(e) => {
                     const value = e.target.value.trim();
@@ -144,11 +148,17 @@ export function ServiceCatalogSection() {
                   className="max-w-[180px]"
                 />
                 <Input
+                  key={`${s.id}-price-${s.price}`}
                   type="number" min="0" step="0.01"
                   defaultValue={s.price}
                   onBlur={(e) => {
                     const value = parseFloat(e.target.value);
-                    if (value > 0 && value !== s.price) updateService(s.id, { price: value });
+                    if (!(value > 0)) {
+                      toast({ title: 'Preço inválido', description: 'Informe um valor maior que zero.', variant: 'destructive' });
+                      e.target.value = String(s.price);
+                      return;
+                    }
+                    if (value !== s.price) updateService(s.id, { price: value });
                   }}
                   className="max-w-[120px]"
                 />

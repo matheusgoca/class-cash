@@ -121,7 +121,7 @@ export function AddServiceChargeDialog({
     } catch (error) {
       toast({
         title: 'Erro',
-        description: getFriendlyErrorMessage(error, 'Erro ao criar cobrança'),
+        description: getFriendlyErrorMessage(error, error?.message || 'Erro ao criar cobrança'),
         variant: 'destructive',
       });
     } finally {
