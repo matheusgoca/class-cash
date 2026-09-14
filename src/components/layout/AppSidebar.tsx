@@ -163,7 +163,7 @@ export function AppSidebar() {
               <SidebarMenuButton asChild>
                 <NavLink
                   to="/master"
-                  className={`flex items-center gap-2 ${getNavCls(isActive("/master"))} text-amber-600`}
+                  className={`flex items-center gap-2 ${getNavCls(isActive("/master"))} ${isActive("/master") ? "" : "text-amber-600"}`}
                 >
                   <ShieldCheck className="h-4 w-4" />
                   {!collapsed && <span className="font-semibold">Painel Master</span>}
@@ -176,7 +176,7 @@ export function AppSidebar() {
               <SidebarMenuButton asChild>
                 <NavLink
                   to="/master/bugs"
-                  className={`flex items-center gap-2 ${getNavCls(isActive("/master/bugs"))} text-amber-600`}
+                  className={`flex items-center gap-2 ${getNavCls(isActive("/master/bugs"))} ${isActive("/master/bugs") ? "" : "text-amber-600"}`}
                 >
                   <Bug className="h-4 w-4" />
                   {!collapsed && <span className="font-semibold">Relatórios de Bug</span>}

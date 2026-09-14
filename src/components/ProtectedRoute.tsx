@@ -80,7 +80,10 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireSchool
         </div>
       );
     }
-    if (role && !allowedRoles.includes(role)) {
+    // Deny by default: a user with no role assigned (role === null) is NOT
+    // "unrestricted" — that was the bug. Only a role explicitly present in
+    // allowedRoles gets through.
+    if (!role || !allowedRoles.includes(role)) {
       return <Navigate to="/dashboard" replace />;
     }
   }
