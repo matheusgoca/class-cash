@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSchool } from '@/contexts/SchoolContext';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { getFriendlyErrorMessage } from '@/lib/friendlyError';
 
 const SEGMENTS = [
   { value: 'infantil',    label: 'Educação Infantil', icon: Lightbulb,     description: 'Berçário ao Pré' },
@@ -77,7 +78,7 @@ export default function Onboarding() {
       toast({ title: 'Escola criada!', description: `Bem-vindo ao ${data.name}` });
       navigate('/dashboard');
     } catch (error: any) {
-      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+      toast({ title: 'Erro', description: getFriendlyErrorMessage(error, error.message), variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
@@ -164,6 +165,17 @@ export default function Onboarding() {
         <p className="text-center text-xs text-muted-foreground">
           Você pode editar essas informações depois em Configurações.
         </p>
+
+        <div className="rounded-xl border bg-muted/40 p-4">
+          <p className="text-sm font-medium mb-2">Depois de entrar, o caminho é:</p>
+          <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
+            <li>Cadastre as turmas</li>
+            <li>Cadastre os professores e vincule às turmas</li>
+            <li>Cadastre os alunos e matricule numa turma</li>
+            <li>Crie o contrato de cada aluno</li>
+            <li>Gere as mensalidades a partir do contrato (em Contratos ou em Configurações → gerador em lote)</li>
+          </ol>
+        </div>
       </div>
     </div>
   );
