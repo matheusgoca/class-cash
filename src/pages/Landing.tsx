@@ -553,7 +553,11 @@ function CTAFinal() {
 // ─── Footer ───────────────────────────────────────────────────────────────────
 function Footer() {
   return (
-    <footer className="py-12 px-4 bg-foreground text-background/60">
+    // bg-foreground/text-background dão o "sempre escuro" no light mode, mas
+    // esses tokens INVERTEM de sentido no dark mode (foreground vira claro,
+    // background vira escuro) — sem os overrides dark: explícitos, o rodapé
+    // virava uma faixa branca com texto escuro em vez de continuar escuro.
+    <footer className="py-12 px-4 bg-foreground text-background/60 dark:bg-background dark:text-muted-foreground dark:border-t dark:border-border">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row justify-between gap-8 mb-8">
           <div>
@@ -561,7 +565,7 @@ function Footer() {
               <div className="bg-primary rounded-lg p-1.5">
                 <School className="h-4 w-4 text-primary-foreground" />
               </div>
-              <span className="text-background font-bold">Class Cash</span>
+              <span className="text-background dark:text-foreground font-bold">Class Cash</span>
             </div>
             <p className="text-sm max-w-xs">
               Gestão financeira escolar simples, rápida e confiável.
@@ -570,30 +574,30 @@ function Footer() {
 
           <div className="grid grid-cols-2 md:grid-cols-3 gap-8 text-sm">
             <div>
-              <p className="text-background font-medium mb-3">Produto</p>
+              <p className="text-background dark:text-foreground font-medium mb-3">Produto</p>
               <ul className="space-y-2">
-                <li><a href="#funcionalidades" className="hover:text-background transition-colors">Funcionalidades</a></li>
-                <li><a href="#precos" className="hover:text-background transition-colors">Preços</a></li>
-                <li><a href="#faq" className="hover:text-background transition-colors">FAQ</a></li>
+                <li><a href="#funcionalidades" className="hover:text-background dark:hover:text-foreground transition-colors">Funcionalidades</a></li>
+                <li><a href="#precos" className="hover:text-background dark:hover:text-foreground transition-colors">Preços</a></li>
+                <li><a href="#faq" className="hover:text-background dark:hover:text-foreground transition-colors">FAQ</a></li>
               </ul>
             </div>
             <div>
-              <p className="text-background font-medium mb-3">Empresa</p>
+              <p className="text-background dark:text-foreground font-medium mb-3">Empresa</p>
               <ul className="space-y-2">
-                <li><a href="mailto:matheusgoca@gmail.com" className="hover:text-background transition-colors">Contato</a></li>
+                <li><a href="mailto:matheusgoca@gmail.com" className="hover:text-background dark:hover:text-foreground transition-colors">Contato</a></li>
               </ul>
             </div>
             <div>
-              <p className="text-background font-medium mb-3">Legal</p>
+              <p className="text-background dark:text-foreground font-medium mb-3">Legal</p>
               <ul className="space-y-2">
-                <li><Link to="/privacidade" className="hover:text-background transition-colors">Privacidade</Link></li>
-                <li><Link to="/termos" className="hover:text-background transition-colors">Termos de uso</Link></li>
+                <li><Link to="/privacidade" className="hover:text-background dark:hover:text-foreground transition-colors">Privacidade</Link></li>
+                <li><Link to="/termos" className="hover:text-background dark:hover:text-foreground transition-colors">Termos de uso</Link></li>
               </ul>
             </div>
           </div>
         </div>
 
-        <div className="border-t border-background/10 pt-8 text-sm text-center">
+        <div className="border-t border-background/10 dark:border-border pt-8 text-sm text-center">
           © {new Date().getFullYear()} Class Cash. Todos os direitos reservados.
         </div>
       </div>

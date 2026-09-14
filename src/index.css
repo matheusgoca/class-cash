@@ -124,6 +124,15 @@ All colors MUST be HSL.
     --danger-foreground: 0 0% 100%;
     --danger-light: 0 73% 15%;
 
+    /* Dashboard Colors - Dark Mode (nunca tinham override — ficavam com o
+       tom quase-branco do light mode, lavado contra o fundo escuro) */
+    --pending: 210 100% 56%;
+    --pending-light: 210 100% 15%;
+    --paid: 142 71% 45%;
+    --paid-light: 142 71% 15%;
+    --overdue: 0 73% 57%;
+    --overdue-light: 0 73% 15%;
+
     --sidebar-background: 222 47% 11%;
     --sidebar-foreground: 210 40% 98%;
     --sidebar-primary: 172 64% 33%;
