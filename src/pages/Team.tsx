@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { getFriendlyErrorMessage } from "@/lib/friendlyError";
 import { UserPlus, Users, RefreshCw, Mail, Pencil, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -220,7 +221,7 @@ export default function Team() {
       .insert({ user_id: selectedMember.user_id, role: newRole as any });
 
     if (error) {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
+      toast({ title: "Erro", description: getFriendlyErrorMessage(error, error.message), variant: "destructive" });
     } else {
       toast({ title: "Função atualizada!", description: `${selectedMember.full_name} agora é ${ROLE_LABELS[newRole]}.` });
       closeModal();

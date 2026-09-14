@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useSchool } from '@/contexts/SchoolContext';
 import { StudentForm } from '@/components/students/StudentForm';
 import { StudentTable } from '@/components/students/StudentTable';
+import { getFriendlyErrorMessage } from '@/lib/friendlyError';
 
 const Students = () => {
   const { schoolId } = useSchool();
@@ -69,7 +70,7 @@ const Students = () => {
     } catch (error: any) {
       toast({
         title: 'Erro',
-        description: 'Erro ao carregar alunos: ' + error.message,
+        description: getFriendlyErrorMessage(error, 'Erro ao carregar alunos: ' + error.message),
         variant: 'destructive',
       });
     }
@@ -85,10 +86,10 @@ const Students = () => {
 
       if (error) throw error;
       setClasses(data || []);
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: 'Erro',
-        description: 'Erro ao carregar turmas: ' + error.message,
+        description: getFriendlyErrorMessage(error, 'Erro ao carregar turmas: ' + error.message),
         variant: 'destructive',
       });
     }
@@ -182,7 +183,7 @@ const Students = () => {
     } catch (error: any) {
       toast({
         title: 'Erro',
-        description: 'Erro ao salvar aluno: ' + error.message,
+        description: getFriendlyErrorMessage(error, 'Erro ao salvar aluno: ' + error.message),
         variant: 'destructive',
       });
     } finally {
@@ -209,7 +210,7 @@ const Students = () => {
     } catch (error: any) {
       toast({
         title: 'Erro',
-        description: 'Erro ao excluir aluno: ' + error.message,
+        description: getFriendlyErrorMessage(error, 'Erro ao excluir aluno: ' + error.message),
         variant: 'destructive',
       });
     }
@@ -237,16 +238,18 @@ const Students = () => {
               Novo Aluno
             </Button>
           </DialogTrigger>
-          <StudentForm
-            student={editingStudent}
-            onSubmit={handleSubmit}
-            onCancel={() => {
-              setIsFormOpen(false);
-              setEditingStudent(null);
-            }}
-            classes={classes}
-            isLoading={isLoading}
-          />
+          {isFormOpen && (
+            <StudentForm
+              student={editingStudent}
+              onSubmit={handleSubmit}
+              onCancel={() => {
+                setIsFormOpen(false);
+                setEditingStudent(null);
+              }}
+              classes={classes}
+              isLoading={isLoading}
+            />
+          )}
         </Dialog>
       </div>
 

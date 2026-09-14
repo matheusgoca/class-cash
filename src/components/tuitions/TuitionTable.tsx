@@ -12,6 +12,8 @@ import { ArrowUpDown, Edit, CheckCircle, Search, RefreshCw } from "lucide-react"
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
+import { isTuitionOverdue } from "@/lib/calculations";
+import { getFriendlyErrorMessage } from "@/lib/friendlyError";
 
 interface TuitionData {
   id: string;
@@ -96,16 +98,16 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
   }, [data]);
 
   const getStatusBadge = (tuition: TuitionData) => {
-    const isOverdue = new Date(tuition.due_date) < new Date() && tuition.status === "pending";
+    const isOverdue = isTuitionOverdue(tuition.due_date, tuition.status);
     const status = isOverdue ? "overdue" : tuition.status;
 
     switch (status) {
       case "pending":
-        return <Badge className="bg-yellow-500 text-slate-900">Pendente</Badge>;
+        return <Badge className="bg-pending text-primary-foreground">Pendente</Badge>;
       case "paid":
-        return <Badge className="bg-green-500 text-white">Pago</Badge>;
+        return <Badge className="bg-paid text-success-foreground">Pago</Badge>;
       case "overdue":
-        return <Badge className="bg-red-500 text-white">Atrasado</Badge>;
+        return <Badge className="bg-overdue text-danger-foreground">Atrasado</Badge>;
       case "cancelled":
         if (tuition.renegotiation_id && tuition.renegotiations) {
           const r = tuition.renegotiations;
@@ -127,7 +129,7 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
             </TooltipProvider>
           );
         }
-        return <Badge className="bg-gray-500 text-white">Cancelado</Badge>;
+        return <Badge variant="secondary">Cancelado</Badge>;
       default:
         return <Badge variant="secondary">{tuition.status}</Badge>;
     }
@@ -167,7 +169,7 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
       console.error('Error marking as paid:', error);
       toast({
         title: "Erro",
-        description: "Erro ao marcar como paga",
+        description: getFriendlyErrorMessage(error, "Erro ao marcar como paga"),
         variant: "destructive",
       });
     }
@@ -176,7 +178,7 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
 
   // Filter data
   const filteredData = data.filter(t => {
-    const effectiveStatus = new Date(t.due_date) < new Date() && t.status === 'pending' ? 'overdue' : t.status;
+    const effectiveStatus = isTuitionOverdue(t.due_date, t.status) ? 'overdue' : t.status;
     const matchesSearch = !search || (t.students?.full_name ?? '').toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === 'all' || effectiveStatus === statusFilter;
     const matchesMonth  = monthFilter === 'all' || t.due_date.startsWith(monthFilter);
@@ -364,7 +366,7 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
             </TableHeader>
             <TableBody>
               {paginatedData.map((tuition) => {
-                const isOverdue = new Date(tuition.due_date) < new Date() && tuition.status === "pending";
+                const isOverdue = isTuitionOverdue(tuition.due_date, tuition.status);
                 const canMarkAsPaid = tuition.status === "pending" || isOverdue;
 
                 return (

@@ -15,6 +15,8 @@ import { ExpenseCategoriesSection } from "@/components/expenses/ExpenseCategorie
 import { Plus, Repeat, ChevronDown, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { isTuitionOverdue } from "@/lib/calculations";
+import { getFriendlyErrorMessage } from "@/lib/friendlyError";
 
 interface ExpenseTableRow extends ExpenseRecord {
   category: { name: string; color: string } | null;
@@ -106,7 +108,11 @@ const Expenses = () => {
       setExpenses(typed);
     } catch (error: any) {
       console.error("Error fetching expenses:", error);
-      toast({ title: "Erro", description: "Erro ao carregar despesas", variant: "destructive" });
+      toast({
+        title: "Erro",
+        description: getFriendlyErrorMessage(error, "Erro ao carregar despesas"),
+        variant: "destructive",
+      });
     }
   };
 
@@ -154,7 +160,11 @@ const Expenses = () => {
       await fetchRecurring();
       toast({ title: r.active ? "Despesa recorrente pausada" : "Despesa recorrente reativada" });
     } catch (error: any) {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
+      toast({
+        title: "Erro",
+        description: getFriendlyErrorMessage(error, "Erro ao atualizar despesa recorrente"),
+        variant: "destructive",
+      });
     }
   };
 
@@ -167,7 +177,11 @@ const Expenses = () => {
       setDeletingRecurringId(null);
       fetchRecurring();
     } catch (error: any) {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
+      toast({
+        title: "Erro",
+        description: getFriendlyErrorMessage(error, "Erro ao remover despesa recorrente"),
+        variant: "destructive",
+      });
     }
   };
 
@@ -203,7 +217,7 @@ const Expenses = () => {
 
   const summary = scopedExpenses.reduce(
     (acc, e) => {
-      const isOverdue = new Date(e.due_date) < new Date() && e.status === "pending";
+      const isOverdue = isTuitionOverdue(e.due_date, e.status);
       const status = isOverdue ? "overdue" : e.status;
       acc.total += 1;
       if (status !== "cancelled") acc.totalAmount += Number(e.amount);
@@ -252,7 +266,7 @@ const Expenses = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-card-foreground font-medium text-sm flex items-center justify-between">
               Pendentes
-              <span className="bg-yellow-500 text-slate-900 text-xs px-2 py-1 rounded-full">{summary.pending}</span>
+              <span className="bg-pending text-primary-foreground text-xs px-2 py-1 rounded-full">{summary.pending}</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -264,7 +278,7 @@ const Expenses = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-card-foreground font-medium text-sm flex items-center justify-between">
               Pagas
-              <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full">{summary.paid}</span>
+              <span className="bg-paid text-success-foreground text-xs px-2 py-1 rounded-full">{summary.paid}</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -276,7 +290,7 @@ const Expenses = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-card-foreground font-medium text-sm flex items-center justify-between">
               Atrasadas
-              <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">{summary.overdue}</span>
+              <span className="bg-overdue text-danger-foreground text-xs px-2 py-1 rounded-full">{summary.overdue}</span>
             </CardTitle>
           </CardHeader>
           <CardContent>

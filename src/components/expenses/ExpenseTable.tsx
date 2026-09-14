@@ -12,6 +12,8 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import type { ExpenseRecord } from "./ExpenseForm";
+import { isTuitionOverdue } from "@/lib/calculations";
+import { getFriendlyErrorMessage } from "@/lib/friendlyError";
 
 interface ExpenseTableRow extends ExpenseRecord {
   category: { name: string; color: string } | null;
@@ -71,17 +73,17 @@ export function ExpenseTable({
   const formatDate = (date: string) => format(parseLocalDate(date), "dd/MM/yyyy", { locale: ptBR });
 
   const getStatusBadge = (expense: ExpenseTableRow) => {
-    const isOverdue = new Date(expense.due_date) < new Date() && expense.status === "pending";
+    const isOverdue = isTuitionOverdue(expense.due_date, expense.status);
     const status = isOverdue ? "overdue" : expense.status;
     switch (status) {
       case "pending":
-        return <Badge className="bg-yellow-500 text-slate-900">Pendente</Badge>;
+        return <Badge className="bg-pending text-primary-foreground">Pendente</Badge>;
       case "paid":
-        return <Badge className="bg-green-500 text-white">Paga</Badge>;
+        return <Badge className="bg-paid text-success-foreground">Paga</Badge>;
       case "overdue":
-        return <Badge className="bg-red-500 text-white">Atrasada</Badge>;
+        return <Badge className="bg-overdue text-danger-foreground">Atrasada</Badge>;
       case "cancelled":
-        return <Badge className="bg-gray-500 text-white">Cancelada</Badge>;
+        return <Badge variant="secondary">Cancelada</Badge>;
       default:
         return <Badge variant="secondary">{expense.status}</Badge>;
     }
@@ -113,13 +115,17 @@ export function ExpenseTable({
       onRefresh();
     } catch (error: any) {
       console.error("Error marking as paid:", error);
-      toast({ title: "Erro", description: "Erro ao marcar como paga", variant: "destructive" });
+      toast({
+        title: "Erro",
+        description: getFriendlyErrorMessage(error, "Erro ao marcar como paga"),
+        variant: "destructive",
+      });
     }
   };
 
   const filteredData = useMemo(() => {
     return data.filter((e) => {
-      const isOverdue = new Date(e.due_date) < new Date() && e.status === "pending";
+      const isOverdue = isTuitionOverdue(e.due_date, e.status);
       const effectiveStatus = isOverdue ? "overdue" : e.status;
       const matchesSearch = !search || e.description.toLowerCase().includes(search.toLowerCase());
       const matchesStatus = statusFilter === "all" || effectiveStatus === statusFilter;
@@ -298,7 +304,7 @@ export function ExpenseTable({
             </TableHeader>
             <TableBody>
               {paginatedData.map((expense) => {
-                const isOverdue = new Date(expense.due_date) < new Date() && expense.status === "pending";
+                const isOverdue = isTuitionOverdue(expense.due_date, expense.status);
                 const canMarkAsPaid = expense.status === "pending" || isOverdue;
                 return (
                   <TableRow key={expense.id}>
