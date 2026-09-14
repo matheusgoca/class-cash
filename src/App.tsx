@@ -44,11 +44,11 @@ function RootRoute() {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ThemeProvider defaultTheme="light" storageKey="lovable-ui-theme">
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <ThemeProvider defaultTheme="light" storageKey="lovable-ui-theme">
           <AuthProvider>
             <MasterAdminProvider>
             <SchoolProvider>
@@ -210,9 +210,9 @@ const App = () => (
             </SchoolProvider>
             </MasterAdminProvider>
           </AuthProvider>
-        </BrowserRouter>
-      </TooltipProvider>
-    </ThemeProvider>
+        </ThemeProvider>
+      </BrowserRouter>
+    </TooltipProvider>
   </QueryClientProvider>
 );
 

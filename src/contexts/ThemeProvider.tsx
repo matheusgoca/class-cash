@@ -1,6 +1,11 @@
 import { createContext, useContext, useEffect, useState } from "react"
+import { useLocation } from "react-router-dom"
 
 type Theme = "dark" | "light" | "system"
+
+// Páginas públicas/marketing sempre renderizam claras, independente do tema
+// escolhido no painel — dark mode é um recurso só do app autenticado.
+const FORCE_LIGHT_ROUTES = new Set(["/", "/auth", "/privacidade", "/termos"])
 
 type ThemeProviderProps = {
   children: React.ReactNode
@@ -29,11 +34,17 @@ export function ThemeProvider({
   const [theme, setTheme] = useState<Theme>(
     () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
   )
+  const { pathname } = useLocation()
 
   useEffect(() => {
     const root = window.document.documentElement
 
     root.classList.remove("light", "dark")
+
+    if (FORCE_LIGHT_ROUTES.has(pathname)) {
+      root.classList.add("light")
+      return
+    }
 
     if (theme === "system") {
       const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
@@ -46,7 +57,7 @@ export function ThemeProvider({
     }
 
     root.classList.add(theme)
-  }, [theme])
+  }, [theme, pathname])
 
   const value = {
     theme,
