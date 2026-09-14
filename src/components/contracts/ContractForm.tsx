@@ -19,6 +19,7 @@ import { generateTuitions } from "@/lib/generateTuitions";
 const contractSchema = z.object({
   student_id:     z.string().min(1, "Aluno é obrigatório"),
   class_id:       z.string().optional(),
+  period:         z.enum(["meio_periodo", "integral"]),
   start_date:     z.date({ message: "Data de início é obrigatória" }),
   end_date:       z.date({ message: "Data de término é obrigatória" }),
   monthly_amount: z.number().min(0, "Valor deve ser maior que zero"),
@@ -43,6 +44,8 @@ interface Student {
 interface Class {
   id: string;
   name: string;
+  monthly_fee: number | null;
+  monthly_fee_integral: number | null;
 }
 
 export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps) {
@@ -65,6 +68,7 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
     resolver: zodResolver(contractSchema),
     defaultValues: {
       status:  "active",
+      period:  "meio_periodo",
       due_day: 10,
     },
   });
@@ -87,6 +91,7 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
       reset({
         student_id:     contract.student_id,
         class_id:       contract.class_id || "",
+        period:         contract.period || "meio_periodo",
         start_date:     new Date(contract.start_date),
         end_date:       new Date(contract.end_date),
         monthly_amount: Number(contract.monthly_amount),
@@ -105,6 +110,22 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
       setValue("end_date", endDate);
     }
   }, [watchStartDate, setValue, contract]);
+
+  const watchClassId = watch("class_id");
+  const watchPeriod  = watch("period");
+
+  useEffect(() => {
+    // Suggest the monthly amount from the class's price for the chosen
+    // period — only for new contracts, so editing never silently overwrites
+    // an already-customized value.
+    if (contract || !watchClassId) return;
+    const cls = classes.find((c) => c.id === watchClassId);
+    if (!cls) return;
+    const suggested = watchPeriod === "integral" ? cls.monthly_fee_integral : cls.monthly_fee;
+    if (suggested != null) {
+      setValue("monthly_amount", Number(suggested));
+    }
+  }, [watchClassId, watchPeriod, classes, contract, setValue]);
 
   const fetchStudents = async () => {
     try {
@@ -133,7 +154,7 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
     try {
       const { data, error } = await supabase
         .from('classes')
-        .select('id, name')
+        .select('id, name, monthly_fee, monthly_fee_integral')
         .eq('school_id', schoolId)
         .order('name');
 
@@ -158,6 +179,7 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
       const contractData = {
         student_id:     data.student_id,
         class_id:       data.class_id || null,
+        period:         data.period,
         start_date:     data.start_date.toISOString().split('T')[0],
         end_date:       data.end_date.toISOString().split('T')[0],
         monthly_amount: data.monthly_amount,
@@ -229,6 +251,7 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
       const renewalData = {
         student_id: contract.student_id,
         class_id: contract.class_id,
+        period: contract.period,
         start_date: new Date().toISOString().split('T')[0],
         end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
         monthly_amount: contract.monthly_amount,
@@ -263,29 +286,29 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
 
   return (
     <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="student_id">Aluno *</Label>
-          <Select
-            onValueChange={(value) => setValue("student_id", value)}
-            defaultValue={contract?.student_id}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder={loadingStudents ? "Carregando..." : "Selecione um aluno"} />
-            </SelectTrigger>
-            <SelectContent>
-              {students.map((student) => (
-                <SelectItem key={student.id} value={student.id}>
-                  {student.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {errors.student_id && (
-            <p className="text-sm text-destructive">{errors.student_id.message}</p>
-          )}
-        </div>
+      <div className="space-y-2">
+        <Label htmlFor="student_id">Aluno *</Label>
+        <Select
+          onValueChange={(value) => setValue("student_id", value)}
+          defaultValue={contract?.student_id}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder={loadingStudents ? "Carregando..." : "Selecione um aluno"} />
+          </SelectTrigger>
+          <SelectContent>
+            {students.map((student) => (
+              <SelectItem key={student.id} value={student.id}>
+                {student.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {errors.student_id && (
+          <p className="text-sm text-destructive">{errors.student_id.message}</p>
+        )}
+      </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="class_id">Turma</Label>
           <Select
@@ -302,6 +325,22 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
                   {classItem.name}
                 </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="period">Período *</Label>
+          <Select
+            onValueChange={(value) => setValue("period", value as "meio_periodo" | "integral")}
+            defaultValue={contract?.period || "meio_periodo"}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="meio_periodo">Meio período</SelectItem>
+              <SelectItem value="integral">Integral</SelectItem>
             </SelectContent>
           </Select>
         </div>
