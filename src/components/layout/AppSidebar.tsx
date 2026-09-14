@@ -18,6 +18,7 @@ import {
   Wallet,
   SlidersHorizontal,
   Bug,
+  Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSchool } from "@/contexts/SchoolContext";
@@ -81,6 +82,7 @@ const menuItems: MenuItem[] = [
       { title: "Contratos",   url: "/contratos",   icon: FileText,  roles: ['admin', 'financial'] },
       { title: "Mensalidades",url: "/mensalidades", icon: Receipt,   roles: ['admin', 'financial'] },
       { title: "Despesas",    url: "/despesas",    icon: Wallet,    roles: ['admin', 'financial'] },
+      { title: "Serviços",    url: "/servicos",    icon: Sparkles,  roles: ['admin', 'financial'] },
       { title: "Relatórios",  url: "/relatorios",  icon: BarChart3, roles: ['admin', 'financial'] },
     ],
   },

@@ -18,6 +18,7 @@ import Classes from "./pages/Classes";
 import Contracts from "./pages/Contracts";
 import Tuitions from "./pages/Tuitions";
 import Expenses from "./pages/Expenses";
+import Services from "./pages/Services";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
@@ -127,6 +128,16 @@ const App = () => (
                     <ProtectedRoute requireSchool allowedRoles={['admin', 'financial']}>
                       <Layout>
                         <Expenses />
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/servicos"
+                  element={
+                    <ProtectedRoute requireSchool allowedRoles={['admin', 'financial']}>
+                      <Layout>
+                        <Services />
                       </Layout>
                     </ProtectedRoute>
                   }
