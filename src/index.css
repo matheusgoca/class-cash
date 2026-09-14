@@ -17,7 +17,7 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 210 100% 56%;
+    --primary: 173 64% 26%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 210 40% 98%;
@@ -29,12 +29,16 @@ All colors MUST be HSL.
     --accent: 210 40% 98%;
     --accent-foreground: 222.2 84% 4.9%;
 
+    /* Brand accent — usar com moderação (destaques pontuais, nunca >15% da tela) */
+    --brand-accent: 21 66% 40%;
+    --brand-accent-foreground: 0 0% 100%;
+
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 210 100% 56%;
+    --ring: 173 64% 26%;
 
     /* Financial Health Colors */
     --success: 142 71% 45%;
@@ -58,7 +62,7 @@ All colors MUST be HSL.
     --overdue-light: 0 73% 95%;
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(210 100% 56%), hsl(210 100% 66%));
+    --gradient-primary: linear-gradient(135deg, hsl(173 64% 26%), hsl(173 64% 36%));
     --gradient-success: linear-gradient(135deg, hsl(142 71% 45%), hsl(142 71% 55%));
     --gradient-warning: linear-gradient(135deg, hsl(38 92% 50%), hsl(38 92% 60%));
     --gradient-danger: linear-gradient(135deg, hsl(0 73% 57%), hsl(0 73% 67%));
@@ -72,7 +76,7 @@ All colors MUST be HSL.
     --sidebar-accent: 210 40% 98%;
     --sidebar-accent-foreground: 222.2 84% 4.9%;
     --sidebar-border: 214.3 31.8% 91.4%;
-    --sidebar-ring: 210 100% 56%;
+    --sidebar-ring: 173 64% 26%;
   }
 
   .dark {
@@ -85,7 +89,7 @@ All colors MUST be HSL.
     --popover: 224 47% 15%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 210 100% 56%;
+    --primary: 172 64% 33%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 215 25% 27%;
@@ -97,12 +101,15 @@ All colors MUST be HSL.
     --accent: 215 25% 27%;
     --accent-foreground: 210 40% 98%;
 
+    --brand-accent: 21 66% 40%;
+    --brand-accent-foreground: 0 0% 100%;
+
     --destructive: 0 73% 57%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 215 25% 27%;
     --input: 215 25% 27%;
-    --ring: 210 100% 56%;
+    --ring: 172 64% 33%;
 
     /* Financial Health Colors - Dark Mode */
     --success: 142 71% 45%;
@@ -119,12 +126,12 @@ All colors MUST be HSL.
 
     --sidebar-background: 222 47% 11%;
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 210 100% 56%;
+    --sidebar-primary: 172 64% 33%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 215 25% 27%;
     --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 215 25% 27%;
-    --sidebar-ring: 210 100% 56%;
+    --sidebar-ring: 172 64% 33%;
   }
 }
 
