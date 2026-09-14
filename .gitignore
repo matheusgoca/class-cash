@@ -32,3 +32,6 @@ dist-ssr
 
 # Spartan AI config (contains API keys)
 .spartan/ai.env
+
+# Supabase CLI local state (machine-specific, includes DB connection info)
+supabase/.temp/
