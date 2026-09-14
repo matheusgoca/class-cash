@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMasterAdmin } from "@/contexts/MasterAdminContext";
 import { useSchool } from "@/contexts/SchoolContext";
 import { getFriendlyErrorMessage } from "@/lib/friendlyError";
-import { toDateStr } from "@/lib/dateUtils";
+import { toDateStr, parseLocalDate } from "@/lib/dateUtils";
 
 interface PendingOwnerInvite {
   id: string;
@@ -98,21 +98,24 @@ export default function MasterAdmin() {
   const fetchSchools = async () => {
     setLoading(true);
     try {
-      // Só o mês corrente — sem isso, "receita mensal"/"% inadimplência" somava
-      // o histórico inteiro de cada escola, inflando os dois quanto mais tempo
-      // a escola usa o sistema.
+      // "% inadimplência" precisa de uma janela mais ampla (12 meses, mesmo
+      // padrão de ClassHealthCards.tsx) — inadimplência é dívida vencida, não
+      // necessariamente vencendo neste mês, então não pode ficar presa ao mês
+      // corrente (foi exatamente o regressão do fix anterior: cortava fora as
+      // mensalidades atrasadas de meses passados, que são a maioria de uma
+      // inadimplência real). Só "receita mensal" (paga) fica restrita ao mês.
       const now = new Date();
-      const monthStart = toDateStr(new Date(now.getFullYear(), now.getMonth(), 1));
-      const monthEnd = toDateStr(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+      const twelveMonthsAgo = toDateStr(new Date(currentYear - 1, currentMonth, 1));
 
       const [schoolsRes, profilesRes, studentsRes, tuitionsRes] = await Promise.all([
         (supabase as any).from("schools").select("id, name, plan, status, created_at, owner_user_id").order("created_at", { ascending: false }),
         (supabase as any).from("profiles").select("user_id, email"),
         (supabase as any).from("students").select("school_id").eq("status", "active"),
-        (supabase as any).from("tuitions").select("school_id, amount, status")
+        (supabase as any).from("tuitions").select("school_id, amount, status, due_date")
           .neq("status", "cancelled")
-          .gte("due_date", monthStart)
-          .lte("due_date", monthEnd),
+          .gte("due_date", twelveMonthsAgo),
       ]);
 
       const profileMap: Record<string, string> = (profilesRes.data || []).reduce((acc: any, p: any) => {
@@ -132,9 +135,19 @@ export default function MasterAdmin() {
       for (const t of tuitionsRes.data || []) {
         const sid = t.school_id;
         const amt = Number(t.amount || 0);
-        totalBySchool[sid] = (totalBySchool[sid] || 0) + amt;
-        if (t.status === "paid") revenueBySchool[sid] = (revenueBySchool[sid] || 0) + amt;
+        // Denominador: só o que já venceu (pago + atrasado) — pendente
+        // ainda dentro do prazo não conta contra a escola nem infla a base,
+        // mesma convenção de ClassHealthCards.tsx.
+        if (t.status === "paid" || t.status === "overdue") {
+          totalBySchool[sid] = (totalBySchool[sid] || 0) + amt;
+        }
         if (t.status === "overdue") overdueBySchool[sid] = (overdueBySchool[sid] || 0) + amt;
+        if (t.status === "paid") {
+          const due = parseLocalDate(t.due_date);
+          if (due.getFullYear() === currentYear && due.getMonth() === currentMonth) {
+            revenueBySchool[sid] = (revenueBySchool[sid] || 0) + amt;
+          }
+        }
       }
 
       const rows: SchoolRow[] = (schoolsRes.data || []).map((s: any) => {
