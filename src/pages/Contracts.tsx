@@ -4,11 +4,16 @@ import { useSchool } from "@/contexts/SchoolContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus } from "lucide-react";
+import { Plus, RefreshCw } from "lucide-react";
 import { ContractForm } from "@/components/contracts/ContractForm";
 import { ContractTable } from "@/components/contracts/ContractTable";
 import { useToast } from "@/hooks/use-toast";
 import { getFriendlyErrorMessage } from "@/lib/friendlyError";
+import { format, parseISO } from "date-fns";
+
+// Janela de "pendente de rematrícula": contratos ativos vencendo dentro
+// desse número de dias que ainda não têm um contrato sucessor.
+const RENEWAL_WINDOW_DAYS = 90;
 
 interface ContractData {
   id: string;
@@ -21,6 +26,7 @@ interface ContractData {
   status: "active" | "suspended" | "cancelled";
   created_at: string;
   updated_at: string;
+  renewed_from_id: string | null;
   students: {
     name: string | null;
     full_name: string;
@@ -67,6 +73,7 @@ const Contracts = () => {
           status,
           created_at,
           updated_at,
+          renewed_from_id,
           students (
             name,
             full_name
@@ -150,6 +157,17 @@ const Contracts = () => {
 
   const summary = calculateSummary();
 
+  // Contratos ativos vencendo dentro da janela de rematrícula — "já
+  // renovado" significa que algum outro contrato aponta pra ele via
+  // renewed_from_id, não uma suposição por data.
+  const renewalCutoff = new Date();
+  renewalCutoff.setDate(renewalCutoff.getDate() + RENEWAL_WINDOW_DAYS);
+  const renewedFromIds = new Set(contracts.map(c => c.renewed_from_id).filter(Boolean));
+  const inRenewalWindow = contracts.filter(
+    c => c.status === "active" && parseISO(c.end_date) <= renewalCutoff
+  );
+  const pendingRenewal = inRenewalWindow.filter(c => !renewedFromIds.has(c.id));
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -215,6 +233,41 @@ const Contracts = () => {
           </CardContent>
         </Card>
       </div>
+
+      {!loading && inRenewalWindow.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <RefreshCw className="h-4 w-4" />
+              Rematrícula — próximos {RENEWAL_WINDOW_DAYS} dias
+              <span className="text-sm font-normal text-muted-foreground">
+                ({inRenewalWindow.length - pendingRenewal.length} de {inRenewalWindow.length} já renovados)
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {pendingRenewal.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Todos os contratos que vencem nesse período já foram renovados.</p>
+            ) : (
+              pendingRenewal
+                .sort((a, b) => a.end_date.localeCompare(b.end_date))
+                .map((c) => (
+                  <div key={c.id} className="flex items-center justify-between gap-3 rounded-lg border p-3 flex-wrap">
+                    <div>
+                      <p className="text-sm font-medium">{c.students?.full_name || "N/A"}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {c.classes?.name || "Sem turma"} · vence em {format(parseISO(c.end_date), "dd/MM/yyyy")}
+                      </p>
+                    </div>
+                    <Button size="sm" variant="outline" onClick={() => handleEdit(c)}>
+                      Renovar
+                    </Button>
+                  </div>
+                ))
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <ContractTable
         data={contracts}

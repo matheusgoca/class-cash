@@ -10,11 +10,23 @@ import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { generateTuitions } from "@/lib/generateTuitions";
+import { getFriendlyErrorMessage } from "@/lib/friendlyError";
+
+// Local date as 'YYYY-MM-DD' — nunca toISOString(), que converte pra UTC
+// primeiro e pode voltar um dia em fusos positivos (mesmo cuidado do
+// generateTuitions.ts).
+function toDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 
 const contractSchema = z.object({
   student_id:     z.string().min(1, "Aluno é obrigatório"),
@@ -56,6 +68,10 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
   const [classes, setClasses] = useState<Class[]>([]);
   const [loadingStudents, setLoadingStudents] = useState(true);
   const [loadingClasses, setLoadingClasses] = useState(true);
+  // Taxa de rematrícula (opcional) — cobrança avulsa via o módulo de Serviços
+  const [avulsoServices, setAvulsoServices] = useState<{ id: string; name: string; price: number }[]>([]);
+  const [chargeRenewalFee, setChargeRenewalFee] = useState(false);
+  const [renewalFeeServiceId, setRenewalFeeServiceId] = useState("");
 
   const {
     register,
@@ -63,6 +79,7 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
     formState: { errors },
     setValue,
     watch,
+    getValues,
     reset,
   } = useForm<ContractFormData>({
     resolver: zodResolver(contractSchema),
@@ -84,7 +101,19 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
   useEffect(() => {
     fetchStudents();
     fetchClasses();
+    if (contract) fetchAvulsoServices();
   }, []);
+
+  const fetchAvulsoServices = async () => {
+    const { data, error } = await (supabase as any)
+      .from('school_services')
+      .select('id, name, price')
+      .eq('school_id', schoolId)
+      .eq('active', true)
+      .eq('type', 'avulso')
+      .order('name');
+    if (!error) setAvulsoServices(data || []);
+  };
 
   useEffect(() => {
     if (contract) {
@@ -248,28 +277,75 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
     try {
       setLoading(true);
 
+      // Encadeia a partir do término real do contrato atual — não de "hoje" —
+      // pra rematrícula processada com antecedência (ex: em novembro para um
+      // contrato que só termina em fevereiro) não abrir um contrato torto.
+      const [ey, em, ed] = contract.end_date.split('-').map(Number);
+      const oldEnd  = new Date(ey, em - 1, ed);
+      const newStart = new Date(oldEnd);
+      newStart.setDate(newStart.getDate() + 1);
+      const newEnd = new Date(newStart.getFullYear(), newStart.getMonth() + 12, 0);
+
+      // Usa os valores atuais do formulário (não os originais do contrato) —
+      // assim reajuste de valor e troca de turma na tela antes de clicar em
+      // "Renovar" são respeitados em vez de ignorados.
+      const formValues = getValues();
+
       const renewalData = {
-        student_id: contract.student_id,
-        class_id: contract.class_id,
-        period: contract.period,
-        start_date: new Date().toISOString().split('T')[0],
-        end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
-        monthly_amount: contract.monthly_amount,
-        discount: contract.discount,
-        status: 'active' as const,
-        school_id: schoolId,
+        student_id:      contract.student_id,
+        class_id:        formValues.class_id || null,
+        period:          formValues.period,
+        start_date:      toDateStr(newStart),
+        end_date:        toDateStr(newEnd),
+        monthly_amount:  formValues.monthly_amount,
+        discount:        formValues.discount,
+        due_day:         formValues.due_day,
+        status:          'active' as const,
+        school_id:       schoolId,
+        renewed_from_id: contract.id,
       };
 
-      const { error } = await supabase
+      const { data: created, error } = await supabase
         .from('contracts')
-        .insert([renewalData]);
+        .insert([renewalData])
+        .select('id')
+        .single();
 
       if (error) throw error;
 
-      toast({
-        title: "Sucesso",
-        description: "Contrato renovado com sucesso. Novas mensalidades foram geradas.",
-      });
+      const { inserted, error: genError } = await generateTuitions(created.id);
+
+      let feeMessage = "";
+      if (chargeRenewalFee && renewalFeeServiceId) {
+        const service = avulsoServices.find((s) => s.id === renewalFeeServiceId);
+        if (service) {
+          const { error: feeError } = await (supabase as any).from('service_charges').insert({
+            school_id:   schoolId,
+            student_id:  contract.student_id,
+            service_id:  service.id,
+            description: service.name,
+            amount:      service.price,
+            due_date:    toDateStr(newStart),
+            status:      'pending',
+          });
+          feeMessage = feeError
+            ? ` Erro ao criar a cobrança de "${service.name}": ${getFriendlyErrorMessage(feeError)}.`
+            : ` Cobrança de "${service.name}" criada.`;
+        }
+      }
+
+      if (genError) {
+        toast({
+          title: "Contrato renovado",
+          description: `Contrato criado, mas houve um erro ao gerar mensalidades: ${genError}.${feeMessage}`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Sucesso",
+          description: `Contrato renovado com sucesso. ${inserted} mensalidade${inserted !== 1 ? 's' : ''} gerada${inserted !== 1 ? 's' : ''}.${feeMessage}`,
+        });
+      }
 
       onSubmit();
     } catch (error) {
@@ -484,6 +560,33 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
           <p className="text-sm text-destructive">{errors.status.message}</p>
         )}
       </div>
+
+      {contract && avulsoServices.length > 0 && (
+        <div className="rounded-lg border p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="charge-renewal-fee"
+              checked={chargeRenewalFee}
+              onCheckedChange={(v) => setChargeRenewalFee(v === true)}
+            />
+            <Label htmlFor="charge-renewal-fee" className="font-normal cursor-pointer">
+              Cobrar taxa de rematrícula ao renovar
+            </Label>
+          </div>
+          {chargeRenewalFee && (
+            <Select value={renewalFeeServiceId} onValueChange={setRenewalFeeServiceId}>
+              <SelectTrigger><SelectValue placeholder="Selecione o serviço" /></SelectTrigger>
+              <SelectContent>
+                {avulsoServices.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name} — {fmt(s.price)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+      )}
 
       <div className="flex justify-between pt-6">
         <div className="space-x-2">
