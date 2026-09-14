@@ -32,14 +32,17 @@ export default function Onboarding() {
   const navigate    = useNavigate();
   const { toast }   = useToast();
   const { user } = useAuth();
-  const { refetch: refreshSchool } = useSchool();
+  const { refetch: refreshSchool, schoolStatus } = useSchool();
   const [isLoading, setIsLoading] = useState(false);
   const [autoCreating, setAutoCreating] = useState(false);
 
-  // If master invited this user with school metadata, auto-create the school on first login
+  // If master invited this user with school metadata, auto-create the school on first login.
+  // Guarded by schoolStatus === 'not_found' so revisiting /onboarding (back button, a stale
+  // tab, or a reload right after this ran) never inserts a second school for the same owner —
+  // user_metadata.pending_school_* is never cleared by Supabase itself, only by us below.
   useEffect(() => {
     const meta = user?.user_metadata;
-    if (!meta?.pending_school_name || !user) return;
+    if (!meta?.pending_school_name || !user || schoolStatus !== 'not_found') return;
     setAutoCreating(true);
     (async () => {
       try {
@@ -61,6 +64,21 @@ export default function Onboarding() {
           .eq('user_id', user.id);
         if (profileError) throw profileError;
 
+        // Clear the metadata so this effect can never fire again for this user,
+        // and mark the corresponding invite accepted so it drops off the Master
+        // Admin pending list. Update (not delete) — the invitations DELETE policy
+        // only allows school-scoped rows, but owner invites have no school_id yet;
+        // the UPDATE policy already allows matching by the caller's own email.
+        await supabase.auth.updateUser({
+          data: { pending_school_name: null, pending_school_segments: null, pending_school_plan: null },
+        });
+        await (supabase as any)
+          .from('invitations')
+          .update({ status: 'accepted' })
+          .eq('email', user.email)
+          .eq('role', 'owner')
+          .eq('status', 'pending');
+
         await refreshSchool();
         toast({ title: 'Escola criada!', description: `Bem-vindo ao ${meta.pending_school_name}` });
         navigate('/dashboard');
@@ -69,7 +87,7 @@ export default function Onboarding() {
         setAutoCreating(false);
       }
     })();
-  }, [user?.id]);
+  }, [user?.id, schoolStatus]);
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),

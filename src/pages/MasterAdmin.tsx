@@ -8,12 +8,22 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Edit, ShieldCheck, GraduationCap, DollarSign, AlertTriangle, CalendarDays, Mail, Plus, Lightbulb, BookOpen, Building2 } from "lucide-react";
+import { Edit, ShieldCheck, GraduationCap, DollarSign, AlertTriangle, CalendarDays, Mail, Plus, Lightbulb, BookOpen, Building2, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { useMasterAdmin } from "@/contexts/MasterAdminContext";
 import { useSchool } from "@/contexts/SchoolContext";
+import { getFriendlyErrorMessage } from "@/lib/friendlyError";
+
+interface PendingOwnerInvite {
+  id: string;
+  email: string;
+  pending_school_name: string;
+  pending_school_segments: string[];
+  pending_school_plan: string;
+  created_at: string;
+}
 
 interface SchoolRow {
   id: string;
@@ -55,10 +65,27 @@ export default function MasterAdmin() {
   const [showCreate, setShowCreate] = useState(false);
   const [createForm, setCreateForm] = useState({ name: '', ownerEmail: '', plan: 'starter', segments: [] as string[] });
   const [creating, setCreating] = useState(false);
+  const [pendingInvites, setPendingInvites] = useState<PendingOwnerInvite[]>([]);
+  const [resendingId, setResendingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSchools();
+    fetchPendingInvites();
   }, []);
+
+  const fetchPendingInvites = async () => {
+    const { data, error } = await (supabase as any)
+      .from("invitations")
+      .select("id, email, pending_school_name, pending_school_segments, pending_school_plan, created_at")
+      .eq("role", "owner")
+      .eq("status", "pending")
+      .order("created_at", { ascending: false });
+    if (error) {
+      console.error("MasterAdmin fetchPendingInvites:", error);
+      return;
+    }
+    setPendingInvites(data || []);
+  };
 
   useEffect(() => {
     if (waitingForSchool && school) {
@@ -184,7 +211,7 @@ export default function MasterAdmin() {
       });
 
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (data?.error) throw new Error(data.message || data.error);
 
       toast({
         title: 'Convite enviado!',
@@ -192,10 +219,40 @@ export default function MasterAdmin() {
       });
       setShowCreate(false);
       setCreateForm({ name: '', ownerEmail: '', plan: 'starter', segments: [] });
+      fetchPendingInvites();
     } catch (err: any) {
-      toast({ title: 'Erro ao convidar', description: err.message, variant: 'destructive' });
+      toast({ title: 'Erro ao convidar', description: getFriendlyErrorMessage(err, err.message), variant: 'destructive' });
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleResendInvite = async (invite: PendingOwnerInvite) => {
+    setResendingId(invite.id);
+    try {
+      // Deleta o convite antigo antes de reenviar — master admin tem acesso total
+      // à tabela invitations (bypassa o RLS de school_id, que não existe ainda aqui)
+      await (supabase as any).from('invitations').delete().eq('id', invite.id);
+
+      const { data, error } = await supabase.functions.invoke('invite-school-owner', {
+        body: {
+          email:       invite.email,
+          school_name: invite.pending_school_name,
+          segments:    invite.pending_school_segments ?? [],
+          plan:        invite.pending_school_plan,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.message || data.error);
+
+      toast({ title: 'Convite reenviado!', description: `Novo link enviado para ${invite.email}.` });
+      fetchPendingInvites();
+    } catch (err: any) {
+      toast({ title: 'Erro ao reenviar', description: getFriendlyErrorMessage(err, err.message), variant: 'destructive' });
+      fetchPendingInvites();
+    } finally {
+      setResendingId(null);
     }
   };
 
@@ -222,6 +279,43 @@ export default function MasterAdmin() {
           Nova Escola
         </Button>
       </div>
+
+      {/* Convites de dono pendentes */}
+      {pendingInvites.length > 0 && (
+        <Card>
+          <CardContent className="p-5 space-y-3">
+            <p className="text-sm font-semibold flex items-center gap-2">
+              <Mail className="h-4 w-4" />
+              Convites pendentes ({pendingInvites.length})
+            </p>
+            <div className="space-y-2">
+              {pendingInvites.map((invite) => (
+                <div
+                  key={invite.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border p-3 flex-wrap"
+                >
+                  <div>
+                    <p className="text-sm font-medium">{invite.pending_school_name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {invite.email} · enviado em {format(new Date(invite.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={resendingId === invite.id}
+                    onClick={() => handleResendInvite(invite)}
+                    className="gap-1"
+                  >
+                    <RefreshCw className={`h-3 w-3 ${resendingId === invite.id ? "animate-spin" : ""}`} />
+                    Reenviar
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Counter */}
       <p className="text-sm font-medium text-muted-foreground">

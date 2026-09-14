@@ -50,6 +50,43 @@ serve(async (req) => {
       );
     }
 
+    // Verifica se o email já existe em auth.users ANTES de tentar o convite
+    const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+    const userAlreadyExists = (existingUsers?.users ?? []).some(
+      (u: any) => u.email?.toLowerCase() === email.toLowerCase(),
+    );
+
+    if (userAlreadyExists) {
+      // Expira qualquer convite de dono pendente para esse email
+      await supabaseAdmin
+        .from("invitations")
+        .update({ status: "expired" })
+        .eq("email", email)
+        .eq("role", "owner")
+        .eq("status", "pending");
+
+      return Response.json(
+        { error: "user_exists", message: "Este e-mail já possui conta no Class Cash." },
+        { status: 409, headers: corsHeaders },
+      );
+    }
+
+    // Convite de dono já pendente para esse email?
+    const { data: existingInvite } = await supabaseAdmin
+      .from("invitations")
+      .select("id")
+      .eq("email", email)
+      .eq("role", "owner")
+      .eq("status", "pending")
+      .maybeSingle();
+
+    if (existingInvite) {
+      return Response.json(
+        { error: "invite_pending", message: "Já existe um convite pendente para este e-mail." },
+        { status: 409, headers: corsHeaders },
+      );
+    }
+
     // Embed school data in invite metadata — Onboarding will auto-create the school on first login
     const { error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
       redirectTo: "https://class-cash-tan.vercel.app/auth",
@@ -63,6 +100,22 @@ serve(async (req) => {
     if (inviteError) {
       return Response.json({ error: inviteError.message }, { status: 400, headers: corsHeaders });
     }
+
+    // Registra o convite para o Painel Master poder ver/reenviar
+    const { error: insertError } = await supabaseAdmin
+      .from("invitations")
+      .insert({
+        email,
+        role: "owner",
+        school_id: null,
+        invited_by: user.id,
+        status: "pending",
+        pending_school_name: school_name,
+        pending_school_segments: segments,
+        pending_school_plan: plan ?? "starter",
+      });
+
+    if (insertError) throw insertError;
 
     return Response.json({ success: true }, { headers: corsHeaders });
   } catch (err: any) {
