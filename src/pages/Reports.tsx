@@ -27,6 +27,7 @@ interface TuitionReport {
   id: string;
   student_id: string;
   student_name: string;
+  class_id: string | null;
   class_name: string | null;
   amount: number;
   status: "pending" | "paid" | "overdue";
@@ -163,7 +164,7 @@ const Reports = () => {
           .eq('school_id', schoolId!)
           .order('due_date', { ascending: false }),
         supabase.from('students').select('id, full_name').eq('school_id', schoolId!),
-        supabase.from('contracts').select('id, classes(name)').eq('school_id', schoolId!),
+        supabase.from('contracts').select('id, class_id, classes(name)').eq('school_id', schoolId!),
       ]);
 
       if (tuitionsRes.error) throw tuitionsRes.error;
@@ -174,18 +175,22 @@ const Reports = () => {
         return acc;
       }, {});
 
+      // Guarda id E nome — filtrar só pelo nome quebra se duas turmas tiverem
+      // o mesmo nome (não há restrição de nome único em classes).
       const contractClassMap = (contractsRes.data || []).reduce((acc: any, c: any) => {
-        acc[c.id] = c.classes?.name ?? null;
+        acc[c.id] = { id: c.class_id ?? null, name: c.classes?.name ?? null };
         return acc;
       }, {});
 
       const formattedData: TuitionReport[] = (tuitionsRes.data || []).map((item: any) => {
         const isOverdue = isTuitionOverdue(item.due_date, item.status);
+        const contractClass = contractClassMap[item.contract_id];
         return {
           id: item.id,
           student_id: item.student_id,
           student_name: studentMap[item.student_id] || 'N/A',
-          class_name: contractClassMap[item.contract_id] ?? null,
+          class_id: contractClass?.id ?? null,
+          class_name: contractClass?.name ?? null,
           amount: Number(item.amount),
           status: isOverdue ? "overdue" : item.status as "pending" | "paid" | "overdue",
           due_date: item.due_date,
@@ -240,10 +245,7 @@ const Reports = () => {
 
     // Class filter
     if (filters.classId) {
-      filtered = filtered.filter(item => {
-        const classId = classes.find(c => c.name === item.class_name)?.id;
-        return classId === filters.classId;
-      });
+      filtered = filtered.filter(item => item.class_id === filters.classId);
     }
 
     // Status filter
@@ -352,8 +354,9 @@ const Reports = () => {
   const expenseStatusLabel = (status: string) =>
     status === "pending" ? "Pendente" : status === "paid" ? "Paga" : status === "cancelled" ? "Cancelada" : "Atrasada";
 
-  // Despesas seguem o mesmo range de datas dos filtros de mensalidade (quando definido),
-  // para os dois relatórios saírem cobrindo o mesmo período.
+  // Despesas seguem o mesmo range de datas, turma e status dos filtros de
+  // mensalidade (quando definidos), pra todas as abas do export saírem com o
+  // mesmo escopo em vez de cada uma respeitando um subconjunto dos filtros.
   const fetchExpensesForExport = async (): Promise<ExpenseExportRow[]> => {
     let query = (supabase as any)
       .from("expenses")
@@ -362,6 +365,8 @@ const Reports = () => {
 
     if (filters.startDate) query = query.gte("due_date", filters.startDate);
     if (filters.endDate) query = query.lte("due_date", filters.endDate);
+    if (filters.classId) query = query.eq("class_id", filters.classId);
+    if (filters.status) query = query.eq("status", filters.status);
 
     const { data, error } = await query.order("due_date", { ascending: false });
     if (error) throw error;
@@ -394,6 +399,9 @@ const Reports = () => {
 
     if (filters.startDate) query = query.gte("due_date", filters.startDate);
     if (filters.endDate) query = query.lte("due_date", filters.endDate);
+    if (filters.status) query = query.eq("status", filters.status);
+    // Sem filtro de turma aqui — service_charges não tem class_id direto (só
+    // via student → enrollment), diferente de tuitions/expenses.
 
     const { data, error } = await query.order("due_date", { ascending: false });
     if (error) throw error;
