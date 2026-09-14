@@ -353,7 +353,7 @@ function Pricing() {
         "Contratos automáticos",
       ],
       cta: "Falar com vendas",
-      ctaHref: "mailto:contato@classcash.com.br?subject=Interesse%20no%20plano%20Pro",
+      ctaHref: "mailto:matheusgoca@gmail.com?subject=Interesse%20no%20plano%20Pro",
     },
     {
       name: "Enterprise",
@@ -370,7 +370,7 @@ function Pricing() {
         "Gerente de conta",
       ],
       cta: "Falar com vendas",
-      ctaHref: "mailto:contato@classcash.com.br?subject=Interesse%20no%20plano%20Enterprise",
+      ctaHref: "mailto:matheusgoca@gmail.com?subject=Interesse%20no%20plano%20Enterprise",
     },
   ];
 
@@ -505,7 +505,7 @@ function FAQ() {
             Perguntas frequentes
           </h2>
           <p className="text-lg text-gray-500">
-            Não encontrou o que procurava? <a href="mailto:contato@classcash.com.br" className="text-primary hover:underline">Fale conosco</a>.
+            Não encontrou o que procurava? <a href="mailto:matheusgoca@gmail.com" className="text-primary hover:underline">Fale conosco</a>.
           </p>
         </div>
 
@@ -588,7 +588,7 @@ function Footer() {
             <div>
               <p className="text-white font-medium mb-3">Empresa</p>
               <ul className="space-y-2">
-                <li><a href="mailto:contato@classcash.com.br" className="hover:text-white transition-colors">Contato</a></li>
+                <li><a href="mailto:matheusgoca@gmail.com" className="hover:text-white transition-colors">Contato</a></li>
               </ul>
             </div>
             <div>

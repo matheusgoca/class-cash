@@ -12,7 +12,7 @@ export function PlanLimitBanner({ message }: PlanLimitBannerProps) {
         <span>{message}</span>
       </div>
       <a
-        href="mailto:contato@classcash.com.br?subject=Upgrade%20de%20plano"
+        href="mailto:matheusgoca@gmail.com?subject=Upgrade%20de%20plano"
         className="text-sm font-medium text-amber-900 underline underline-offset-2 whitespace-nowrap"
       >
         Falar com vendas

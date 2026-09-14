@@ -13,8 +13,8 @@ function LegalPage({ title }: { title: string }) {
         <p className="text-gray-600 leading-relaxed">
           Este documento ainda está em elaboração. Para dúvidas sobre como tratamos seus dados
           ou os termos de uso do Class Cash, fale com a gente em{" "}
-          <a href="mailto:contato@classcash.com.br" className="text-primary hover:underline">
-            contato@classcash.com.br
+          <a href="mailto:matheusgoca@gmail.com" className="text-primary hover:underline">
+            matheusgoca@gmail.com
           </a>.
         </p>
       </div>
