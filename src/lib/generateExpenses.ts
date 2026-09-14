@@ -1,5 +1,16 @@
 import { supabase } from '@/integrations/supabase/client';
 
+// Formats a Date as 'YYYY-MM-DD' using its local fields — never toISOString(),
+// which converts to UTC first and can shift the date by a day in timezones
+// with a positive offset, breaking both the stored due_date and the
+// existingDates idempotency check below. Mirrors generateTuitions.ts.
+function toDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 interface RecurringExpense {
   id: string;
   school_id: string;
@@ -55,12 +66,16 @@ export async function generateExpenses(
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  // end is the real business boundary (only set when end_date exists) — used to
+  // clamp generated due dates. horizon is just a technical loop limit for
+  // open-ended expenses and never clamps a due date.
+  let end: Date | null = null;
   let endYear: number;
   let endMonth: number;
 
   if (end_date) {
     const [ey, em, ed] = end_date.split('-').map(Number);
-    const end = new Date(ey, em - 1, ed);
+    end = new Date(ey, em - 1, ed);
     endYear = end.getFullYear();
     endMonth = end.getMonth();
   } else {
@@ -81,21 +96,27 @@ export async function generateExpenses(
     const lastDay = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate();
     const day = Math.min(due_day, lastDay);
     const dueDate = new Date(cursor.getFullYear(), cursor.getMonth(), day);
-    const dueDateStr = dueDate.toISOString().split('T')[0];
 
-    if (!existingDates.has(dueDateStr)) {
-      const status = dueDate < today ? 'overdue' : 'pending';
+    // Skip months where the computed due date falls outside the recurring
+    // expense's actual start/end — e.g. one starting on the 20th with
+    // due_day=5 would otherwise get a first lançamento due before it started.
+    if (dueDate >= start && (!end || dueDate <= end)) {
+      const dueDateStr = toDateStr(dueDate);
 
-      toInsert.push({
-        recurring_expense_id: recurringExpenseId,
-        school_id,
-        category_id,
-        class_id,
-        amount,
-        due_date: dueDateStr,
-        status,
-        description: `${description} - ${cursor.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`,
-      });
+      if (!existingDates.has(dueDateStr)) {
+        const status = dueDate < today ? 'overdue' : 'pending';
+
+        toInsert.push({
+          recurring_expense_id: recurringExpenseId,
+          school_id,
+          category_id,
+          class_id,
+          amount,
+          due_date: dueDateStr,
+          status,
+          description: `${description} - ${cursor.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`,
+        });
+      }
     }
 
     cursor.setMonth(cursor.getMonth() + 1);

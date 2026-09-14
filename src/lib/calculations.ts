@@ -49,7 +49,7 @@ export function formatCurrency(value: number): string {
 
 /**
  * Check if a tuition is overdue
- * @param dueDate - The due date string
+ * @param dueDate - The due date string ('YYYY-MM-DD')
  * @param status - Current status
  * @returns true if overdue
  */
@@ -57,7 +57,20 @@ export function isTuitionOverdue(
   dueDate: string,
   status: string
 ): boolean {
-  return status === "overdue" || (status === "pending" && new Date(dueDate) < new Date());
+  if (status === "overdue") return true;
+  if (status !== "pending") return false;
+
+  // Parse as local calendar date (not UTC — 'YYYY-MM-DD' passed straight to
+  // `new Date()` parses as UTC midnight, which in negative-offset timezones
+  // like Brazil (UTC-3) makes a tuition due "today" look overdue from ~21h
+  // the day before). A tuition stays "pending" through the entire local day
+  // it's due, and only becomes overdue starting the next local day.
+  const [year, month, day] = dueDate.split('-').map(Number);
+  const due = new Date(year, month - 1, day);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return due < today;
 }
 
 /**

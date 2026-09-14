@@ -53,18 +53,22 @@ export function FinancialMetrics() {
       if (tuitionsError) throw tuitionsError;
       if (expensesError) throw expensesError;
 
-      const totalRevenue = tuitions?.reduce((sum: number, t: any) => sum + Number(t.amount), 0) || 0;
-      const paidRevenue = tuitions?.filter((t: any) => t.status === "paid")
-        .reduce((sum: number, t: any) => sum + Number(t.amount), 0) || 0;
-      const pendingRevenue = tuitions?.filter((t: any) => t.status === "pending")
-        .reduce((sum: number, t: any) => sum + Number(t.amount), 0) || 0;
-      const overdueRevenue = tuitions?.filter((t: any) => isTuitionOverdue(t.due_date, t.status))
-        .reduce((sum: number, t: any) => sum + Number(t.amount), 0) || 0;
+      // Cancelled tuitions (e.g. replaced by a renegotiation) are not revenue —
+      // exclude them everywhere, same as the expenses bucket below already does.
+      const activeTuitions = tuitions?.filter((t: any) => t.status !== "cancelled") || [];
+
+      const totalRevenue = activeTuitions.reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+      const paidRevenue = activeTuitions.filter((t: any) => t.status === "paid")
+        .reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+      const pendingRevenue = activeTuitions.filter((t: any) => t.status === "pending")
+        .reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+      const overdueRevenue = activeTuitions.filter((t: any) => isTuitionOverdue(t.due_date, t.status))
+        .reduce((sum: number, t: any) => sum + Number(t.amount), 0);
 
       // Bucket tuitions into current and previous month in a single pass
       let monthlyRevenue = 0;
       let previousMonthRevenue = 0;
-      for (const t of tuitions || []) {
+      for (const t of activeTuitions) {
         const due = new Date(t.due_date);
         const y = due.getFullYear();
         const m = due.getMonth();

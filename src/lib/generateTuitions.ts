@@ -1,5 +1,17 @@
 import { supabase } from '@/integrations/supabase/client';
 
+// Formats a Date as 'YYYY-MM-DD' using its local fields — never toISOString(),
+// which converts to UTC first and can shift the date by a day in timezones
+// with a positive offset (e.g. midnight in Europe/Asia rolls back to the
+// previous day in UTC), breaking both the stored due_date and the
+// existingDates idempotency check below.
+function toDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 interface Contract {
   id: string;
   student_id: string;
@@ -62,21 +74,27 @@ export async function generateTuitions(contractId: string): Promise<{ inserted: 
     const lastDay  = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate();
     const day      = Math.min(due_day, lastDay);
     const dueDate  = new Date(cursor.getFullYear(), cursor.getMonth(), day);
-    const dueDateStr = dueDate.toISOString().split('T')[0];
 
-    if (!existingDates.has(dueDateStr)) {
-      const status = dueDate < today ? 'overdue' : 'pending';
+    // Skip months where the computed due date falls outside the contract's
+    // actual start/end — e.g. a contract starting on the 20th with due_day=5
+    // would otherwise get a first tuition due before the student was enrolled.
+    if (dueDate >= start && dueDate <= end) {
+      const dueDateStr = toDateStr(dueDate);
 
-      toInsert.push({
-        contract_id: contractId,
-        student_id,
-        school_id,
-        amount:      final_amount,
-        final_amount: null,       // filled when payment is confirmed
-        due_date:    dueDateStr,
-        status,
-        description: `Mensalidade ${cursor.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`,
-      });
+      if (!existingDates.has(dueDateStr)) {
+        const status = dueDate < today ? 'overdue' : 'pending';
+
+        toInsert.push({
+          contract_id: contractId,
+          student_id,
+          school_id,
+          amount:      final_amount,
+          final_amount: null,       // filled when payment is confirmed
+          due_date:    dueDateStr,
+          status,
+          description: `Mensalidade ${cursor.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`,
+        });
+      }
     }
 
     cursor.setMonth(cursor.getMonth() + 1);
