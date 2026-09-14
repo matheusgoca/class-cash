@@ -10,13 +10,14 @@ import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/compon
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 
 const classSchema = z.object({
-  name:         z.string().min(2, 'Nome da turma deve ter pelo menos 2 caracteres'),
-  grade:        z.string().nullable(),
-  description:  z.string().optional(),
-  max_capacity: z.number().min(1).max(50),
-  monthly_fee:  z.number().min(0).optional(),
-  color:        z.string().min(1, 'Cor é obrigatória'),
-  teacher_ids:  z.array(z.string()),
+  name:                 z.string().min(2, 'Nome da turma deve ter pelo menos 2 caracteres'),
+  grade:                z.string().nullable(),
+  description:          z.string().optional(),
+  max_capacity:         z.number().min(1).max(50),
+  monthly_fee:          z.number().min(0).optional(),
+  monthly_fee_integral: z.number().min(0).optional(),
+  color:                z.string().min(1, 'Cor é obrigatória'),
+  teacher_ids:          z.array(z.string()),
 });
 
 type ClassFormData = z.infer<typeof classSchema>;
@@ -56,6 +57,7 @@ export const ClassForm: React.FC<ClassFormProps> = ({
       description:  classData?.description ?? '',
       max_capacity: classData?.max_capacity ?? 30,
       monthly_fee:  classData?.monthly_fee  ?? undefined,
+      monthly_fee_integral: classData?.monthly_fee_integral ?? undefined,
       color:        classData?.color        ?? '#3B82F6',
       teacher_ids:  existingTeacherIds,
     },
@@ -73,6 +75,7 @@ export const ClassForm: React.FC<ClassFormProps> = ({
         description:  classData.description ?? '',
         max_capacity: classData.max_capacity ?? 30,
         monthly_fee:  classData.monthly_fee  ?? undefined,
+        monthly_fee_integral: classData.monthly_fee_integral ?? undefined,
         color:        classData.color        ?? '#3B82F6',
         teacher_ids:  teacherIds,
       });
@@ -183,6 +186,21 @@ export const ClassForm: React.FC<ClassFormProps> = ({
             <FormField control={form.control} name="monthly_fee" render={({ field }) => (
               <FormItem>
                 <FormLabel>Mensalidade base (R$)</FormLabel>
+                <FormControl>
+                  <Input type="number" min="0" step="0.01" placeholder="0.00"
+                    value={field.value ?? ''}
+                    onChange={e => {
+                      const val = e.target.value;
+                      field.onChange(val === '' ? undefined : parseFloat(val));
+                    }} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+
+            <FormField control={form.control} name="monthly_fee_integral" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Mensalidade integral (R$)</FormLabel>
                 <FormControl>
                   <Input type="number" min="0" step="0.01" placeholder="0.00"
                     value={field.value ?? ''}

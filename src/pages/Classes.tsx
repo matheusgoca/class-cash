@@ -115,6 +115,7 @@ const Classes = () => {
         p_description: classFields.description ?? null,
         p_max_capacity: classFields.max_capacity,
         p_monthly_fee: classFields.monthly_fee ?? null,
+        p_monthly_fee_integral: classFields.monthly_fee_integral ?? null,
         p_color: classFields.color,
         p_teacher_ids: teacher_ids ?? [],
       });
