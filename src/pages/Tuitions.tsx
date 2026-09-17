@@ -37,11 +37,11 @@ interface TuitionData {
   students: {
     name: string | null;
     full_name?: string | null;
-    classes?: { name: string } | null;
   } | null;
   contracts: {
     monthly_amount: number;
     discount: number;
+    classes?: { name: string } | null;
   } | null;
 }
 
@@ -75,6 +75,10 @@ const Tuitions = () => {
   const fetchTuitions = async () => {
     try {
       setLoading(true);
+      // Turma vem de contracts.class_id, não de students — students.class_id
+      // foi removida (enrollments é a fonte real de turma do aluno); um embed
+      // direto de classes sob students não acha mais relação nenhuma e
+      // quebra a query inteira.
       const { data, error } = await supabase
         .from('tuitions')
         .select(`
@@ -100,14 +104,14 @@ const Tuitions = () => {
           ),
           students (
             name,
-            full_name,
-            classes (
-              name
-            )
+            full_name
           ),
           contracts (
             monthly_amount,
-            discount
+            discount,
+            classes (
+              name
+            )
           )
         `)
         .eq('school_id', schoolId)

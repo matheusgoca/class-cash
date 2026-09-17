@@ -40,13 +40,13 @@ interface TuitionData {
   students: {
     name?: string | null;
     full_name?: string | null;
-    classes?: {
-      name: string;
-    } | null;
   } | null;
   contracts: {
     monthly_amount: number;
     discount: number;
+    classes?: {
+      name: string;
+    } | null;
   } | null;
 }
 
@@ -202,8 +202,8 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
         bVal = b.students?.full_name || '';
         break;
       case 'class_name':
-        aVal = a.students?.classes?.name || '';
-        bVal = b.students?.classes?.name || '';
+        aVal = a.contracts?.classes?.name || '';
+        bVal = b.contracts?.classes?.name || '';
         break;
       case 'amount':
         aVal = a.final_amount || a.amount;
@@ -382,7 +382,7 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
                       {tuition.students?.full_name || 'N/A'}
                     </TableCell>
                     <TableCell>
-                      {tuition.students?.classes?.name || 'N/A'}
+                      {tuition.contracts?.classes?.name || 'N/A'}
                     </TableCell>
                     <TableCell>
                       <div className="text-sm">
