@@ -16,6 +16,7 @@ import { useMasterAdmin } from "@/contexts/MasterAdminContext";
 import { useSchool } from "@/contexts/SchoolContext";
 import { getFriendlyErrorMessage } from "@/lib/friendlyError";
 import { toDateStr, parseLocalDate } from "@/lib/dateUtils";
+import { isTuitionOverdue } from "@/lib/calculations";
 
 interface PendingOwnerInvite {
   id: string;
@@ -113,7 +114,7 @@ export default function MasterAdmin() {
         (supabase as any).from("schools").select("id, name, plan, status, created_at, owner_user_id").order("created_at", { ascending: false }),
         (supabase as any).from("profiles").select("user_id, email"),
         (supabase as any).from("students").select("school_id").eq("status", "active"),
-        (supabase as any).from("tuitions").select("school_id, amount, status, due_date")
+        (supabase as any).from("tuitions").select("school_id, amount, final_amount, status, due_date")
           .neq("status", "cancelled")
           .gte("due_date", twelveMonthsAgo),
       ]);
@@ -134,14 +135,21 @@ export default function MasterAdmin() {
 
       for (const t of tuitionsRes.data || []) {
         const sid = t.school_id;
-        const amt = Number(t.amount || 0);
+        // final_amount reflects desconto/multa; só é preenchido quando o
+        // pagamento é confirmado — mesma convenção de ClassHealthCards.tsx.
+        const amt = Number(t.final_amount ?? t.amount ?? 0);
+        // status no banco não muda sozinho: uma mensalidade "pending" cujo
+        // due_date já passou só é reclassificada como atrasada em tempo de
+        // renderização via isTuitionOverdue — checar só status === "overdue"
+        // deixa de fora a maioria das mensalidades realmente em atraso.
+        const overdue = isTuitionOverdue(t.due_date, t.status);
         // Denominador: só o que já venceu (pago + atrasado) — pendente
         // ainda dentro do prazo não conta contra a escola nem infla a base,
         // mesma convenção de ClassHealthCards.tsx.
-        if (t.status === "paid" || t.status === "overdue") {
+        if (t.status === "paid" || overdue) {
           totalBySchool[sid] = (totalBySchool[sid] || 0) + amt;
         }
-        if (t.status === "overdue") overdueBySchool[sid] = (overdueBySchool[sid] || 0) + amt;
+        if (overdue) overdueBySchool[sid] = (overdueBySchool[sid] || 0) + amt;
         if (t.status === "paid") {
           const due = parseLocalDate(t.due_date);
           if (due.getFullYear() === currentYear && due.getMonth() === currentMonth) {
