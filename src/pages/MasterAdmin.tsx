@@ -8,15 +8,13 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Edit, ShieldCheck, GraduationCap, DollarSign, AlertTriangle, CalendarDays, Mail, Plus, Lightbulb, BookOpen, Building2, RefreshCw } from "lucide-react";
+import { Edit, ShieldCheck, GraduationCap, Users, CalendarDays, Mail, Plus, Lightbulb, BookOpen, Building2, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { useMasterAdmin } from "@/contexts/MasterAdminContext";
 import { useSchool } from "@/contexts/SchoolContext";
 import { getFriendlyErrorMessage } from "@/lib/friendlyError";
-import { toDateStr, parseLocalDate } from "@/lib/dateUtils";
-import { isTuitionOverdue } from "@/lib/calculations";
 
 interface PendingOwnerInvite {
   id: string;
@@ -36,8 +34,8 @@ interface SchoolRow {
   owner_user_id: string;
   owner_email: string;
   student_count: number;
-  monthly_revenue: number;
-  overdue_pct: number;
+  class_count: number;
+  teacher_count: number;
 }
 
 const PLAN_LABELS: Record<string, string> = {
@@ -96,51 +94,19 @@ export default function MasterAdmin() {
     }
   }, [waitingForSchool, school]);
 
-  // PostgREST caps a single response at 1000 rows by default. This query has
-  // no school_id filter (it spans every school for the overview cards), and
-  // production already has 3500+ matching tuitions — well past that cap — so
-  // it must be paged with .range(), not fetched in one shot.
-  const fetchAllTuitionsAcrossSchools = async (gteDate: string) => {
-    const CHUNK_SIZE = 1000;
-    const MAX_CHUNKS = 50; // safety guard against a runaway loop
-    let allRows: any[] = [];
-    let offset = 0;
-    for (let chunk = 0; chunk < MAX_CHUNKS; chunk++) {
-      const { data, error } = await (supabase as any)
-        .from("tuitions")
-        .select("school_id, amount, final_amount, status, due_date")
-        .neq("status", "cancelled")
-        .gte("due_date", gteDate)
-        .order("id", { ascending: true })
-        .range(offset, offset + CHUNK_SIZE - 1);
-      if (error) throw error;
-      if (!data || data.length === 0) break;
-      allRows = allRows.concat(data);
-      if (data.length < CHUNK_SIZE) break;
-      offset += CHUNK_SIZE;
-    }
-    return allRows;
-  };
-
   const fetchSchools = async () => {
     setLoading(true);
     try {
-      // "% inadimplência" precisa de uma janela mais ampla (12 meses, mesmo
-      // padrão de ClassHealthCards.tsx) — inadimplência é dívida vencida, não
-      // necessariamente vencendo neste mês, então não pode ficar presa ao mês
-      // corrente (foi exatamente o regressão do fix anterior: cortava fora as
-      // mensalidades atrasadas de meses passados, que são a maioria de uma
-      // inadimplência real). Só "receita mensal" (paga) fica restrita ao mês.
-      const now = new Date();
-      const currentYear = now.getFullYear();
-      const currentMonth = now.getMonth();
-      const twelveMonthsAgo = toDateStr(new Date(currentYear - 1, currentMonth, 1));
-
-      const [schoolsRes, profilesRes, studentsRes, tuitionsData] = await Promise.all([
+      // Painel Master é só visão operacional (alunos/turmas/professores) —
+      // valor financeiro fica na Dashboard de cada escola (botão "Acessar
+      // escola"), evitando ter que dar visibilidade cross-escola em
+      // expenses/service_charges via RLS só pra um card aqui.
+      const [schoolsRes, profilesRes, studentsRes, classesRes, teachersRes] = await Promise.all([
         (supabase as any).from("schools").select("id, name, plan, status, created_at, owner_user_id").order("created_at", { ascending: false }),
         (supabase as any).from("profiles").select("user_id, email"),
         (supabase as any).from("students").select("school_id").eq("status", "active"),
-        fetchAllTuitionsAcrossSchools(twelveMonthsAgo),
+        (supabase as any).from("classes").select("school_id"),
+        (supabase as any).from("teachers").select("school_id").eq("status", "active"),
       ]);
 
       const profileMap: Record<string, string> = (profilesRes.data || []).reduce((acc: any, p: any) => {
@@ -148,56 +114,28 @@ export default function MasterAdmin() {
         return acc;
       }, {});
 
-      const studentCount: Record<string, number> = (studentsRes.data || []).reduce((acc: any, s: any) => {
-        acc[s.school_id] = (acc[s.school_id] || 0) + 1;
-        return acc;
-      }, {});
+      const countBySchool = (rows: { school_id: string }[] | null) =>
+        (rows || []).reduce((acc: Record<string, number>, r) => {
+          acc[r.school_id] = (acc[r.school_id] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
 
-      const revenueBySchool: Record<string, number> = {};
-      const totalBySchool: Record<string, number> = {};
-      const overdueBySchool: Record<string, number> = {};
+      const studentCount = countBySchool(studentsRes.data);
+      const classCount = countBySchool(classesRes.data);
+      const teacherCount = countBySchool(teachersRes.data);
 
-      for (const t of tuitionsData) {
-        const sid = t.school_id;
-        // final_amount reflects desconto/multa; só é preenchido quando o
-        // pagamento é confirmado — mesma convenção de ClassHealthCards.tsx.
-        const amt = Number(t.final_amount ?? t.amount ?? 0);
-        // status no banco não muda sozinho: uma mensalidade "pending" cujo
-        // due_date já passou só é reclassificada como atrasada em tempo de
-        // renderização via isTuitionOverdue — checar só status === "overdue"
-        // deixa de fora a maioria das mensalidades realmente em atraso.
-        const overdue = isTuitionOverdue(t.due_date, t.status);
-        // Denominador: só o que já venceu (pago + atrasado) — pendente
-        // ainda dentro do prazo não conta contra a escola nem infla a base,
-        // mesma convenção de ClassHealthCards.tsx.
-        if (t.status === "paid" || overdue) {
-          totalBySchool[sid] = (totalBySchool[sid] || 0) + amt;
-        }
-        if (overdue) overdueBySchool[sid] = (overdueBySchool[sid] || 0) + amt;
-        if (t.status === "paid") {
-          const due = parseLocalDate(t.due_date);
-          if (due.getFullYear() === currentYear && due.getMonth() === currentMonth) {
-            revenueBySchool[sid] = (revenueBySchool[sid] || 0) + amt;
-          }
-        }
-      }
-
-      const rows: SchoolRow[] = (schoolsRes.data || []).map((s: any) => {
-        const total = totalBySchool[s.id] || 0;
-        const overdue = overdueBySchool[s.id] || 0;
-        return {
-          id: s.id,
-          name: s.name,
-          plan: s.plan || "starter",
-          status: s.status || "active",
-          created_at: s.created_at,
-          owner_user_id: s.owner_user_id,
-          owner_email: profileMap[s.owner_user_id] || "—",
-          student_count: studentCount[s.id] || 0,
-          monthly_revenue: revenueBySchool[s.id] || 0,
-          overdue_pct: total > 0 ? (overdue / total) * 100 : 0,
-        };
-      });
+      const rows: SchoolRow[] = (schoolsRes.data || []).map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        plan: s.plan || "starter",
+        status: s.status || "active",
+        created_at: s.created_at,
+        owner_user_id: s.owner_user_id,
+        owner_email: profileMap[s.owner_user_id] || "—",
+        student_count: studentCount[s.id] || 0,
+        class_count: classCount[s.id] || 0,
+        teacher_count: teacherCount[s.id] || 0,
+      }));
 
       setSchools(rows);
     } catch (err) {
@@ -206,9 +144,6 @@ export default function MasterAdmin() {
       setLoading(false);
     }
   };
-
-  const formatCurrency = (v: number) =>
-    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
   const openEdit = (school: SchoolRow) => {
     setEditingSchool(school);
@@ -428,15 +363,14 @@ export default function MasterAdmin() {
                     <span className="text-muted-foreground">alunos</span>
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <DollarSign className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-semibold">{formatCurrency(school.monthly_revenue)}</span>
+                    <BookOpen className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-semibold">{school.class_count}</span>
+                    <span className="text-muted-foreground">turmas</span>
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <AlertTriangle className={`h-4 w-4 ${school.overdue_pct > 20 ? "text-red-500" : "text-muted-foreground"}`} />
-                    <span className={`font-semibold ${school.overdue_pct > 20 ? "text-red-600" : ""}`}>
-                      {school.overdue_pct.toFixed(1)}%
-                    </span>
-                    <span className="text-muted-foreground">inadimp.</span>
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-semibold">{school.teacher_count}</span>
+                    <span className="text-muted-foreground">professores</span>
                   </span>
                 </div>
 
