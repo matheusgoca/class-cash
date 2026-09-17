@@ -35,3 +35,6 @@ dist-ssr
 
 # Supabase CLI local state (machine-specific, includes DB connection info)
 supabase/.temp/
+
+# Dados reais de aluno/financeiro da escola parceira (PEC) — nunca versionar
+PEC/

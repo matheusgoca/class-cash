@@ -5,7 +5,7 @@ import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 
@@ -18,6 +18,7 @@ const classSchema = z.object({
   monthly_fee_integral: z.number().min(0).optional(),
   color:                z.string().min(1, 'Cor é obrigatória'),
   teacher_ids:          z.array(z.string()),
+  teacher_hours:        z.record(z.string(), z.number().nullable()),
 });
 
 type ClassFormData = z.infer<typeof classSchema>;
@@ -29,6 +30,18 @@ interface ClassFormProps {
   teachers: any[];
   isLoading?: boolean;
 }
+
+// Etapas da Educação Básica (LDB 9.394/96 + BNCC + Lei 13.415/2017 -
+// Novo Ensino Médio). Berçário/Maternal/Pré não têm nomenclatura
+// federal padronizada (cada rede nomeia do seu jeito), mas são os
+// termos mais comuns; "grade" continua texto livre no banco, isto é
+// só a lista sugerida no seletor.
+const GRADE_GROUPS: { label: string; grades: string[] }[] = [
+  { label: 'Educação Infantil', grades: ['Berçário I', 'Berçário II', 'Maternal I', 'Maternal II', 'Pré I', 'Pré II'] },
+  { label: 'Fundamental - Anos Iniciais', grades: ['1º Ano', '2º Ano', '3º Ano', '4º Ano', '5º Ano'] },
+  { label: 'Fundamental - Anos Finais', grades: ['6º Ano', '7º Ano', '8º Ano', '9º Ano'] },
+  { label: 'Ensino Médio', grades: ['1º Ano (Médio)', '2º Ano (Médio)', '3º Ano (Médio)'] },
+];
 
 const CLASS_COLORS = [
   { value: '#3B82F6', label: 'Azul' },
@@ -44,10 +57,15 @@ const CLASS_COLORS = [
 export const ClassForm: React.FC<ClassFormProps> = ({
   classData, onSubmit, onCancel, teachers, isLoading,
 }) => {
-  // Pre-populate teacher_ids from class_teachers join
+  // Pre-populate teacher_ids/teacher_hours from class_teachers join
   const existingTeacherIds: string[] = (classData?.class_teachers ?? [])
     .map((ct: any) => ct.teacher_id ?? ct.teachers?.id)
     .filter(Boolean);
+  const existingTeacherHours: Record<string, number | null> = Object.fromEntries(
+    (classData?.class_teachers ?? [])
+      .map((ct: any) => [ct.teacher_id ?? ct.teachers?.id, ct.weekly_hours ?? null])
+      .filter(([id]: [string | undefined]) => Boolean(id))
+  );
 
   const form = useForm<ClassFormData>({
     resolver: zodResolver(classSchema),
@@ -60,6 +78,7 @@ export const ClassForm: React.FC<ClassFormProps> = ({
       monthly_fee_integral: classData?.monthly_fee_integral ?? undefined,
       color:        classData?.color        ?? '#3B82F6',
       teacher_ids:  existingTeacherIds,
+      teacher_hours: existingTeacherHours,
     },
   });
 
@@ -69,6 +88,11 @@ export const ClassForm: React.FC<ClassFormProps> = ({
       const teacherIds: string[] = (classData.class_teachers ?? [])
         .map((ct: any) => ct.teacher_id ?? ct.teachers?.id)
         .filter(Boolean);
+      const teacherHours: Record<string, number | null> = Object.fromEntries(
+        (classData.class_teachers ?? [])
+          .map((ct: any) => [ct.teacher_id ?? ct.teachers?.id, ct.weekly_hours ?? null])
+          .filter(([id]: [string | undefined]) => Boolean(id))
+      );
       form.reset({
         name:         classData.name        ?? '',
         grade:        classData.grade       ?? null,
@@ -78,6 +102,7 @@ export const ClassForm: React.FC<ClassFormProps> = ({
         monthly_fee_integral: classData.monthly_fee_integral ?? undefined,
         color:        classData.color        ?? '#3B82F6',
         teacher_ids:  teacherIds,
+        teacher_hours: teacherHours,
       });
     }
   }, [classData?.id]);
@@ -118,8 +143,13 @@ export const ClassForm: React.FC<ClassFormProps> = ({
                     <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {['1º Ano','2º Ano','3º Ano','4º Ano','5º Ano','6º Ano','7º Ano','8º Ano','9º Ano'].map(g => (
-                      <SelectItem key={g} value={g}>{g}</SelectItem>
+                    {GRADE_GROUPS.map(group => (
+                      <SelectGroup key={group.label}>
+                        <SelectLabel>{group.label}</SelectLabel>
+                        {group.grades.map(g => (
+                          <SelectItem key={g} value={g}>{g}</SelectItem>
+                        ))}
+                      </SelectGroup>
                     ))}
                   </SelectContent>
                 </Select>
@@ -229,21 +259,44 @@ export const ClassForm: React.FC<ClassFormProps> = ({
               {teachers.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Nenhum professor cadastrado.</p>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-md border p-3">
-                  {teachers.map(t => (
-                    <div key={t.id} className="flex items-center gap-2">
-                      <Checkbox
-                        id={`teacher-${t.id}`}
-                        checked={selectedTeachers.includes(t.id)}
-                        onCheckedChange={() => toggleTeacher(t.id)}
-                      />
-                      <label htmlFor={`teacher-${t.id}`} className="text-sm cursor-pointer">
-                        {t.full_name}
-                      </label>
-                    </div>
-                  ))}
+                <div className="grid grid-cols-1 gap-2 rounded-md border p-3">
+                  {teachers.map(t => {
+                    const isSelected = selectedTeachers.includes(t.id);
+                    const hours = form.watch(`teacher_hours.${t.id}`);
+                    return (
+                      <div key={t.id} className="flex items-center gap-2">
+                        <Checkbox
+                          id={`teacher-${t.id}`}
+                          checked={isSelected}
+                          onCheckedChange={() => toggleTeacher(t.id)}
+                        />
+                        <label htmlFor={`teacher-${t.id}`} className="text-sm cursor-pointer flex-1">
+                          {t.full_name}
+                        </label>
+                        {isSelected && (
+                          <div className="flex items-center gap-1">
+                            <Input
+                              type="number" min="0" step="0.5" placeholder="Horas/semana"
+                              className="w-28 h-8 text-sm"
+                              value={hours ?? ''}
+                              onChange={e => {
+                                const val = e.target.value;
+                                form.setValue(`teacher_hours.${t.id}`, val === '' ? null : parseFloat(val));
+                              }}
+                            />
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">h/semana</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
+              <p className="text-xs text-muted-foreground">
+                Carga horária semanal é opcional. Se preenchida para todas as turmas de um
+                professor, o custo dele é rateado proporcional às horas em vez de dividido
+                igualmente entre as turmas.
+              </p>
               <FormMessage />
             </FormItem>
           )} />

@@ -4,9 +4,17 @@
  * divergirem no critério de cálculo.
  *
  * Duas fontes de custo por turma:
- *  1. Salário de professor — dividido igualmente entre as turmas em que
- *     ele leciona (evita contar o salário inteiro em cada turma quando um
- *     professor dá aula em mais de uma).
+ *  1. Salário de professor — dividido entre as turmas em que ele leciona
+ *     (evita contar o salário inteiro em cada turma quando um professor
+ *     dá aula em mais de uma). Dois critérios possíveis:
+ *       - Sem `weeklyHours` preenchido em todas as turmas do professor:
+ *         divide igualmente pelo nº de turmas (comportamento padrão).
+ *       - Com `weeklyHours` preenchido em TODAS as turmas do professor:
+ *         divide proporcional às horas semanais em cada turma — reflete
+ *         melhor o Fundamental Anos Finais/Ensino Médio, onde cada
+ *         professor de matéria dá um nº diferente de aulas por turma.
+ *       Preenchimento parcial (só algumas turmas com horas) cai no split
+ *       igual, pra não fazer conta com dado incompleto.
  *  2. Despesas — uma despesa com `class_id` preenchido é custo direto
  *     daquela turma. Uma despesa geral (class_id nulo) é rateada conforme
  *     `allocation_method` da categoria:
@@ -24,6 +32,7 @@ export interface ClassCostTeacherAssignment {
   classId: string;
   teacherId: string;
   salary: number;
+  weeklyHours?: number | null;
 }
 
 export interface ClassCostExpenseInput {
@@ -50,15 +59,24 @@ export function computeClassCosts(
     expenseCost[cls.id] = 0;
   }
 
-  // 1. Salário — cada professor divide seu salário pelo nº de turmas em que dá aula
-  const classCountByTeacher: Record<string, number> = {};
+  // 1. Salário — cada professor divide seu salário entre as turmas em que dá aula
+  const assignmentsByTeacher: Record<string, ClassCostTeacherAssignment[]> = {};
   for (const a of teacherAssignments) {
-    classCountByTeacher[a.teacherId] = (classCountByTeacher[a.teacherId] || 0) + 1;
+    (assignmentsByTeacher[a.teacherId] ??= []).push(a);
   }
-  for (const a of teacherAssignments) {
-    const classCount = classCountByTeacher[a.teacherId] || 1;
-    if (salaryCost[a.classId] === undefined) salaryCost[a.classId] = 0;
-    salaryCost[a.classId] += a.salary / classCount;
+
+  for (const teacherId of Object.keys(assignmentsByTeacher)) {
+    const assignments = assignmentsByTeacher[teacherId];
+    const totalHours = assignments.reduce((s, a) => s + (a.weeklyHours ?? 0), 0);
+    const allHaveHours = assignments.every(a => (a.weeklyHours ?? 0) > 0);
+
+    for (const a of assignments) {
+      if (salaryCost[a.classId] === undefined) salaryCost[a.classId] = 0;
+      const share = allHaveHours
+        ? a.salary * ((a.weeklyHours as number) / totalHours)
+        : a.salary / assignments.length;
+      salaryCost[a.classId] += share;
+    }
   }
 
   // 2. Despesas — diretas (class_id preenchido) ou rateadas (class_id nulo)

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Sparkles, Plus, Trash2 } from 'lucide-react';
+import { Sparkles, Plus, Trash2, Loader2, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,12 +11,15 @@ import { useSchool } from '@/contexts/SchoolContext';
 import { supabase } from '@/integrations/supabase/client';
 import { getFriendlyErrorMessage } from '@/lib/friendlyError';
 
+type ServiceType = 'avulso' | 'mensal' | 'anual_parcelado';
+
 interface SchoolService {
   id: string;
   name: string;
   price: number;
   active: boolean;
-  type: 'avulso' | 'mensal';
+  type: ServiceType;
+  default_installments: number | null;
 }
 
 export function ServiceCatalogSection() {
@@ -26,9 +29,12 @@ export function ServiceCatalogSection() {
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState('');
   const [newPrice, setNewPrice] = useState('');
-  const [newType, setNewType] = useState<'avulso' | 'mensal'>('avulso');
+  const [newType, setNewType] = useState<ServiceType>('avulso');
+  const [newInstallments, setNewInstallments] = useState('');
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [savedId, setSavedId] = useState<string | null>(null);
 
   useEffect(() => {
     if (schoolId) fetchServices();
@@ -39,7 +45,7 @@ export function ServiceCatalogSection() {
     try {
       const { data, error } = await (supabase as any)
         .from('school_services')
-        .select('id, name, price, active, type')
+        .select('id, name, price, active, type, default_installments')
         .eq('school_id', schoolId)
         .order('name');
       if (error) throw error;
@@ -61,17 +67,23 @@ export function ServiceCatalogSection() {
     // parseFloat aceitaria silenciosamente como 10.
     const price = Number(newPrice);
     if (!newName.trim() || !schoolId || !price || Number.isNaN(price) || price <= 0) return;
+    const installments = newType === 'anual_parcelado' ? Number(newInstallments) : null;
+    if (newType === 'anual_parcelado' && (!installments || Number.isNaN(installments) || installments <= 0)) {
+      toast({ title: 'Informe o número de parcelas', variant: 'destructive' });
+      return;
+    }
     setCreating(true);
     try {
       const { data, error } = await (supabase as any)
         .from('school_services')
-        .insert({ school_id: schoolId, name: newName.trim(), price, type: newType })
-        .select('id, name, price, active, type')
+        .insert({ school_id: schoolId, name: newName.trim(), price, type: newType, default_installments: installments })
+        .select('id, name, price, active, type, default_installments')
         .single();
       if (error) throw error;
       setServices((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
       setNewName('');
       setNewPrice('');
+      setNewInstallments('');
     } catch (err) {
       toast({
         title: 'Erro ao criar serviço',
@@ -85,7 +97,9 @@ export function ServiceCatalogSection() {
 
   const updateService = async (id: string, patch: Partial<SchoolService>) => {
     setServices((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+    setSavingId(id);
     const { error } = await (supabase as any).from('school_services').update(patch).eq('id', id).eq('school_id', schoolId);
+    setSavingId((current) => (current === id ? null : current));
     if (error) {
       toast({
         title: 'Erro ao salvar',
@@ -96,7 +110,12 @@ export function ServiceCatalogSection() {
       // key={id-valor} pra remontar e refletir a reversão (defaultValue
       // não atualiza sozinho num input não controlado)
       fetchServices();
+      return;
     }
+    // Sem botão de salvar (edição é onBlur/onChange direto) — sem esse check
+    // momentâneo, a única confirmação era um toast fácil de não notar.
+    setSavedId(id);
+    setTimeout(() => setSavedId((current) => (current === id ? null : current)), 1500);
   };
 
   const handleDelete = async () => {
@@ -166,16 +185,39 @@ export function ServiceCatalogSection() {
                 />
                 <Select
                   value={s.type}
-                  onValueChange={(v) => updateService(s.id, { type: v as 'avulso' | 'mensal' })}
+                  onValueChange={(v) => updateService(s.id, { type: v as ServiceType })}
                 >
-                  <SelectTrigger className="w-[110px] h-8 text-xs">
+                  <SelectTrigger className="w-[130px] h-8 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="avulso">Avulso</SelectItem>
                     <SelectItem value="mensal">Mensal</SelectItem>
+                    <SelectItem value="anual_parcelado">Anual parcelado</SelectItem>
                   </SelectContent>
                 </Select>
+                {s.type === 'anual_parcelado' && (
+                  <Input
+                    key={`${s.id}-installments-${s.default_installments}`}
+                    type="number" min="1" step="1"
+                    placeholder="Nº parcelas"
+                    defaultValue={s.default_installments ?? ''}
+                    onBlur={(e) => {
+                      const value = Number(e.target.value);
+                      if (Number.isNaN(value) || !(value > 0)) {
+                        toast({ title: 'Nº de parcelas inválido', variant: 'destructive' });
+                        e.target.value = String(s.default_installments ?? '');
+                        return;
+                      }
+                      if (value !== s.default_installments) updateService(s.id, { default_installments: value });
+                    }}
+                    className="max-w-[110px]"
+                  />
+                )}
+                <div className="w-4 shrink-0">
+                  {savingId === s.id && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                  {savedId === s.id && <Check className="h-4 w-4 text-success" />}
+                </div>
                 <div className="flex items-center gap-2 ml-auto">
                   <span className="text-xs text-muted-foreground">Ativo</span>
                   <Switch
@@ -208,21 +250,32 @@ export function ServiceCatalogSection() {
           />
           <Input
             type="number" min="0" step="0.01"
-            placeholder="Preço (R$)"
+            placeholder={newType === 'anual_parcelado' ? 'Valor da parcela' : 'Preço (R$)'}
             value={newPrice}
             onChange={(e) => setNewPrice(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
             className="max-w-[130px]"
           />
-          <Select value={newType} onValueChange={(v) => setNewType(v as 'avulso' | 'mensal')}>
-            <SelectTrigger className="w-[110px]">
+          <Select value={newType} onValueChange={(v) => setNewType(v as ServiceType)}>
+            <SelectTrigger className="w-[130px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="avulso">Avulso</SelectItem>
               <SelectItem value="mensal">Mensal</SelectItem>
+              <SelectItem value="anual_parcelado">Anual parcelado</SelectItem>
             </SelectContent>
           </Select>
+          {newType === 'anual_parcelado' && (
+            <Input
+              type="number" min="1" step="1"
+              placeholder="Nº parcelas"
+              value={newInstallments}
+              onChange={(e) => setNewInstallments(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+              className="max-w-[110px]"
+            />
+          )}
           <Button type="button" variant="outline" onClick={handleCreate}
             disabled={creating || !newName.trim() || !newPrice} className="gap-2">
             <Plus className="h-4 w-4" />

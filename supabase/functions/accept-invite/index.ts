@@ -77,10 +77,22 @@ serve(async (req) => {
       return Response.json({ error: profileError.message }, { status: 500, headers: corsHeaders });
     }
 
-    // Upsert user role
+    // user_roles.role é um enum Postgres (admin/financial/teacher) — "owner"
+    // NUNCA foi um valor válido ali. Dono de escola sempre teve permissão via
+    // "admin" (checada em toda RLS como role IN ('admin','financial')); quem
+    // é de fato dono vem de schools.owner_user_id, não desta coluna. Gravar
+    // "owner" aqui direto sempre falhava com erro de tipo, e é exatamente
+    // por isso que convites de dono nunca chegavam a ser marcados como
+    // aceitos (a função retornava erro antes de chegar lá).
+    //
+    // onConflict explícito porque a PK de user_roles é `id`, não `user_id`
+    // (só tem UNIQUE(user_id)); sem isso um upsert sem conflito detectado na
+    // PK vira um INSERT puro, que falha com violação de UNIQUE se a linha
+    // já existir.
+    const roleToStore = invite.role === "owner" ? "admin" : invite.role;
     const { error: roleError } = await supabaseAdmin
       .from("user_roles")
-      .upsert({ user_id: user.id, role: invite.role });
+      .upsert({ user_id: user.id, role: roleToStore }, { onConflict: "user_id" });
 
     if (roleError) {
       console.error("user_roles upsert error:", roleError);

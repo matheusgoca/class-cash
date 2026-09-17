@@ -20,7 +20,7 @@ interface Member {
   user_id: string;
   full_name: string;
   email: string;
-  role: string; // always a real role — owner is excluded from this list
+  role: string; // 'owner' for the school's owner, otherwise a real user_roles role
   created_at: string;
 }
 
@@ -41,6 +41,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 const roleBadge = (role: string) => {
   switch (role) {
+    case "owner":     return <Badge className="bg-purple-600 text-white">Owner</Badge>;
     case "admin":     return <Badge className="bg-blue-600 text-white">Admin</Badge>;
     case "financial": return <Badge className="bg-emerald-600 text-white">Financeiro</Badge>;
     case "teacher":   return <Badge className="bg-orange-500 text-white">Professor</Badge>;
@@ -115,17 +116,20 @@ export default function Team() {
     const roleMap: Record<string, string> = {};
     (roles || []).forEach((r: any) => { roleMap[r.user_id] = r.role; });
 
-    // Exclui: o próprio owner (não precisa de role) e o usuário logado
-    // Inclui apenas quem tem role em user_roles
+    // Exclui só o usuário logado (já sabe que está aqui). O owner aparece na
+    // lista com role "owner" — sempre, mesmo que por algum motivo falte o
+    // registro dele em user_roles (não deveria, mas já vimos esse tipo de
+    // inconsistência acontecer num convite que falhou parcialmente).
+    // Demais membros só aparecem se tiverem role em user_roles.
     setMembers(
       (profiles || [])
-        .filter((p: any) => p.user_id !== ownerUserId && p.user_id !== user?.id)
-        .filter((p: any) => roleMap[p.user_id] !== undefined)
+        .filter((p: any) => p.user_id !== user?.id)
+        .filter((p: any) => p.user_id === ownerUserId || roleMap[p.user_id] !== undefined)
         .map((p: any) => ({
           user_id: p.user_id,
           full_name: p.full_name || "—",
           email: p.email,
-          role: roleMap[p.user_id],
+          role: p.user_id === ownerUserId ? "owner" : roleMap[p.user_id],
           created_at: p.created_at,
         }))
     );
@@ -320,26 +324,33 @@ export default function Team() {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           {roleBadge(m.role)}
-                          <button
-                            onClick={() => openEditRole(m)}
-                            className="text-muted-foreground hover:text-foreground transition-colors"
-                            title="Editar função"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
+                          {m.role !== "owner" && (
+                            <button
+                              onClick={() => openEditRole(m)}
+                              className="text-muted-foreground hover:text-foreground transition-colors"
+                              title="Editar função"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>{fmt(m.created_at)}</TableCell>
                       <TableCell>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => openRemove(m)}
-                          className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                          title="Remover acesso"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {/* Owner não pode ser editado/removido por aqui — é
+                            dono da escola (schools.owner_user_id), não um
+                            vínculo comum de user_roles. */}
+                        {m.role !== "owner" && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => openRemove(m)}
+                            className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                            title="Remover acesso"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}

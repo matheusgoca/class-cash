@@ -36,6 +36,7 @@ const Classes = () => {
           *,
           class_teachers (
             teacher_id,
+            weekly_hours,
             teachers (
               id,
               full_name,
@@ -105,7 +106,7 @@ const Classes = () => {
   const handleSubmit = async (formData) => {
     setIsLoading(true);
     try {
-      const { teacher_ids, ...classFields } = formData;
+      const { teacher_ids, teacher_hours, ...classFields } = formData;
 
       // Creating/editing a class + syncing its teachers used to be two
       // separate writes from here — if the second one failed, the first had
@@ -123,6 +124,9 @@ const Classes = () => {
         p_monthly_fee_integral: classFields.monthly_fee_integral ?? null,
         p_color: classFields.color,
         p_teacher_ids: teacher_ids ?? [],
+        // Array paralelo a p_teacher_ids (mesma ordem/índice) — a RPC faz
+        // unnest(p_teacher_ids, p_teacher_hours) pra parear os dois.
+        p_teacher_hours: (teacher_ids ?? []).map((id: string) => teacher_hours?.[id] ?? null),
       });
 
       if (error) throw error;

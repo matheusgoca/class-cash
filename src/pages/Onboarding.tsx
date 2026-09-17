@@ -21,6 +21,31 @@ const SEGMENTS = [
   { value: 'tecnico',     label: 'Curso Técnico',      icon: Building2,     description: 'Cursos profissionalizantes' },
 ];
 
+// accept-invite (chamada em Auth.tsx logo após definir a senha) já deveria
+// marcar o convite como aceito e garantir a role de dono — mas ela tinha um
+// bug que fazia isso falhar sempre para convites de dono (tentava gravar
+// role='owner' em user_roles, que é um enum sem esse valor — só existe
+// admin/financial/teacher; quem é dono de verdade vem de
+// schools.owner_user_id, não desta coluna). Corrigido lá também, mas quem
+// cria a escola com sucesso aqui é a garantia real de que esses dois
+// registros ficam certos, mesmo se a edge function falhar de novo por outro
+// motivo (rede, timing). Roda nos dois caminhos (auto-criação via metadado
+// do convite, e o formulário manual — que foi o que rodou de fato quando o
+// metadado não chegou no user_metadata a tempo).
+// onConflict: 'user_id' é necessário porque a PK de user_roles é `id`, não
+// `user_id` — sem isso um upsert sem conflito detectado vira um INSERT que
+// esbarra na constraint UNIQUE(user_id) se a linha já existir.
+async function ensureOwnerRoleAndInviteAccepted(userId: string, userEmail: string | undefined) {
+  await supabase.from('user_roles').upsert({ user_id: userId, role: 'admin' }, { onConflict: 'user_id' });
+  if (!userEmail) return;
+  await (supabase as any)
+    .from('invitations')
+    .update({ status: 'accepted' })
+    .eq('email', userEmail)
+    .eq('role', 'owner')
+    .eq('status', 'pending');
+}
+
 const schema = z.object({
   name:     z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
   segments: z.array(z.string()).min(1, 'Selecione pelo menos um segmento'),
@@ -72,12 +97,7 @@ export default function Onboarding() {
         await supabase.auth.updateUser({
           data: { pending_school_name: null, pending_school_segments: null, pending_school_plan: null },
         });
-        await (supabase as any)
-          .from('invitations')
-          .update({ status: 'accepted' })
-          .eq('email', user.email)
-          .eq('role', 'owner')
-          .eq('status', 'pending');
+        await ensureOwnerRoleAndInviteAccepted(user.id, user.email);
 
         await refreshSchool();
         toast({ title: 'Escola criada!', description: `Bem-vindo ao ${meta.pending_school_name}` });
@@ -127,6 +147,8 @@ export default function Onboarding() {
         .eq('user_id', user.id);
 
       if (profileError) throw profileError;
+
+      await ensureOwnerRoleAndInviteAccepted(user.id, user.email);
 
       await refreshSchool();
       toast({ title: 'Escola criada!', description: `Bem-vindo ao ${data.name}` });

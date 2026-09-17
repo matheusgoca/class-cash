@@ -19,6 +19,7 @@ interface StudentService {
   due_day: number;
   start_date: string; // 'YYYY-MM-DD'
   end_date: string | null;
+  installments: number | null;
 }
 
 /**
@@ -37,7 +38,7 @@ export async function generateServiceCharges(
 ): Promise<{ inserted: number; error?: string }> {
   const { data: subscription, error: fetchError } = await (supabase as any)
     .from('student_services')
-    .select('id, school_id, student_id, service_id, price, due_day, start_date, end_date, school_services(name)')
+    .select('id, school_id, student_id, service_id, price, due_day, start_date, end_date, installments, school_services(name, type)')
     .eq('id', studentServiceId)
     .single();
 
@@ -45,9 +46,10 @@ export async function generateServiceCharges(
     return { inserted: 0, error: fetchError?.message ?? 'Assinatura não encontrada' };
   }
 
-  const { school_id, student_id, service_id, price, due_day, start_date, end_date } =
+  const { school_id, student_id, service_id, price, due_day, start_date, end_date, installments } =
     subscription as StudentService;
   const serviceName: string = subscription.school_services?.name ?? 'Serviço';
+  const serviceType: string = subscription.school_services?.type ?? 'mensal';
 
   const { data: existing } = await (supabase as any)
     .from('service_charges')
@@ -65,7 +67,13 @@ export async function generateServiceCharges(
   let endYear: number;
   let endMonth: number;
 
-  if (end_date) {
+  if (serviceType === 'anual_parcelado' && installments) {
+    // Nº fixo de parcelas a partir do mês de início — ignora end_date e
+    // monthsAhead, que são pra assinaturas recorrentes indefinidas.
+    const last = new Date(start.getFullYear(), start.getMonth() + installments - 1, 1);
+    endYear = last.getFullYear();
+    endMonth = last.getMonth();
+  } else if (end_date) {
     const [ey, em, ed] = end_date.split('-').map(Number);
     end = new Date(ey, em - 1, ed);
     endYear = end.getFullYear();

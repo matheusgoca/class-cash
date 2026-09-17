@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Wallet, Plus, Trash2 } from 'lucide-react';
+import { Wallet, Plus, Trash2, Loader2, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,6 +32,8 @@ export function ExpenseCategoriesSection() {
   const [newName, setNewName] = useState('');
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [savedId, setSavedId] = useState<string | null>(null);
 
   useEffect(() => {
     if (schoolId) fetchCategories();
@@ -80,11 +82,18 @@ export function ExpenseCategoriesSection() {
 
   const updateCategory = async (id: string, patch: Partial<ExpenseCategory>) => {
     setCategories((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+    setSavingId(id);
     const { error } = await (supabase as any).from('expense_categories').update(patch).eq('id', id);
+    setSavingId((current) => (current === id ? null : current));
     if (error) {
       toast({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' });
       fetchCategories();
+      return;
     }
+    // Sem botão de salvar (edição é onBlur/onChange direto) — sem esse check
+    // momentâneo, a única confirmação era um toast fácil de não notar.
+    setSavedId(id);
+    setTimeout(() => setSavedId((current) => (current === id ? null : current)), 1500);
   };
 
   const handleDelete = async () => {
@@ -143,6 +152,10 @@ export function ExpenseCategoriesSection() {
                   }}
                   className="max-w-[200px]"
                 />
+                <div className="w-4 shrink-0">
+                  {savingId === cat.id && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                  {savedId === cat.id && <Check className="h-4 w-4 text-success" />}
+                </div>
                 <Select
                   value={cat.allocation_method}
                   onValueChange={(v) => updateCategory(cat.id, { allocation_method: v as ExpenseCategory['allocation_method'] })}

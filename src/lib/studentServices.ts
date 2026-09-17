@@ -9,12 +9,13 @@ export interface SubscribeStudentToServiceParams {
   price: number;
   dueDay: number;
   startDate: string; // 'YYYY-MM-DD'
+  installments?: number | null; // obrigatório na prática só para serviços 'anual_parcelado'
 }
 
 export async function subscribeStudentToService(
   params: SubscribeStudentToServiceParams
 ): Promise<{ inserted: number }> {
-  const { schoolId, studentId, serviceId, price, dueDay, startDate } = params;
+  const { schoolId, studentId, serviceId, price, dueDay, startDate, installments } = params;
 
   // Sem essa checagem, reabrir "Cobrar serviço" pro mesmo aluno/serviço criava
   // uma segunda assinatura ativa, e cada uma gerava suas próprias cobranças
@@ -41,6 +42,7 @@ export async function subscribeStudentToService(
       price,
       due_day: dueDay,
       start_date: startDate,
+      installments: installments ?? null,
     })
     .select('id')
     .single();

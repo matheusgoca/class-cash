@@ -22,7 +22,8 @@ interface ServiceOption {
   id: string;
   name: string;
   price: number;
-  type: 'avulso' | 'mensal';
+  type: 'avulso' | 'mensal' | 'anual_parcelado';
+  default_installments: number | null;
 }
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -38,13 +39,16 @@ export function AddServiceChargeDialog({
   const [amount, setAmount] = useState('');
   // avulso fields
   const [dueDate, setDueDate] = useState(todayStr());
-  // mensal fields
+  // mensal / anual_parcelado fields
   const [dueDay, setDueDay] = useState('10');
   const [startDate, setStartDate] = useState(todayStr());
+  const [installments, setInstallments] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const selectedService = services.find((s) => s.id === serviceId);
   const isMensal = selectedService?.type === 'mensal';
+  const isAnnualInstallments = selectedService?.type === 'anual_parcelado';
+  const isRecurring = isMensal || isAnnualInstallments;
 
   useEffect(() => {
     if (!open) return;
@@ -54,10 +58,11 @@ export function AddServiceChargeDialog({
     setDueDate(todayStr());
     setDueDay('10');
     setStartDate(todayStr());
+    setInstallments('');
 
     (supabase as any)
       .from('school_services')
-      .select('id, name, price, type')
+      .select('id, name, price, type, default_installments')
       .eq('school_id', schoolId)
       .eq('active', true)
       .order('name')
@@ -79,7 +84,10 @@ export function AddServiceChargeDialog({
   const handleServiceChange = (id: string) => {
     setServiceId(id);
     const svc = services.find((s) => s.id === id);
-    if (svc) setAmount(String(svc.price));
+    if (svc) {
+      setAmount(String(svc.price));
+      setInstallments(svc.type === 'anual_parcelado' ? String(svc.default_installments ?? '') : '');
+    }
   };
 
   const handleSubmit = async () => {
@@ -87,9 +95,14 @@ export function AddServiceChargeDialog({
       toast({ title: 'Preencha todos os campos', variant: 'destructive' });
       return;
     }
+    const installmentsNum = isAnnualInstallments ? Number(installments) : null;
+    if (isAnnualInstallments && (!installmentsNum || Number.isNaN(installmentsNum) || installmentsNum <= 0)) {
+      toast({ title: 'Informe o número de parcelas', variant: 'destructive' });
+      return;
+    }
     setSubmitting(true);
     try {
-      if (isMensal) {
+      if (isRecurring) {
         const { inserted } = await subscribeStudentToService({
           schoolId,
           studentId,
@@ -97,6 +110,7 @@ export function AddServiceChargeDialog({
           price: Number(amount),
           dueDay: Number(dueDay),
           startDate,
+          installments: installmentsNum,
         });
         toast({
           title: 'Assinatura criada!',
@@ -166,9 +180,11 @@ export function AddServiceChargeDialog({
                         <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
                           s.type === 'mensal'
                             ? 'bg-blue-100 text-blue-700'
-                            : 'bg-slate-100 text-slate-600'
+                            : s.type === 'anual_parcelado'
+                              ? 'bg-purple-100 text-purple-700'
+                              : 'bg-slate-100 text-slate-600'
                         }`}>
-                          {s.type === 'mensal' ? 'mensal' : 'avulso'}
+                          {s.type === 'mensal' ? 'mensal' : s.type === 'anual_parcelado' ? 'anual parcelado' : 'avulso'}
                         </span>
                       </span>
                     </SelectItem>
@@ -176,14 +192,18 @@ export function AddServiceChargeDialog({
                 </SelectContent>
               </Select>
               {selectedService && (
-                <Badge variant="outline" className={isMensal ? 'border-blue-300 text-blue-700' : ''}>
-                  {isMensal ? 'Cobrança recorrente mensal' : 'Cobrança única'}
+                <Badge variant="outline" className={isRecurring ? 'border-blue-300 text-blue-700' : ''}>
+                  {isMensal
+                    ? 'Cobrança recorrente mensal'
+                    : isAnnualInstallments
+                      ? 'Cobrança anual parcelada'
+                      : 'Cobrança única'}
                 </Badge>
               )}
             </div>
 
             <div className="space-y-2">
-              <Label>Valor (R$)</Label>
+              <Label>{isAnnualInstallments ? 'Valor da parcela (R$)' : 'Valor (R$)'}</Label>
               <Input
                 type="number"
                 min="0"
@@ -194,7 +214,18 @@ export function AddServiceChargeDialog({
               />
             </div>
 
-            {isMensal ? (
+            {isAnnualInstallments && (
+              <div className="space-y-2">
+                <Label>Nº de parcelas</Label>
+                <Input
+                  type="number" min="1" step="1"
+                  value={installments}
+                  onChange={(e) => setInstallments(e.target.value)}
+                />
+              </div>
+            )}
+
+            {isRecurring ? (
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Dia de vencimento</Label>
@@ -233,7 +264,7 @@ export function AddServiceChargeDialog({
             <Button type="button" onClick={handleSubmit} disabled={submitting}>
               {submitting
                 ? 'Criando...'
-                : isMensal
+                : isRecurring
                   ? 'Criar assinatura'
                   : 'Criar cobrança'}
             </Button>

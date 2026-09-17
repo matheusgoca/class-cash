@@ -21,6 +21,8 @@ interface ServiceOption {
   id: string;
   name: string;
   price: number;
+  type: 'avulso' | 'mensal' | 'anual_parcelado';
+  default_installments: number | null;
 }
 
 interface StudentOption {
@@ -40,6 +42,7 @@ export function SubscribeServiceDialog({
   const [serviceId, setServiceId] = useState('');
   const [dueDay, setDueDay] = useState('10');
   const [startDate, setStartDate] = useState(todayStr());
+  const [installments, setInstallments] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -48,10 +51,11 @@ export function SubscribeServiceDialog({
     setServiceId('');
     setDueDay('10');
     setStartDate(todayStr());
+    setInstallments('');
 
     (supabase as any)
       .from('school_services')
-      .select('id, name, price')
+      .select('id, name, price, type, default_installments')
       .eq('school_id', schoolId)
       .eq('active', true)
       .order('name')
@@ -69,10 +73,22 @@ export function SubscribeServiceDialog({
   }, [open, schoolId, fixedStudentId]);
 
   const selectedService = services.find((s) => s.id === serviceId);
+  const isAnnualInstallments = selectedService?.type === 'anual_parcelado';
+
+  useEffect(() => {
+    if (selectedService?.type === 'anual_parcelado') {
+      setInstallments(String(selectedService.default_installments ?? ''));
+    }
+  }, [selectedService?.id]);
 
   const handleSubmit = async () => {
     if (!studentId || !serviceId || !selectedService) {
       toast({ title: 'Preencha aluno e serviço', variant: 'destructive' });
+      return;
+    }
+    const installmentsNum = isAnnualInstallments ? Number(installments) : null;
+    if (isAnnualInstallments && (!installmentsNum || Number.isNaN(installmentsNum) || installmentsNum <= 0)) {
+      toast({ title: 'Informe o número de parcelas', variant: 'destructive' });
       return;
     }
     setSubmitting(true);
@@ -84,6 +100,7 @@ export function SubscribeServiceDialog({
         price: selectedService.price,
         dueDay: Number(dueDay),
         startDate,
+        installments: installmentsNum,
       });
       toast({
         title: 'Assinatura criada!',
@@ -131,6 +148,7 @@ export function SubscribeServiceDialog({
                   {services.map((s) => (
                     <SelectItem key={s.id} value={s.id}>
                       {s.name} — {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(s.price)}
+                      {s.type === 'anual_parcelado' && s.default_installments ? ` (${s.default_installments}x)` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -146,6 +164,16 @@ export function SubscribeServiceDialog({
                 <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
               </div>
             </div>
+            {isAnnualInstallments && (
+              <div className="space-y-2">
+                <Label>Nº de parcelas</Label>
+                <Input
+                  type="number" min="1" step="1"
+                  value={installments}
+                  onChange={(e) => setInstallments(e.target.value)}
+                />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>

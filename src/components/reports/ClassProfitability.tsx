@@ -53,7 +53,7 @@ export function ClassProfitability() {
         // Classes with embedded teacher salary info
         (supabase as any)
           .from("classes")
-          .select(`id, name, level, class_teachers ( teacher_id, teachers ( salary ) )`)
+          .select(`id, name, level, class_teachers ( teacher_id, weekly_hours, teachers ( salary ) )`)
           .eq("school_id", schoolId),
         // Paid tuitions joined to class via contracts — só o mês corrente,
         // pra bater com o salário (mensal) usado no custo
@@ -123,6 +123,7 @@ export function ClassProfitability() {
             classId: cls.id,
             teacherId: ct.teacher_id,
             salary: Number(ct.teachers?.salary || 0),
+            weeklyHours: ct.weekly_hours ?? null,
           }))
       );
 
