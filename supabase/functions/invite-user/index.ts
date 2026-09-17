@@ -55,11 +55,18 @@ serve(async (req) => {
       return Response.json({ error: "Não autorizado" }, { status: 401, headers: corsHeaders });
     }
 
-    // Owner da escola: profile.school_id == school_id
     const { data: profile } = await supabaseAdmin
       .from("profiles")
-      .select("school_id")
+      .select("school_id, is_master_admin")
       .eq("user_id", user.id)
+      .single();
+
+    // Owner da escola: schools.owner_user_id == user.id (NÃO profile.school_id ==
+    // school_id — isso dava match pra qualquer membro da escola, não só o owner)
+    const { data: targetSchool } = await supabaseAdmin
+      .from("schools")
+      .select("owner_user_id")
+      .eq("id", school_id)
       .single();
 
     // Membro admin: user_roles.role == 'admin' e profile.school_id == school_id
@@ -70,10 +77,11 @@ serve(async (req) => {
       .eq("role", "admin")
       .maybeSingle();
 
-    const isOwner = profile?.school_id === school_id;
+    const isMasterAdmin = !!profile?.is_master_admin;
+    const isOwner = targetSchool?.owner_user_id === user.id;
     const isAdmin = !!roleRow && profile?.school_id === school_id;
 
-    if (!isOwner && !isAdmin) {
+    if (!isMasterAdmin && !isOwner && !isAdmin) {
       return Response.json(
         { error: "Apenas admins podem convidar membros" },
         { status: 403, headers: corsHeaders }

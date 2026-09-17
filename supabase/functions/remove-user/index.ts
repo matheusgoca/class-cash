@@ -67,10 +67,10 @@ serve(async (req) => {
       return Response.json({ error: "O owner da escola não pode ser removido." }, { status: 403, headers: corsHeaders });
     }
 
-    // Verifica que quem chama é admin ou owner da escola
+    // Verifica que quem chama é admin, owner da escola, ou master admin
     const { data: callerProfile } = await supabaseAdmin
       .from("profiles")
-      .select("school_id")
+      .select("school_id, is_master_admin")
       .eq("user_id", caller.id)
       .single();
 
@@ -81,10 +81,11 @@ serve(async (req) => {
       .eq("role", "admin")
       .maybeSingle();
 
+    const isMasterAdmin = !!callerProfile?.is_master_admin;
     const isOwner = school?.owner_user_id === caller.id;
     const isAdmin = !!callerRole && callerProfile?.school_id === school_id;
 
-    if (!isOwner && !isAdmin) {
+    if (!isMasterAdmin && !isOwner && !isAdmin) {
       return Response.json(
         { error: "Apenas admins podem remover membros." },
         { status: 403, headers: corsHeaders }
