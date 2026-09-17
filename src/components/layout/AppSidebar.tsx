@@ -109,9 +109,18 @@ export function AppSidebar() {
   const [openGroups, setOpenGroups] = useState<string[]>(["Gestão", "Financeiro", "Configurações"]);
 
   const isActive = (path: string) => currentPath === path;
+  // The shadcn Sidebar's own SidebarMenuButton/SidebarMenuSubButton classes
+  // (text-sidebar-foreground at rest, hover:text-sidebar-accent-foreground on
+  // hover) have equal-or-higher CSS specificity than these plain utilities
+  // and come later in the compiled stylesheet, so they silently win the
+  // cascade without `!`. Without it, the active item shows dark text on the
+  // green background instead of primary-foreground. SidebarMenuSubButton also
+  // sets `[&>svg]:text-sidebar-accent-foreground` directly on the icon — a
+  // color declared right on the <svg> always beats one merely inherited from
+  // the parent link, importance or not, so the icon needs its own override too.
   const getNavCls = (active: boolean) =>
     active
-      ? "bg-primary text-primary-foreground font-medium"
+      ? "!bg-primary !text-primary-foreground hover:!bg-primary hover:!text-primary-foreground [&>svg]:!text-primary-foreground font-medium"
       : "hover:bg-accent hover:text-accent-foreground";
 
   const toggleGroup = (groupTitle: string) => {

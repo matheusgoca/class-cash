@@ -1,6 +1,5 @@
 import { FinancialMetrics } from "@/components/dashboard/FinancialMetrics";
 import { ClassHealthCards } from "@/components/dashboard/ClassHealthCards";
-import { FinancialKanban } from "@/components/dashboard/FinancialKanban";
 import { DashboardCharts } from "@/components/dashboard/DashboardCharts";
 
 const Index = () => {
@@ -23,11 +22,6 @@ const Index = () => {
       <div>
         <h2 className="text-xl font-semibold mb-4">Saúde Financeira das Turmas</h2>
         <ClassHealthCards />
-      </div>
-
-      <div>
-        <h2 className="text-xl font-semibold mb-4">Controle de Mensalidades</h2>
-        <FinancialKanban />
       </div>
     </div>
   );

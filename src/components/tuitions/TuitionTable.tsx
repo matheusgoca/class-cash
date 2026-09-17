@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, Fragment } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { PaginationCompact } from "@/components/ui/pagination-compact";
 import { ArrowUpDown, Edit, CheckCircle, Search, RefreshCw } from "lucide-react";
@@ -15,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { isTuitionOverdue, calculateTuitionWithPenalty } from "@/lib/calculations";
 import { getFriendlyErrorMessage } from "@/lib/friendlyError";
 import { useSchool } from "@/contexts/SchoolContext";
+import { PaymentConfirmModal, PaymentConfirmData } from "@/components/tuitions/PaymentConfirmModal";
 
 interface TuitionData {
   id: string;
@@ -71,6 +74,9 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
   const [search, setSearch] = useState(initialSearch);
   const [statusFilter, setStatusFilter] = useState("all");
   const [monthFilter, setMonthFilter] = useState("all");
+  const [classFilter, setClassFilter] = useState("all");
+  const [groupByClass, setGroupByClass] = useState(false);
+  const [confirmingPayment, setConfirmingPayment] = useState<TuitionData | null>(null);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -98,6 +104,20 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
     }
     return Array.from(seen).sort();
   }, [data]);
+
+  // Unique class names from data for the turma filter, plus whether any tuition has no class
+  const { availableClasses, hasNoClass } = useMemo(() => {
+    const names = new Set<string>();
+    let noClass = false;
+    for (const t of data) {
+      const className = t.contracts?.classes?.name;
+      if (className) names.add(className);
+      else noClass = true;
+    }
+    return { availableClasses: Array.from(names).sort((a, b) => a.localeCompare(b)), hasNoClass: noClass };
+  }, [data]);
+
+  const getClassName = (t: TuitionData) => t.contracts?.classes?.name || 'Sem turma';
 
   const getStatusBadge = (tuition: TuitionData) => {
     const isOverdue = isTuitionOverdue(tuition.due_date, tuition.status);
@@ -147,14 +167,14 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
     setCurrentPage(1);
   };
 
-  const handleMarkAsPaid = async (tuition: TuitionData) => {
+  const handleConfirmPayment = async (tuition: TuitionData, data: PaymentConfirmData) => {
     try {
       const { error } = await supabase
         .from('tuitions')
         .update({
           status: 'paid',
-          paid_date: format(new Date(), 'yyyy-MM-dd'),
-          payment_method: tuition.payment_method || 'Não informado',
+          paid_date: data.paid_date,
+          payment_method: data.payment_method || 'Não informado',
           final_amount: calculateTuitionWithPenalty(
             tuition.amount,
             tuition.discount_applied,
@@ -171,6 +191,7 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
         description: "Mensalidade marcada como paga!",
       });
 
+      setConfirmingPayment(null);
       onRefresh();
     } catch (error) {
       console.error('Error marking as paid:', error);
@@ -189,11 +210,20 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
     const matchesSearch = !search || (t.students?.full_name ?? '').toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === 'all' || effectiveStatus === statusFilter;
     const matchesMonth  = monthFilter === 'all' || t.due_date.startsWith(monthFilter);
-    return matchesSearch && matchesStatus && matchesMonth;
+    const matchesClass = classFilter === 'all'
+      || (classFilter === 'no-class' && !t.contracts?.classes?.name)
+      || t.contracts?.classes?.name === classFilter;
+    return matchesSearch && matchesStatus && matchesMonth && matchesClass;
   });
 
-  // Sort data
+  // Sort data — grouped mode forces turma as primary sort key so groups stay contiguous
   const sortedData = [...filteredData].sort((a, b) => {
+    if (groupByClass) {
+      const classCompare = getClassName(a).localeCompare(getClassName(b));
+      if (classCompare !== 0) return classCompare;
+      return new Date(b.due_date).getTime() - new Date(a.due_date).getTime();
+    }
+
     let aVal: any, bVal: any;
 
     switch (sortField) {
@@ -238,6 +268,18 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
     currentPage * itemsPerPage
   );
 
+  // Per-turma count/subtotal across all filtered data (not just the current page)
+  const groupTotals = groupByClass
+    ? sortedData.reduce((acc: Record<string, { count: number; amount: number }>, t) => {
+        const key = getClassName(t);
+        const entry = acc[key] ?? { count: 0, amount: 0 };
+        entry.count += 1;
+        entry.amount += Number(t.final_amount || t.amount);
+        acc[key] = entry;
+        return acc;
+      }, {})
+    : {};
+
   if (loading) {
     return (
       <Card>
@@ -254,6 +296,7 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
   }
 
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle>
@@ -294,6 +337,33 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
               })}
             </SelectContent>
           </Select>
+          <Select
+            value={classFilter}
+            onValueChange={v => {
+              setClassFilter(v);
+              setCurrentPage(1);
+              if (v !== 'all') setGroupByClass(false);
+            }}
+          >
+            <SelectTrigger className="w-[170px]">
+              <SelectValue placeholder="Turma" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as turmas</SelectItem>
+              {availableClasses.map(name => (
+                <SelectItem key={name} value={name}>{name}</SelectItem>
+              ))}
+              {hasNoClass && <SelectItem value="no-class">Sem turma</SelectItem>}
+            </SelectContent>
+          </Select>
+          {classFilter === 'all' && (
+            <div className="flex items-center gap-2 px-1">
+              <Switch id="group-by-class" checked={groupByClass} onCheckedChange={setGroupByClass} />
+              <Label htmlFor="group-by-class" className="text-sm font-normal cursor-pointer">
+                Agrupar por turma
+              </Label>
+            </div>
+          )}
         </div>
       </CardHeader>
       <CardContent>
@@ -306,6 +376,7 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
                     variant="ghost"
                     size="sm"
                     onClick={() => handleSort("student_name")}
+                    disabled={groupByClass}
                     className="h-auto p-0 font-semibold"
                   >
                     Aluno
@@ -317,6 +388,7 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
                     variant="ghost"
                     size="sm"
                     onClick={() => handleSort("class_name")}
+                    disabled={groupByClass}
                     className="h-auto p-0 font-semibold"
                   >
                     Turma
@@ -328,6 +400,7 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
                     variant="ghost"
                     size="sm"
                     onClick={() => handleSort("amount")}
+                    disabled={groupByClass}
                     className="h-auto p-0 font-semibold"
                   >
                     Valor
@@ -339,6 +412,7 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
                     variant="ghost"
                     size="sm"
                     onClick={() => handleSort("status")}
+                    disabled={groupByClass}
                     className="h-auto p-0 font-semibold"
                   >
                     Status
@@ -350,6 +424,7 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
                     variant="ghost"
                     size="sm"
                     onClick={() => handleSort("due_date")}
+                    disabled={groupByClass}
                     className="h-auto p-0 font-semibold"
                   >
                     Vencimento
@@ -361,6 +436,7 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
                     variant="ghost"
                     size="sm"
                     onClick={() => handleSort("paid_date")}
+                    disabled={groupByClass}
                     className="h-auto p-0 font-semibold"
                   >
                     Data Pagamento
@@ -372,12 +448,28 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedData.map((tuition) => {
+              {paginatedData.map((tuition, index) => {
                 const isOverdue = isTuitionOverdue(tuition.due_date, tuition.status);
                 const canMarkAsPaid = tuition.status === "pending" || isOverdue;
+                const turmaName = getClassName(tuition);
+                const showGroupHeader = groupByClass && (index === 0 || getClassName(paginatedData[index - 1]) !== turmaName);
+                const groupTotal = groupTotals[turmaName];
 
                 return (
-                  <TableRow key={tuition.id}>
+                  <Fragment key={tuition.id}>
+                  {showGroupHeader && (
+                    <TableRow className="bg-muted/50 hover:bg-muted/50">
+                      <TableCell colSpan={8} className="py-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="font-semibold">{turmaName}</span>
+                          <span className="text-muted-foreground">
+                            {groupTotal?.count ?? 0} {groupTotal?.count === 1 ? 'registro' : 'registros'} · {formatCurrency(groupTotal?.amount || 0)}
+                          </span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  <TableRow>
                     <TableCell className="font-medium">
                       {tuition.students?.full_name || 'N/A'}
                     </TableCell>
@@ -413,7 +505,7 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleMarkAsPaid(tuition)}
+                            onClick={() => setConfirmingPayment(tuition)}
                             className="text-green-600 hover:text-green-700"
                           >
                             <CheckCircle className="h-4 w-4" />
@@ -444,6 +536,7 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
                       </div>
                     </TableCell>
                   </TableRow>
+                  </Fragment>
                 );
               })}
               {paginatedData.length === 0 && (
@@ -466,5 +559,20 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
         />
       </CardContent>
     </Card>
+
+    {confirmingPayment && (
+      <PaymentConfirmModal
+        studentName={confirmingPayment.students?.full_name || 'N/A'}
+        description={confirmingPayment.description}
+        amount={calculateTuitionWithPenalty(
+          confirmingPayment.amount,
+          confirmingPayment.discount_applied,
+          confirmingPayment.penalty_amount,
+        )}
+        onConfirm={(data) => handleConfirmPayment(confirmingPayment, data)}
+        onCancel={() => setConfirmingPayment(null)}
+      />
+    )}
+    </>
   );
 }
