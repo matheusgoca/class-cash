@@ -96,6 +96,32 @@ export default function MasterAdmin() {
     }
   }, [waitingForSchool, school]);
 
+  // PostgREST caps a single response at 1000 rows by default. This query has
+  // no school_id filter (it spans every school for the overview cards), and
+  // production already has 3500+ matching tuitions — well past that cap — so
+  // it must be paged with .range(), not fetched in one shot.
+  const fetchAllTuitionsAcrossSchools = async (gteDate: string) => {
+    const CHUNK_SIZE = 1000;
+    const MAX_CHUNKS = 50; // safety guard against a runaway loop
+    let allRows: any[] = [];
+    let offset = 0;
+    for (let chunk = 0; chunk < MAX_CHUNKS; chunk++) {
+      const { data, error } = await (supabase as any)
+        .from("tuitions")
+        .select("school_id, amount, final_amount, status, due_date")
+        .neq("status", "cancelled")
+        .gte("due_date", gteDate)
+        .order("id", { ascending: true })
+        .range(offset, offset + CHUNK_SIZE - 1);
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+      allRows = allRows.concat(data);
+      if (data.length < CHUNK_SIZE) break;
+      offset += CHUNK_SIZE;
+    }
+    return allRows;
+  };
+
   const fetchSchools = async () => {
     setLoading(true);
     try {
@@ -110,13 +136,11 @@ export default function MasterAdmin() {
       const currentMonth = now.getMonth();
       const twelveMonthsAgo = toDateStr(new Date(currentYear - 1, currentMonth, 1));
 
-      const [schoolsRes, profilesRes, studentsRes, tuitionsRes] = await Promise.all([
+      const [schoolsRes, profilesRes, studentsRes, tuitionsData] = await Promise.all([
         (supabase as any).from("schools").select("id, name, plan, status, created_at, owner_user_id").order("created_at", { ascending: false }),
         (supabase as any).from("profiles").select("user_id, email"),
         (supabase as any).from("students").select("school_id").eq("status", "active"),
-        (supabase as any).from("tuitions").select("school_id, amount, final_amount, status, due_date")
-          .neq("status", "cancelled")
-          .gte("due_date", twelveMonthsAgo),
+        fetchAllTuitionsAcrossSchools(twelveMonthsAgo),
       ]);
 
       const profileMap: Record<string, string> = (profilesRes.data || []).reduce((acc: any, p: any) => {
@@ -133,7 +157,7 @@ export default function MasterAdmin() {
       const totalBySchool: Record<string, number> = {};
       const overdueBySchool: Record<string, number> = {};
 
-      for (const t of tuitionsRes.data || []) {
+      for (const t of tuitionsData) {
         const sid = t.school_id;
         // final_amount reflects desconto/multa; só é preenchido quando o
         // pagamento é confirmado — mesma convenção de ClassHealthCards.tsx.
