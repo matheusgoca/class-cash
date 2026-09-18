@@ -40,3 +40,16 @@ Comportamento de gerente de projeto / PO / tech lead: pensar passo a passo, elab
 - `class-cash/` (aninhada dentro deste repo) — um clone antigo e desatualizado do próprio projeto, com seu próprio `.git`. Não é usado por nada; seguro remover.
 - `Claude outputs/` — anotações soltas de sessões anteriores, sem relação com o Claude Project atual. `revisao-class-cash.md` ali é um rascunho antigo já superado por `claude/REVISAO_UI_E_DESPESAS.md` no Claude Project.
 - `docs/arquitetura.md` — desatualizado (descreve como "pendente" funcionalidades que já existem: renegociação, painel master, relatório de inadimplência). Mantido só como referência histórica; a arquitetura atual está no `README.md` e nos docs do Claude Project.
+
+## gstack (recommended)
+
+This project uses [gstack](https://github.com/garrytan/gstack) for AI-assisted workflows.
+Install it for the best experience:
+
+```bash
+git clone --depth 1 https://github.com/garrytan/gstack.git ~/.claude/skills/gstack
+cd ~/.claude/skills/gstack && ./setup --team
+```
+
+Skills like /qa, /ship, /review, /investigate, and /browse become available after install.
+Use /browse for all web browsing (Aside first, the bundled gstack browser as fallback). Use ~/.claude/skills/gstack/... for gstack file paths.
