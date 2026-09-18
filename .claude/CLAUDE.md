@@ -134,97 +134,10 @@ Auto mode is ideal for experienced users who trust the workflow and want maximum
 | Command | Purpose |
 |---|---|
 | `/spartan:pr-ready` | Pre-PR checklist + auto PR description |
-| `/spartan:codex [sub]` | Second-opinion review via Codex CLI (review/ship/security/uncommitted/setup) |
 | `/spartan:daily` | Standup summary from git log |
 | `/spartan:init-project` | Auto-generate CLAUDE.md from codebase |
 | `/spartan:context-save` | Manage context: compact first, full save if needed |
 | `/spartan:update` | Upgrade Spartan to latest version |
-
-
----
-
-## Database Patterns
-
-Rules in `rules/database/` enforce database standards:
-- `SCHEMA.md` — No FK, TEXT not VARCHAR, soft deletes, uuid_generate_v4(), partial indexes
-- `ORM_AND_REPO.md` — Exposed ORM patterns, repository pattern, testing
-- `TRANSACTIONS.md` — Multi-table operations MUST use `transaction(db.primary) {}`
-
-### Database Skills
-
-- `/database-table-creator` — SQL migration → Exposed Table → Entity → Repository → Tests
-- `/database-patterns` — Schema design, migrations, Exposed ORM patterns
-
-### Database Commands
-
-| Command | Purpose |
-|---|---|
-| `/spartan:migration "desc"` | Create versioned Flyway migration |
-
-
----
-
-## Kotlin + Micronaut Backend
-
-**Stack:** Kotlin + Micronaut — coroutines, Either error handling, Exposed ORM
-
-Rules in `rules/backend-micronaut/` and `rules/database/` are loaded automatically.
-
-**Workflow:** `/spartan:build backend "feature"` handles the full pipeline (plan → migration → endpoint → tests → review → PR).
-
-### Backend Commands
-
-| Command | Purpose |
-|---|---|
-| `/spartan:kotlin-service [name]` | Scaffold Micronaut microservice |
-| `/spartan:review` | PR review with Kotlin/Micronaut conventions |
-| `/spartan:testcontainer [type]` | Setup Testcontainers |
-| `/spartan:migration "desc"` | Create database migration |
-
-
----
-
-## React + Next.js Frontend
-
-**Stack:** React / Next.js / TypeScript (App Router) — Vitest + Testing Library, Tailwind CSS
-
-Rules in `rules/frontend-react/`:
-- `FRONTEND.md` — Build check before commit, API case conversion, null safety, optimistic updates
-
-### Feature Development Workflow (Frontend)
-
-When building a frontend feature, follow this pipeline:
-
-```
-Epic → Spec → Design → Plan → Build → Review
-              ↑                  ↑       ↑        ↑
-            Gate 1             Gate 2  Gate 3   Gate 4
-```
-
-**Build phases:** Types & API → Components → Pages/Routes → Tests
-
-Design is NOT optional for frontend — always create a design doc for new screens.
-
-**Design workflow:** `/spartan:spec` → `/spartan:ux prototype` → `/spartan:plan` → `/spartan:build`
-
-The `/spartan:ux` command handles the full design pipeline — from user research to design QA. The `prototype` sub-command creates a design doc with dual-agent review (designer + `design-critic`). It reads your project's `.planning/design-config.md` for brand colors, fonts, and personality. If no config exists, it helps you create one.
-
-See `templates/workflow-frontend-react.md` for the full workflow with:
-- Stack-specific quality gates (TypeScript, React patterns, accessibility, responsive)
-- File location guide (App Router conventions)
-- Parallel vs sequential task planning
-
-### Frontend Commands
-
-| Command | Purpose |
-|---|---|
-| `/spartan:ux [phase]` | UX design workflow — research, define, ideate, system, prototype, test, handoff, qa |
-| `/spartan:next-app [name]` | Scaffold Next.js app (App Router, Vitest, Docker, CI) |
-| `/spartan:next-feature [name]` | Add feature to existing Next.js app |
-| `/spartan:fe-review` | PR review with Next.js App Router conventions |
-| `/spartan:figma-to-code [url]` | Convert Figma screen to production code via MCP |
-| `/spartan:e2e [feature]` | Scaffold Playwright E2E testing |
-| `/spartan:qa [url] [feature]` | Real browser QA — opens Chromium, tests flows, finds bugs |
 
 
 ---
@@ -284,8 +197,6 @@ See `.planning/design-config.md` → "AI Asset Generation" section for full setu
 
 Once design tokens exist, ALL downstream commands enforce them:
 - `/spartan:build` injects tokens into agent prompts
-- `/spartan:fe-review` checks token compliance (Stage 8)
-- `/spartan:next-feature` scaffolds with project tokens
 - `design-critic` agent hard-fails on token mismatches
 
 ### Works With Other Workflows
@@ -294,33 +205,6 @@ Once design tokens exist, ALL downstream commands enforce them:
 |-------------------|---------------|
 | `/spartan:build frontend` | Checks for design tokens, nudges if missing |
 | `/spartan:spec` (UI feature) | Checks for user research, suggests if missing |
-| `/spartan:fe-review` | Checks code against design tokens |
-| `/spartan:figma-to-code` | Merges with existing design tokens if they exist |
-
-
----
-
-## Terraform + AWS Infrastructure
-
-**Stack:** Terraform with AWS - EKS/ECS, RDS, ElastiCache, S3, SQS, IAM, OIDC
-
-**Canonical templates:** [`spartan-sre-wiki`](https://github.com/spartan-stratos/spartan-sre-wiki) `templates/` is the single source for all infra scaffolds. Clone it locally (`git clone git@github.com:spartan-stratos/spartan-sre-wiki.git`) and scaffold via `templates/scaffold.sh` - never hand-author or copy a live service. Variants: [single-root](https://github.com/spartan-stratos/spartan-sre-wiki/tree/master/templates/terraform/single-root) (envs/ layout, ECS + EKS), [multiple-root](https://github.com/spartan-stratos/spartan-sre-wiki/tree/master/templates/terraform/multiple-root) (per-env/per-account), and the data-driven [service-monorepo](https://github.com/spartan-stratos/spartan-sre-wiki/tree/master/templates/service-monorepo) for EKS ArgoCD/GitOps wiring (one `deployables.yaml` source of truth). The old `template-infra-terraform-*` repos are archived and redirect here.
-
-Rules in `rules/infrastructure/` load automatically when `.tf`, `.hcl`, or `.tfvars` files are in context (Claude Code path-scoped rules). All `/spartan:tf-*` commands also import relevant rules explicitly.
-
-### Infrastructure Commands
-
-| Command | Purpose |
-|---|---|
-| `/spartan:tf-scaffold [service]` | Scaffold service-level Terraform |
-| `/spartan:tf-module [name]` | Create/extend Terraform modules |
-| `/spartan:tf-review` | PR review for Terraform changes |
-| `/spartan:tf-plan [env]` | Guided plan workflow |
-| `/spartan:tf-deploy [env]` | Deployment checklist |
-| `/spartan:tf-import [resource]` | Import existing resources |
-| `/spartan:tf-drift [env]` | Detect infrastructure drift |
-| `/spartan:tf-cost` | Cost estimation guidance |
-| `/spartan:tf-security` | Security audit |
 
 
 ---
@@ -375,30 +259,6 @@ You don't have to use all of them. Pick what fits your stage.
 | `/spartan:env-setup [svc]` | Audit env vars, generate `.env.example` |
 | `/spartan:ops-investigate-alert <alert>` | Investigate a monitoring alert end-to-end (metrics, logs, traces, code) |
 | `/spartan:ops-oncall-log [date range]` | Create on-call log from monitoring alerts to wiki |
-
----
-
-## Infrastructure Conventions
-
-**Kubernetes:** Always set resource limits + liveness/readiness probes for Micronaut services.
-
-**Terraform:** `terraform plan` review required before every `apply`. No manual console changes.
-
-**Platforms:** Railway (staging) · AWS (production) · GCP (secondary)
-
-**Railway** (`railway.toml`):
-```toml
-[build]
-builder = "nixpacks"
-[deploy]
-startCommand = "java -jar build/libs/*-all.jar"
-healthcheckPath = "/health"
-healthcheckTimeout = 60
-restartPolicyType = "on-failure"
-```
-
-**AWS (production):** ECS Fargate + RDS + Secrets Manager (never plain env vars for secrets).
-
 
 ---
 
