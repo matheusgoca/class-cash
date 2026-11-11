@@ -34,8 +34,13 @@ export async function executeClassesImport(
       p_description: data.description,
       p_max_capacity: data.max_capacity,
       p_monthly_fee: data.monthly_fee,
+      // Planilha de importação não tem coluna pra mensalidade integral nem
+      // para hora/aula por professor — mesmo default que o form manual usa
+      // quando esses campos ficam em branco (ver Classes.tsx:116-129).
+      p_monthly_fee_integral: null,
       p_color: data.color,
       p_teacher_ids: data.teacher_ids,
+      p_teacher_hours: null,
     });
 
     outcomes.push(
