@@ -14,7 +14,7 @@ import { ArrowUpDown, Edit, CheckCircle, Search, RefreshCw } from "lucide-react"
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
-import { isTuitionOverdue, calculateTuitionWithPenalty } from "@/lib/calculations";
+import { isTuitionOverdue, calculateTuitionWithPenalty, getTuitionValue } from "@/lib/calculations";
 import { getFriendlyErrorMessage } from "@/lib/friendlyError";
 import { useSchool } from "@/contexts/SchoolContext";
 import { PaymentConfirmModal, PaymentConfirmData } from "@/components/tuitions/PaymentConfirmModal";
@@ -236,8 +236,8 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
         bVal = b.contracts?.classes?.name || '';
         break;
       case 'amount':
-        aVal = a.final_amount || a.amount;
-        bVal = b.final_amount || b.amount;
+        aVal = getTuitionValue(a);
+        bVal = getTuitionValue(b);
         break;
       case 'status':
         aVal = a.status;
@@ -274,7 +274,7 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
         const key = getClassName(t);
         const entry = acc[key] ?? { count: 0, amount: 0 };
         entry.count += 1;
-        entry.amount += Number(t.final_amount || t.amount);
+        entry.amount += getTuitionValue(t);
         acc[key] = entry;
         return acc;
       }, {})
@@ -478,7 +478,7 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
                     </TableCell>
                     <TableCell>
                       <div className="text-sm">
-                        <div className="font-medium">{formatCurrency(tuition.final_amount || tuition.amount)}</div>
+                        <div className="font-medium">{formatCurrency(getTuitionValue(tuition))}</div>
                         {tuition.discount_applied > 0 && (
                           <div className="text-muted-foreground text-xs">
                             Base: {formatCurrency(tuition.amount)} | Desc: {formatCurrency(tuition.discount_applied)}

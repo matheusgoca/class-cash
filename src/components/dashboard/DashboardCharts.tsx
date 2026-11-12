@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/contexts/SchoolContext";
-import { formatCurrency } from "@/lib/calculations";
+import { formatCurrency, getTuitionValue } from "@/lib/calculations";
 import { parseLocalDate } from "@/lib/dateUtils";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -77,7 +77,7 @@ export function DashboardCharts() {
       for (const t of tuitions || []) {
         const d = parseLocalDate(t.paid_date!);
         const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-        if (key in revenueByMonth) revenueByMonth[key] += Number(t.final_amount ?? t.amount ?? 0);
+        if (key in revenueByMonth) revenueByMonth[key] += getTuitionValue(t);
       }
 
       // Salary has no month-by-month history today — same value repeated across months

@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/contexts/SchoolContext";
-import { formatCurrency, isTuitionOverdue } from "@/lib/calculations";
+import { formatCurrency, isTuitionOverdue, getTuitionValue } from "@/lib/calculations";
 import { parseLocalDate } from "@/lib/dateUtils";
 import { Users, DollarSign, AlertTriangle } from "lucide-react";
 
@@ -222,7 +222,7 @@ export function ClassHealthCards() {
       for (const t of tuitionsData || []) {
         const cid = t.contracts?.class_id;
         if (!cid) continue;
-        const value = Number(t.final_amount ?? t.amount ?? 0);
+        const value = getTuitionValue(t);
         if (t.status === 'paid') {
           revenueByClass[cid] = (revenueByClass[cid] || 0) + value;
           const due = parseLocalDate(t.due_date);

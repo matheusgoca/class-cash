@@ -36,6 +36,23 @@ export function calculateTuitionWithPenalty(
 }
 
 /**
+ * Single source of truth for "o que essa mensalidade valeu de fato".
+ * `final_amount` só é preenchido quando o status vira `paid` (ver
+ * TuitionForm/TuitionTable) — para pendente/atrasada ele é null e o valor
+ * correto é o `amount` contratado. Não confundir com `contracts.final_amount`,
+ * que é um campo homônimo e diferente (valor mensal já líquido do desconto
+ * do contrato, usado para popular `tuitions.amount` na geração).
+ * @param tuition - objeto com `amount` e `final_amount` (como vêm do Supabase)
+ * @returns o valor que deve entrar em qualquer soma de receita
+ */
+export function getTuitionValue(tuition: {
+  amount: number | string | null;
+  final_amount?: number | string | null;
+}): number {
+  return Number(tuition.final_amount ?? tuition.amount ?? 0);
+}
+
+/**
  * Format currency in Brazilian Real
  * @param value - The numeric value to format
  * @returns Formatted currency string

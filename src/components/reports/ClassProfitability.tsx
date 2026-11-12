@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
-import { formatCurrency } from "@/lib/calculations";
+import { formatCurrency, getTuitionValue } from "@/lib/calculations";
 import { computeClassCosts } from "@/lib/classCost";
 import { toDateStr } from "@/lib/dateUtils";
 
@@ -98,7 +98,7 @@ export function ClassProfitability() {
       for (const t of tuitions || []) {
         const classId = t.contracts?.class_id;
         if (!classId) continue;
-        const val = Number(t.final_amount ?? t.amount ?? 0);
+        const val = getTuitionValue(t);
         revenueByClass[classId] = (revenueByClass[classId] || 0) + val;
       }
 

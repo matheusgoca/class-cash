@@ -10,7 +10,7 @@ import { TuitionForm } from "@/components/tuitions/TuitionForm";
 import { TuitionTable } from "@/components/tuitions/TuitionTable";
 import { RenegotiationModal } from "@/components/tuitions/RenegotiationModal";
 import { useToast } from "@/hooks/use-toast";
-import { isTuitionOverdue } from "@/lib/calculations";
+import { isTuitionOverdue, getTuitionValue } from "@/lib/calculations";
 import { getFriendlyErrorMessage } from "@/lib/friendlyError";
 
 interface TuitionData {
@@ -173,20 +173,20 @@ const Tuitions = () => {
         acc.total += 1;
         // Cancelled tuitions (e.g. replaced by a renegotiation) are not revenue.
         if (status !== "cancelled") {
-          acc.totalAmount += Number(tuition.final_amount || tuition.amount);
+          acc.totalAmount += getTuitionValue(tuition);
         }
         switch (status) {
           case "pending":
             acc.pending += 1;
-            acc.pendingAmount += Number(tuition.final_amount || tuition.amount);
+            acc.pendingAmount += getTuitionValue(tuition);
             break;
           case "paid":
             acc.paid += 1;
-            acc.paidAmount += Number(tuition.final_amount || tuition.amount);
+            acc.paidAmount += getTuitionValue(tuition);
             break;
           case "overdue":
             acc.overdue += 1;
-            acc.overdueAmount += Number(tuition.final_amount || tuition.amount);
+            acc.overdueAmount += getTuitionValue(tuition);
             break;
           case "cancelled":
             acc.cancelled += 1;

@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { parseLocalDate } from "@/lib/dateUtils";
 import { getFriendlyErrorMessage } from "@/lib/friendlyError";
+import { getTuitionValue } from "@/lib/calculations";
 
 interface OverdueTuition {
   id: string;
@@ -79,7 +80,7 @@ export function RenegotiationModal({
   };
 
   const originalAmount = overdueTuitions.reduce(
-    (sum, t) => sum + Number(t.final_amount ?? t.amount),
+    (sum, t) => sum + getTuitionValue(t),
     0
   );
 

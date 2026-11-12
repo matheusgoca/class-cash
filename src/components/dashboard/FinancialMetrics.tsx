@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/contexts/SchoolContext";
-import { formatCurrency, isTuitionOverdue } from "@/lib/calculations";
+import { formatCurrency, isTuitionOverdue, getTuitionValue } from "@/lib/calculations";
 import { parseLocalDate } from "@/lib/dateUtils";
 import { DollarSign, TrendingUp, TrendingDown, AlertTriangle, Users, UserCheck, Calculator, Wallet, Sparkles } from "lucide-react";
 
@@ -52,7 +52,7 @@ export function FinancialMetrics() {
         (supabase as any).from('students').select('id').eq('school_id', schoolId).eq('status', 'active'),
         (supabase as any).from('teachers_directory').select('id').eq('school_id', schoolId).eq('status', 'active'),
         (supabase as any).rpc('get_active_teachers_salary_sum', { p_school_id: schoolId }),
-        (supabase as any).from('tuitions').select('amount, status, due_date').eq('school_id', schoolId),
+        (supabase as any).from('tuitions').select('amount, final_amount, status, due_date').eq('school_id', schoolId),
         (supabase as any).from('expenses').select('amount, status, due_date').eq('school_id', schoolId).gte('due_date', twoMonthsAgo),
         (supabase as any).from('service_charges').select('amount, status, due_date').eq('school_id', schoolId),
       ]);
@@ -68,13 +68,13 @@ export function FinancialMetrics() {
       // exclude them everywhere, same as the expenses bucket below already does.
       const activeTuitions = tuitions?.filter((t: any) => t.status !== "cancelled") || [];
 
-      const totalRevenue = activeTuitions.reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+      const totalRevenue = activeTuitions.reduce((sum: number, t: any) => sum + getTuitionValue(t), 0);
       const paidRevenue = activeTuitions.filter((t: any) => t.status === "paid")
-        .reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+        .reduce((sum: number, t: any) => sum + getTuitionValue(t), 0);
       const pendingRevenue = activeTuitions.filter((t: any) => t.status === "pending")
-        .reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+        .reduce((sum: number, t: any) => sum + getTuitionValue(t), 0);
       const overdueRevenue = activeTuitions.filter((t: any) => isTuitionOverdue(t.due_date, t.status))
-        .reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+        .reduce((sum: number, t: any) => sum + getTuitionValue(t), 0);
 
       // Bucket tuitions into current and previous month in a single pass.
       // monthlyRevenue (all non-cancelled statuses) is kept for its own
@@ -91,10 +91,10 @@ export function FinancialMetrics() {
         const m = due.getMonth();
         const isCurrent = y === currentYear && m === currentMonth;
         const isPrevious = y === prevRef.getFullYear() && m === prevRef.getMonth();
-        if (isCurrent) monthlyRevenue += Number(t.amount);
+        if (isCurrent) monthlyRevenue += getTuitionValue(t);
         if (t.status === 'paid') {
-          if (isCurrent) monthlyPaidRevenue += Number(t.amount);
-          else if (isPrevious) previousMonthPaidRevenue += Number(t.amount);
+          if (isCurrent) monthlyPaidRevenue += getTuitionValue(t);
+          else if (isPrevious) previousMonthPaidRevenue += getTuitionValue(t);
         }
       }
 
