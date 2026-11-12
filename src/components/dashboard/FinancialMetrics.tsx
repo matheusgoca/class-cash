@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/contexts/SchoolContext";
 import { formatCurrency, isTuitionOverdue, getTuitionValue } from "@/lib/calculations";
+import { calculateMonthlyBalance } from "@/lib/financialBalance";
 import { parseLocalDate } from "@/lib/dateUtils";
 import { DollarSign, TrendingUp, TrendingDown, AlertTriangle, Users, UserCheck, Calculator, Wallet, Sparkles } from "lucide-react";
 
@@ -10,17 +11,20 @@ export function FinancialMetrics() {
   const { schoolId } = useSchool();
   const [metrics, setMetrics] = useState({
     totalRevenue: 0,
-    paidRevenue: 0,
-    monthlyRevenue: 0,
+    monthlyPaidRevenue: 0,
+    monthlyForecastRevenue: 0,
+    monthlyOverdueRevenue: 0,
+    monthlyDuedRevenue: 0,
     monthlyServiceRevenue: 0,
-    pendingRevenue: 0,
-    overdueRevenue: 0,
     totalStudents: 0,
     totalTeachers: 0,
     totalSalaries: 0,
-    monthlyExpenses: 0,
-    financialBalance: 0,
-    previousBalance: 0,
+    // Realizado (caixa, paid_date) é o Saldo principal; Previsto (competência,
+    // due_date) é o apoio — ver docs/PLANO_SPRINTS_NOV2026.md, seção 1, item C.
+    realizedBalance: 0,
+    forecastBalance: 0,
+    forecastExpenses: 0,
+    previousRealizedBalance: 0,
     loading: true
   });
 
@@ -34,9 +38,6 @@ export function FinancialMetrics() {
       const currentYear  = currentDate.getFullYear();
       const currentMonth = currentDate.getMonth(); // 0-indexed
       const prevRef = new Date(currentYear, currentMonth - 1, 1);
-
-      // Expenses only need the past 2 months for the balance calculation
-      const twoMonthsAgo = new Date(currentYear, currentMonth - 1, 1).toISOString().slice(0, 10);
 
       const [
         { data: students, error: studentsError },
@@ -52,9 +53,12 @@ export function FinancialMetrics() {
         (supabase as any).from('students').select('id').eq('school_id', schoolId).eq('status', 'active'),
         (supabase as any).from('teachers_directory').select('id').eq('school_id', schoolId).eq('status', 'active'),
         (supabase as any).rpc('get_active_teachers_salary_sum', { p_school_id: schoolId }),
-        (supabase as any).from('tuitions').select('amount, final_amount, status, due_date').eq('school_id', schoolId),
-        (supabase as any).from('expenses').select('amount, status, due_date').eq('school_id', schoolId).gte('due_date', twoMonthsAgo),
-        (supabase as any).from('service_charges').select('amount, status, due_date').eq('school_id', schoolId),
+        (supabase as any).from('tuitions').select('amount, final_amount, status, due_date, paid_date').eq('school_id', schoolId),
+        // Sem filtro de data: Realizado (paid_date) e Previsto (due_date) podem
+        // cair em meses diferentes de quando a busca é feita (pagamento em
+        // atraso), então não há uma janela de data única que cubra os dois.
+        (supabase as any).from('expenses').select('amount, status, due_date, paid_date').eq('school_id', schoolId),
+        (supabase as any).from('service_charges').select('amount, status, due_date, paid_date').eq('school_id', schoolId),
       ]);
 
       if (studentsError) throw studentsError;
@@ -68,86 +72,71 @@ export function FinancialMetrics() {
       // exclude them everywhere, same as the expenses bucket below already does.
       const activeTuitions = tuitions?.filter((t: any) => t.status !== "cancelled") || [];
 
+      // hasData check only — not a metric shown on screen (lifetime count is
+      // meaningless once Receita Recebida/Inadimplência became monthly below)
       const totalRevenue = activeTuitions.reduce((sum: number, t: any) => sum + getTuitionValue(t), 0);
-      const paidRevenue = activeTuitions.filter((t: any) => t.status === "paid")
-        .reduce((sum: number, t: any) => sum + getTuitionValue(t), 0);
-      const pendingRevenue = activeTuitions.filter((t: any) => t.status === "pending")
-        .reduce((sum: number, t: any) => sum + getTuitionValue(t), 0);
-      const overdueRevenue = activeTuitions.filter((t: any) => isTuitionOverdue(t.due_date, t.status))
-        .reduce((sum: number, t: any) => sum + getTuitionValue(t), 0);
-
-      // Bucket tuitions into current and previous month in a single pass.
-      // monthlyRevenue (all non-cancelled statuses) is kept for its own
-      // display; monthlyPaidRevenue (paid only) is what actually entered the
-      // caixa and is the only one allowed into financialBalance below — a
-      // "Lucro/Prejuízo" card mixing faturado com recebido would show green
-      // even in a month where nothing was actually paid yet.
-      let monthlyRevenue = 0;
-      let monthlyPaidRevenue = 0;
-      let previousMonthPaidRevenue = 0;
-      for (const t of activeTuitions) {
-        const due = parseLocalDate(t.due_date);
-        const y = due.getFullYear();
-        const m = due.getMonth();
-        const isCurrent = y === currentYear && m === currentMonth;
-        const isPrevious = y === prevRef.getFullYear() && m === prevRef.getMonth();
-        if (isCurrent) monthlyRevenue += getTuitionValue(t);
-        if (t.status === 'paid') {
-          if (isCurrent) monthlyPaidRevenue += getTuitionValue(t);
-          else if (isPrevious) previousMonthPaidRevenue += getTuitionValue(t);
-        }
-      }
-
-      // Same bucketing for service charges (cancelled excluded)
-      const activeServiceCharges = serviceCharges?.filter((s: any) => s.status !== "cancelled") || [];
-      let monthlyServiceRevenue = 0;
-      let monthlyPaidServiceRevenue = 0;
-      let previousMonthPaidServiceRevenue = 0;
-      for (const s of activeServiceCharges) {
-        const due = parseLocalDate(s.due_date);
-        const y = due.getFullYear();
-        const m = due.getMonth();
-        const isCurrent = y === currentYear && m === currentMonth;
-        const isPrevious = y === prevRef.getFullYear() && m === prevRef.getMonth();
-        if (isCurrent) monthlyServiceRevenue += Number(s.amount);
-        if (s.status === 'paid') {
-          if (isCurrent) monthlyPaidServiceRevenue += Number(s.amount);
-          else if (isPrevious) previousMonthPaidServiceRevenue += Number(s.amount);
-        }
-      }
 
       const totalSalaries = Number(totalSalariesData || 0);
 
-      // Bucket expenses into current and previous month in a single pass
-      let monthlyExpenses = 0;
-      let previousMonthExpenses = 0;
-      for (const e of expenses || []) {
-        if (e.status === 'cancelled') continue;
-        const due = parseLocalDate(e.due_date);
-        const y = due.getFullYear();
-        const m = due.getMonth();
-        if (y === currentYear && m === currentMonth) monthlyExpenses += Number(e.amount);
-        else if (y === prevRef.getFullYear() && m === prevRef.getMonth()) previousMonthExpenses += Number(e.amount);
+      // Regime do Saldo: Realizado (caixa, por paid_date) como número
+      // principal, Previsto (competência, por due_date) como apoio —
+      // decisão tomada em docs/PLANO_SPRINTS_NOV2026.md (seção 1, item C).
+      const currentMonthBalance = calculateMonthlyBalance({
+        tuitions: activeTuitions,
+        serviceCharges: serviceCharges || [],
+        expenses: expenses || [],
+        monthlySalaries: totalSalaries,
+        year: currentYear,
+        month: currentMonth,
+      });
+      // Salary has no month-by-month history today — using the current total
+      // as an approximation for the previous month is sufficient for a trend.
+      const previousMonthBalance = calculateMonthlyBalance({
+        tuitions: activeTuitions,
+        serviceCharges: serviceCharges || [],
+        expenses: expenses || [],
+        monthlySalaries: totalSalaries,
+        year: prevRef.getFullYear(),
+        month: prevRef.getMonth(),
+      });
+
+      // Inadimplência do mês: entre as mensalidades com vencimento no mês
+      // atual, quanto já está vencido e não pago. Denominador exclui
+      // pendentes ainda dentro do prazo — não são inadimplência.
+      let monthlyOverdueRevenue = 0;
+      let monthlyDuedRevenue = 0;
+      for (const t of activeTuitions) {
+        const due = parseLocalDate(t.due_date);
+        if (due.getFullYear() !== currentYear || due.getMonth() !== currentMonth) continue;
+        const isOverdue = isTuitionOverdue(t.due_date, t.status);
+        if (t.status === 'paid' || isOverdue) monthlyDuedRevenue += getTuitionValue(t);
+        if (isOverdue) monthlyOverdueRevenue += getTuitionValue(t);
       }
 
-      const financialBalance = monthlyPaidRevenue + monthlyPaidServiceRevenue - totalSalaries - monthlyExpenses;
-      // Salary has no month-by-month history today — using current total as an
-      // approximation for the previous month is sufficient for a trend indicator.
-      const previousBalance = previousMonthPaidRevenue + previousMonthPaidServiceRevenue - totalSalaries - previousMonthExpenses;
+      // "Receita de serviços" card: informativo, sempre competência (due_date)
+      const activeServiceCharges = serviceCharges?.filter((s: any) => s.status !== "cancelled") || [];
+      let monthlyServiceRevenue = 0;
+      for (const s of activeServiceCharges) {
+        const due = parseLocalDate(s.due_date);
+        if (due.getFullYear() === currentYear && due.getMonth() === currentMonth) {
+          monthlyServiceRevenue += Number(s.amount);
+        }
+      }
 
       setMetrics({
         totalRevenue,
-        paidRevenue,
-        monthlyRevenue,
+        monthlyPaidRevenue: currentMonthBalance.realizedRevenue,
+        monthlyForecastRevenue: currentMonthBalance.forecastRevenue,
+        monthlyOverdueRevenue,
+        monthlyDuedRevenue,
         monthlyServiceRevenue,
-        pendingRevenue,
-        overdueRevenue,
         totalStudents: students?.length || 0,
         totalTeachers: teachers?.length || 0,
         totalSalaries,
-        monthlyExpenses,
-        financialBalance,
-        previousBalance,
+        realizedBalance: currentMonthBalance.realized,
+        forecastBalance: currentMonthBalance.forecast,
+        forecastExpenses: currentMonthBalance.forecastExpenses,
+        previousRealizedBalance: previousMonthBalance.realized,
         loading: false
       });
 
@@ -159,14 +148,13 @@ export function FinancialMetrics() {
 
   // Denominator: only tuitions whose due date has passed (paid + overdue);
   // pending within due date are excluded — not yet delinquent
-  const duedBase = metrics.paidRevenue + metrics.overdueRevenue;
-  const defaultRate = duedBase > 0
-    ? (metrics.overdueRevenue / duedBase * 100).toFixed(1)
+  const defaultRate = metrics.monthlyDuedRevenue > 0
+    ? (metrics.monthlyOverdueRevenue / metrics.monthlyDuedRevenue * 100).toFixed(1)
     : "0.0";
 
   // Trend vs previous month — only show when previous month had data
-  const balanceTrend = metrics.previousBalance !== 0
-    ? ((metrics.financialBalance - metrics.previousBalance) / Math.abs(metrics.previousBalance)) * 100
+  const balanceTrend = metrics.previousRealizedBalance !== 0
+    ? ((metrics.realizedBalance - metrics.previousRealizedBalance) / Math.abs(metrics.previousRealizedBalance)) * 100
     : null;
 
   const hasData = metrics.totalStudents > 0 || metrics.totalRevenue > 0;
@@ -215,12 +203,20 @@ export function FinancialMetrics() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <DollarSign className="h-4 w-4" />
-              Saldo Financeiro do Mês
+              Saldo Realizado do Mês
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className={`text-4xl font-bold ${metrics.financialBalance >= 0 ? 'text-success' : 'text-destructive'}`}>
-              {formatCurrency(metrics.financialBalance)}
+            <div className="flex flex-wrap items-end gap-6">
+              <div className={`text-4xl font-bold ${metrics.realizedBalance >= 0 ? 'text-success' : 'text-destructive'}`}>
+                {formatCurrency(metrics.realizedBalance)}
+              </div>
+              <div className="pb-1">
+                <p className="text-xs text-muted-foreground">Previsto (com pendentes)</p>
+                <p className={`text-lg font-semibold ${metrics.forecastBalance >= 0 ? 'text-success' : 'text-destructive'}`}>
+                  {formatCurrency(metrics.forecastBalance)}
+                </p>
+              </div>
             </div>
             <div className="flex flex-wrap items-center gap-2 mt-2">
               {balanceTrend !== null && (
@@ -230,7 +226,7 @@ export function FinancialMetrics() {
                 </span>
               )}
               <span className="text-sm text-muted-foreground">
-                {metrics.financialBalance >= 0 ? 'Lucro' : 'Prejuízo'} — receita recebida no mês menos salários e despesas
+                {metrics.realizedBalance >= 0 ? 'Lucro' : 'Prejuízo'} — receita e despesas efetivamente pagas no mês; Previsto inclui o que ainda está pendente
               </span>
             </div>
           </CardContent>
@@ -239,31 +235,31 @@ export function FinancialMetrics() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Receita Recebida</CardTitle>
+              <CardTitle className="text-sm font-medium">Receita Recebida no Mês</CardTitle>
               <div className="rounded-md p-2 bg-primary/10">
                 <DollarSign className="h-4 w-4 text-primary" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-xl font-bold">{formatCurrency(metrics.paidRevenue)}</div>
+              <div className="text-xl font-bold">{formatCurrency(metrics.monthlyPaidRevenue)}</div>
               <p className="text-xs text-muted-foreground mt-1">
-                {metrics.totalRevenue > 0
-                  ? `${((metrics.paidRevenue / metrics.totalRevenue) * 100).toFixed(1)}% do total`
-                  : "0% do total"}
+                {metrics.monthlyForecastRevenue > 0
+                  ? `${((metrics.monthlyPaidRevenue / metrics.monthlyForecastRevenue) * 100).toFixed(1)}% do previsto no mês`
+                  : "0% do previsto no mês"}
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Taxa de Inadimplência</CardTitle>
+              <CardTitle className="text-sm font-medium">Inadimplência do Mês</CardTitle>
               <div className="rounded-md p-2 bg-warning/10">
                 <AlertTriangle className="h-4 w-4 text-warning" />
               </div>
             </CardHeader>
             <CardContent>
               <div className="text-xl font-bold">{defaultRate}%</div>
-              <p className="text-xs text-muted-foreground mt-1">{formatCurrency(metrics.overdueRevenue)} em atraso</p>
+              <p className="text-xs text-muted-foreground mt-1">{formatCurrency(metrics.monthlyOverdueRevenue)} em atraso</p>
             </CardContent>
           </Card>
         </div>
@@ -296,8 +292,8 @@ export function FinancialMetrics() {
             <Wallet className="h-4 w-4 text-muted-foreground" />
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">Despesas do mês</p>
-            <p className="text-sm font-semibold">{formatCurrency(metrics.monthlyExpenses)}</p>
+            <p className="text-xs text-muted-foreground">Despesas previstas no mês</p>
+            <p className="text-sm font-semibold">{formatCurrency(metrics.forecastExpenses)}</p>
           </div>
         </div>
 
