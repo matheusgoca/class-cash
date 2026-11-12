@@ -93,10 +93,12 @@ export async function generateTuitions(contractId: string): Promise<{ inserted: 
     return { inserted: 0 };
   }
 
-  // 4. Insert
-  const { error: insertError } = await (supabase as any)
-    .from('tuitions')
-    .insert(toInsert);
+  // 4. Insert via RPC — marca audit_logs.source='generated' em vez de
+  // 'manual' (ver supabase/migrations/20261112193000_generated_source_rpcs.sql)
+  const { error: insertError } = await (supabase as any).rpc('insert_generated_tuitions', {
+    p_school_id: school_id,
+    p_rows: toInsert,
+  });
 
   if (insertError) {
     return { inserted: 0, error: insertError.message };

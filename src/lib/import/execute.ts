@@ -41,6 +41,7 @@ export async function executeClassesImport(
       p_color: data.color,
       p_teacher_ids: data.teacher_ids,
       p_teacher_hours: null,
+      p_source: 'import',
     });
 
     outcomes.push(
@@ -60,7 +61,10 @@ export async function executeTeachersImport(
   const outcomes: ImportExecutionResult['outcomes'] = [];
 
   for (const { row, data } of rows) {
-    const { error } = await supabase.from('teachers').insert([{ ...data, school_id: schoolId }]);
+    const { error } = await (supabase as any).rpc('import_teacher', {
+      p_teacher: data,
+      p_school_id: schoolId,
+    });
     outcomes.push(
       error
         ? { row, success: false, message: getFriendlyErrorMessage(error) }
@@ -79,21 +83,22 @@ export async function executeStudentsImport(
 
   for (const { row, data } of rows) {
     const { class_id, ...studentFields } = data;
-    const { data: created, error } = await supabase
-      .from('students')
-      .insert([{ ...studentFields, school_id: schoolId }])
-      .select('id')
-      .single();
+    const { data: createdId, error } = await (supabase as any).rpc('import_student', {
+      p_student: studentFields,
+      p_school_id: schoolId,
+    });
 
     if (error) {
       outcomes.push({ row, success: false, message: getFriendlyErrorMessage(error) });
       continue;
     }
 
-    if (class_id && created) {
-      const { error: enrollmentError } = await (supabase as any)
-        .from('enrollments')
-        .insert({ student_id: created.id, class_id });
+    if (class_id && createdId) {
+      const { error: enrollmentError } = await (supabase as any).rpc('import_enrollment', {
+        p_student_id: createdId,
+        p_class_id: class_id,
+        p_school_id: schoolId,
+      });
       if (enrollmentError) {
         outcomes.push({
           row,
@@ -118,19 +123,18 @@ export async function executeContractsImport(
 
   for (const { row, data } of rows) {
     const { generate_tuitions, ...contractFields } = data;
-    const { data: created, error } = await supabase
-      .from('contracts')
-      .insert([{ ...contractFields, school_id: schoolId }])
-      .select('id')
-      .single();
+    const { data: createdId, error } = await (supabase as any).rpc('import_contract', {
+      p_contract: contractFields,
+      p_school_id: schoolId,
+    });
 
     if (error) {
       outcomes.push({ row, success: false, message: getFriendlyErrorMessage(error) });
       continue;
     }
 
-    if (generate_tuitions && data.status === 'active' && created) {
-      const { inserted, error: genError } = await generateTuitions(created.id);
+    if (generate_tuitions && data.status === 'active' && createdId) {
+      const { inserted, error: genError } = await generateTuitions(createdId);
       if (genError) {
         outcomes.push({
           row,
