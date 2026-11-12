@@ -120,7 +120,7 @@ export async function generateExpenses(
 
   // 4. Insert via RPC — marca audit_logs.source='generated' em vez de
   // 'manual' (ver supabase/migrations/20261112193000_generated_source_rpcs.sql)
-  const { error: insertError } = await (supabase as any).rpc('insert_generated_expenses', {
+  const { error: insertError } = await supabase.rpc('insert_generated_expenses', {
     p_school_id: school_id,
     p_rows: toInsert,
   });

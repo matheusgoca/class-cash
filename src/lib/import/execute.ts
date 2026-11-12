@@ -26,7 +26,7 @@ export async function executeClassesImport(
     // Reuses the same atomic RPC the manual "Nova Turma" flow uses (see QA
     // #9): class + teacher links are created in one transaction, so an
     // imported class can never end up half-saved with no teacher.
-    const { error } = await (supabase as any).rpc('save_class_with_teachers', {
+    const { error } = await supabase.rpc('save_class_with_teachers', {
       p_class_id: null,
       p_school_id: schoolId,
       p_name: data.name,
@@ -61,7 +61,7 @@ export async function executeTeachersImport(
   const outcomes: ImportExecutionResult['outcomes'] = [];
 
   for (const { row, data } of rows) {
-    const { error } = await (supabase as any).rpc('import_teacher', {
+    const { error } = await supabase.rpc('import_teacher', {
       p_teacher: data,
       p_school_id: schoolId,
     });
@@ -83,7 +83,7 @@ export async function executeStudentsImport(
 
   for (const { row, data } of rows) {
     const { class_id, ...studentFields } = data;
-    const { data: createdId, error } = await (supabase as any).rpc('import_student', {
+    const { data: createdId, error } = await supabase.rpc('import_student', {
       p_student: studentFields,
       p_school_id: schoolId,
     });
@@ -94,7 +94,7 @@ export async function executeStudentsImport(
     }
 
     if (class_id && createdId) {
-      const { error: enrollmentError } = await (supabase as any).rpc('import_enrollment', {
+      const { error: enrollmentError } = await supabase.rpc('import_enrollment', {
         p_student_id: createdId,
         p_class_id: class_id,
         p_school_id: schoolId,
@@ -123,7 +123,7 @@ export async function executeContractsImport(
 
   for (const { row, data } of rows) {
     const { generate_tuitions, ...contractFields } = data;
-    const { data: createdId, error } = await (supabase as any).rpc('import_contract', {
+    const { data: createdId, error } = await supabase.rpc('import_contract', {
       p_contract: contractFields,
       p_school_id: schoolId,
     });
