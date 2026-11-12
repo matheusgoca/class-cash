@@ -45,6 +45,10 @@ export interface ClassCostResult {
   salaryCost: Record<string, number>;
   expenseCost: Record<string, number>;
   totalCost: Record<string, number>;
+  // Soma das despesas allocation_method='school' — custo geral real da
+  // escola que, por desenho, não entra no custo de nenhuma turma. Exposto
+  // para o relatório de Rentabilidade poder fechar com o custo total real.
+  unallocatedSchoolCost: number;
 }
 
 export function computeClassCosts(
@@ -83,13 +87,17 @@ export function computeClassCosts(
   const totalStudents = classes.reduce((s, c) => s + c.studentCount, 0);
   const activeClassCount = classes.length;
 
+  let unallocatedSchoolCost = 0;
   for (const e of expenses) {
     if (e.classId) {
       if (expenseCost[e.classId] === undefined) expenseCost[e.classId] = 0;
       expenseCost[e.classId] += e.amount;
       continue;
     }
-    if (e.allocationMethod === 'school') continue; // custo geral, fora do rateio por turma
+    if (e.allocationMethod === 'school') {
+      unallocatedSchoolCost += e.amount; // custo geral, fora do rateio por turma
+      continue;
+    }
     if (e.allocationMethod === 'per_class') {
       if (activeClassCount === 0) continue;
       const share = e.amount / activeClassCount;
@@ -107,5 +115,5 @@ export function computeClassCosts(
     totalCost[cls.id] = (salaryCost[cls.id] || 0) + (expenseCost[cls.id] || 0);
   }
 
-  return { salaryCost, expenseCost, totalCost };
+  return { salaryCost, expenseCost, totalCost, unallocatedSchoolCost };
 }

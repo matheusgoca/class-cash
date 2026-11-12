@@ -26,6 +26,7 @@ interface ClassRow {
 export function ClassProfitability() {
   const { schoolId } = useSchool();
   const [rows, setRows] = useState<ClassRow[]>([]);
+  const [unallocatedCost, setUnallocatedCost] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -138,11 +139,12 @@ export function ClassProfitability() {
         studentCount: studentsByClass[cls.id] || 0,
       }));
 
-      const { salaryCost, expenseCost, totalCost } = computeClassCosts(
+      const { salaryCost, expenseCost, totalCost, unallocatedSchoolCost } = computeClassCosts(
         classInputs,
         teacherAssignments,
         expenseInputs
       );
+      setUnallocatedCost(unallocatedSchoolCost);
 
       const result: ClassRow[] = (classes || []).map((cls: any) => {
         const revenue = revenueByClass[cls.id] || 0;
@@ -173,10 +175,14 @@ export function ClassProfitability() {
     }
   };
 
-  const totRevenue = rows.reduce((s, r) => s + r.revenue, 0);
-  const totCost    = rows.reduce((s, r) => s + r.cost, 0);
-  const totProfit  = totRevenue - totCost;
-  const maxProfit  = Math.max(...rows.map(r => Math.abs(r.profit)), 1);
+  const totRevenue  = rows.reduce((s, r) => s + r.revenue, 0);
+  const totClassCost = rows.reduce((s, r) => s + r.cost, 0);
+  // Custo total real da escola: custo por turma + despesas allocation_method
+  // 'school', que por desenho não entram em nenhuma turma (ver classCost.ts).
+  // Sem essa linha, o total da tabela por turma não fecha com o gasto real.
+  const totCost     = totClassCost + unallocatedCost;
+  const totProfit   = totRevenue - totCost;
+  const maxProfit   = Math.max(...rows.map(r => Math.abs(r.profit)), 1);
 
   if (loading) {
     return (
@@ -202,7 +208,7 @@ export function ClassProfitability() {
         </Card>
         <Card>
           <CardHeader className="pb-1">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Custo Total (salários + despesas)</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Custo Total (turmas + gerais não rateados)</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-warning">{formatCurrency(totCost)}</p>
@@ -277,6 +283,17 @@ export function ClassProfitability() {
                   </TableRow>
                 );
               })}
+              {unallocatedCost > 0 && (
+                <TableRow className="bg-muted/30 hover:bg-muted/30">
+                  <TableCell colSpan={4} className="text-muted-foreground italic">
+                    Custos gerais da escola (não rateados)
+                  </TableCell>
+                  <TableCell className="text-right text-muted-foreground italic">
+                    {formatCurrency(unallocatedCost)}
+                  </TableCell>
+                  <TableCell />
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>
