@@ -1,14 +1,28 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/contexts/SchoolContext";
 import { formatCurrency, isTuitionOverdue, getTuitionValue } from "@/lib/calculations";
 import { calculateMonthlyBalance } from "@/lib/financialBalance";
 import { parseLocalDate } from "@/lib/dateUtils";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { DollarSign, TrendingUp, TrendingDown, AlertTriangle, Users, UserCheck, Calculator, Wallet, Sparkles } from "lucide-react";
+
+// Mesmo padrão do extinto FinancialKanban (removido em 96258e5, 17/09): os
+// 12 meses do ano corrente, 'yyyy-MM' como valor.
+const MONTH_OPTIONS = Array.from({ length: 12 }, (_, i) => {
+  const date = new Date(new Date().getFullYear(), i, 1);
+  return {
+    value: format(date, 'yyyy-MM'),
+    label: format(date, 'MMMM yyyy', { locale: ptBR }),
+  };
+});
 
 export function FinancialMetrics() {
   const { schoolId } = useSchool();
+  const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
   const [metrics, setMetrics] = useState({
     totalRevenue: 0,
     monthlyPaidRevenue: 0,
@@ -30,13 +44,13 @@ export function FinancialMetrics() {
 
   useEffect(() => {
     if (schoolId) fetchMetrics();
-  }, [schoolId]);
+  }, [schoolId, selectedMonth]);
 
   const fetchMetrics = async () => {
     try {
-      const currentDate = new Date();
-      const currentYear  = currentDate.getFullYear();
-      const currentMonth = currentDate.getMonth(); // 0-indexed
+      const [selectedYearNum, selectedMonthNum] = selectedMonth.split('-').map(Number);
+      const currentYear  = selectedYearNum;
+      const currentMonth = selectedMonthNum - 1; // 0-indexed, como Date#getMonth()
       const prevRef = new Date(currentYear, currentMonth - 1, 1);
 
       const [
@@ -197,6 +211,21 @@ export function FinancialMetrics() {
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Mês" />
+          </SelectTrigger>
+          <SelectContent>
+            {MONTH_OPTIONS.map(m => (
+              <SelectItem key={m.value} value={m.value}>
+                {m.label.charAt(0).toUpperCase() + m.label.slice(1)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       {/* Saldo Financeiro em destaque — a pergunta nº 1 de quem abre o dashboard */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2 border-2 border-primary/20">
