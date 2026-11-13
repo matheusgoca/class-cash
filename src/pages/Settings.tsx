@@ -13,7 +13,9 @@ import { useSchool } from '@/contexts/SchoolContext';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { ImportSection } from '@/components/settings/ImportSection';
+import { AuditHistorySection } from '@/components/settings/AuditHistorySection';
 import { getFriendlyErrorMessage } from '@/lib/friendlyError';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const SEGMENTS = [
   { value: 'infantil',    label: 'Educação Infantil', icon: Lightbulb,     description: 'Berçário ao Pré' },
@@ -168,26 +170,39 @@ const Settings = () => {
         <p className="text-muted-foreground">Gerencie as informações e preferências da escola</p>
       </div>
 
-      <SchoolProfileSection />
-      <ImportSection />
+      <Tabs defaultValue="escola">
+        <TabsList>
+          <TabsTrigger value="escola">Escola</TabsTrigger>
+          <TabsTrigger value="historico">Histórico de alterações</TabsTrigger>
+        </TabsList>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Receipt className="h-4 w-4" />
-            Gerar mensalidades em lote
-          </CardTitle>
-          <CardDescription>
-            Útil depois de importar vários contratos de uma vez — gera as mensalidades pendentes
-            de todos os contratos ativos, sem precisar abrir um por um em Contratos.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button asChild variant="outline">
-            <Link to="/admin/gerar-mensalidades">Abrir gerador em lote</Link>
-          </Button>
-        </CardContent>
-      </Card>
+        <TabsContent value="escola" className="space-y-6 mt-6">
+          <SchoolProfileSection />
+          <ImportSection />
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Receipt className="h-4 w-4" />
+                Gerar mensalidades em lote
+              </CardTitle>
+              <CardDescription>
+                Útil depois de importar vários contratos de uma vez — gera as mensalidades pendentes
+                de todos os contratos ativos, sem precisar abrir um por um em Contratos.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild variant="outline">
+                <Link to="/admin/gerar-mensalidades">Abrir gerador em lote</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="historico" className="mt-6">
+          <AuditHistorySection />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

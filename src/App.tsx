@@ -28,6 +28,7 @@ import NotFound from "./pages/NotFound";
 import AdminSyncTuitions from "./pages/AdminSyncTuitions";
 import MasterAdmin from "./pages/MasterAdmin";
 import MasterBugs from "./pages/MasterBugs";
+import MasterAuditHistory from "./pages/MasterAuditHistory";
 import Team from "./pages/Team";
 import { PrivacyPolicy, TermsOfUse } from "./pages/Legal";
 
@@ -201,6 +202,16 @@ const App = () => (
                     <ProtectedRoute requireMasterAdmin>
                       <Layout>
                         <MasterBugs />
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/master/historico"
+                  element={
+                    <ProtectedRoute requireMasterAdmin>
+                      <Layout>
+                        <MasterAuditHistory />
                       </Layout>
                     </ProtectedRoute>
                   }

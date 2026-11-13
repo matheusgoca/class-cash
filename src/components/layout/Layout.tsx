@@ -21,6 +21,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/equipe": "Equipe",
   "/master": "Painel Master",
   "/master/bugs": "Relatórios de Bug",
+  "/master/historico": "Histórico Global",
   "/admin/gerar-mensalidades": "Gerar Mensalidades",
 };
 
