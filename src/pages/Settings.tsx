@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { School, BookOpen, GraduationCap, Building2, Lightbulb, Save, Receipt } from 'lucide-react';
+import { School, Save, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -11,23 +11,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { useSchool } from '@/contexts/SchoolContext';
 import { supabase } from '@/integrations/supabase/client';
-import { cn } from '@/lib/utils';
 import { ImportSection } from '@/components/settings/ImportSection';
 import { AuditHistorySection } from '@/components/settings/AuditHistorySection';
+import { SegmentPicker } from '@/components/settings/SegmentPicker';
 import { getFriendlyErrorMessage } from '@/lib/friendlyError';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-const SEGMENTS = [
-  { value: 'infantil',    label: 'Educação Infantil', icon: Lightbulb,     description: 'Berçário ao Pré' },
-  { value: 'fundamental', label: 'Ensino Fundamental', icon: BookOpen,      description: '1º ao 9º Ano' },
-  { value: 'medio',       label: 'Ensino Médio',       icon: GraduationCap, description: '1ª à 3ª Série' },
-  { value: 'tecnico',     label: 'Curso Técnico',      icon: Building2,     description: 'Cursos profissionalizantes' },
-];
-
-
 const schoolSchema = z.object({
-  name:     z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
-  segments: z.array(z.string()).min(1, 'Selecione pelo menos um segmento'),
+  name:            z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
+  segments:        z.array(z.string()).min(1, 'Selecione pelo menos um segmento'),
+  primary_segment: z.string().nullable(),
 });
 
 type SchoolFormData = z.infer<typeof schoolSchema>;
@@ -40,27 +33,21 @@ function SchoolProfileSection() {
   const form = useForm<SchoolFormData>({
     resolver: zodResolver(schoolSchema),
     defaultValues: {
-      name:     school?.name     ?? '',
-      segments: school?.segments ?? [],
+      name:            school?.name            ?? '',
+      segments:        school?.segments         ?? [],
+      primary_segment: school?.primary_segment  ?? null,
     },
   });
 
   // Sync when school loads
   useEffect(() => {
     if (school) {
-      form.reset({ name: school.name, segments: school.segments });
+      form.reset({ name: school.name, segments: school.segments, primary_segment: school.primary_segment });
     }
   }, [school]);
 
   const selectedSegments = form.watch('segments');
-
-  const toggleSegment = (value: string) => {
-    const current = form.getValues('segments');
-    const next = current.includes(value)
-      ? current.filter(s => s !== value)
-      : [...current, value];
-    form.setValue('segments', next, { shouldValidate: true });
-  };
+  const primarySegment = form.watch('primary_segment');
 
   const handleSubmit = async (data: SchoolFormData) => {
     if (!school) return;
@@ -68,7 +55,7 @@ function SchoolProfileSection() {
     try {
       const { error } = await (supabase as any)
         .from('schools')
-        .update({ name: data.name, segments: data.segments })
+        .update({ name: data.name, segments: data.segments, primary_segment: data.primary_segment })
         .eq('id', school.id);
 
       if (error) throw error;
@@ -120,29 +107,18 @@ function SchoolProfileSection() {
                 render={() => (
                   <FormItem>
                     <FormLabel>Segmentos atendidos</FormLabel>
-                    <p className="text-xs text-muted-foreground">Selecione um ou mais</p>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-1">
-                      {SEGMENTS.map((seg) => {
-                        const Icon   = seg.icon;
-                        const active = selectedSegments.includes(seg.value);
-                        return (
-                          <button
-                            key={seg.value}
-                            type="button"
-                            onClick={() => toggleSegment(seg.value)}
-                            className={cn(
-                              'flex flex-col items-start gap-1 rounded-xl border-2 p-3 text-left transition-all',
-                              active
-                                ? 'border-primary bg-primary/5 shadow-sm'
-                                : 'border-border hover:border-primary/40 hover:bg-accent'
-                            )}
-                          >
-                            <Icon className={cn('h-4 w-4', active ? 'text-primary' : 'text-muted-foreground')} />
-                            <span className={cn('text-xs font-semibold leading-tight', active ? 'text-primary' : '')}>{seg.label}</span>
-                            <span className="text-xs text-muted-foreground leading-tight">{seg.description}</span>
-                          </button>
-                        );
-                      })}
+                    <p className="text-xs text-muted-foreground">
+                      Marque todos os que se aplicam. Depois indique qual é o principal.
+                    </p>
+                    <div className="mt-1">
+                      <SegmentPicker
+                        selected={selectedSegments}
+                        primary={primarySegment}
+                        onChange={(next, nextPrimary) => {
+                          form.setValue('segments', next, { shouldValidate: true });
+                          form.setValue('primary_segment', nextPrimary, { shouldValidate: true });
+                        }}
+                      />
                     </div>
                     <FormMessage />
                   </FormItem>
