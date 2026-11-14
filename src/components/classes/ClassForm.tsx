@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -8,6 +8,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { useSchool } from '@/contexts/SchoolContext';
+import { getGradeGroupsForSegments } from '@/lib/segments';
 
 const classSchema = z.object({
   name:                 z.string().min(2, 'Nome da turma deve ter pelo menos 2 caracteres'),
@@ -31,17 +33,7 @@ interface ClassFormProps {
   isLoading?: boolean;
 }
 
-// Etapas da Educação Básica (LDB 9.394/96 + BNCC + Lei 13.415/2017 -
-// Novo Ensino Médio). Berçário/Maternal/Pré não têm nomenclatura
-// federal padronizada (cada rede nomeia do seu jeito), mas são os
-// termos mais comuns; "grade" continua texto livre no banco, isto é
-// só a lista sugerida no seletor.
-const GRADE_GROUPS: { label: string; grades: string[] }[] = [
-  { label: 'Educação Infantil', grades: ['Berçário I', 'Berçário II', 'Maternal I', 'Maternal II', 'Pré I', 'Pré II'] },
-  { label: 'Fundamental - Anos Iniciais', grades: ['1º Ano', '2º Ano', '3º Ano', '4º Ano', '5º Ano'] },
-  { label: 'Fundamental - Anos Finais', grades: ['6º Ano', '7º Ano', '8º Ano', '9º Ano'] },
-  { label: 'Ensino Médio', grades: ['1º Ano (Médio)', '2º Ano (Médio)', '3º Ano (Médio)'] },
-];
+const OTHER_GRADE = '__other__';
 
 const CLASS_COLORS = [
   { value: '#3B82F6', label: 'Azul' },
@@ -117,6 +109,16 @@ export const ClassForm: React.FC<ClassFormProps> = ({
     );
   };
 
+  const { school } = useSchool();
+  const gradeGroups = getGradeGroupsForSegments(school?.segments);
+  const knownGrades = new Set(gradeGroups.flatMap(g => g.grades));
+  // Turma existente com série fora dos grupos atuais (segmento removido
+  // depois, ou editada manualmente antes desta sprint) continua mostrando o
+  // valor salvo, sem forçar o usuário a trocar.
+  const [customGradeMode, setCustomGradeMode] = useState(
+    () => !!classData?.grade && !knownGrades.has(classData.grade),
+  );
+
   return (
     <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
       <DialogHeader>
@@ -138,21 +140,53 @@ export const ClassForm: React.FC<ClassFormProps> = ({
             <FormField control={form.control} name="grade" render={({ field }) => (
               <FormItem>
                 <FormLabel>Série/Ano</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value ?? undefined}>
-                  <FormControl>
-                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {GRADE_GROUPS.map(group => (
-                      <SelectGroup key={group.label}>
-                        <SelectLabel>{group.label}</SelectLabel>
-                        {group.grades.map(g => (
-                          <SelectItem key={g} value={g}>{g}</SelectItem>
-                        ))}
-                      </SelectGroup>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {customGradeMode ? (
+                  <div className="flex gap-2">
+                    <FormControl>
+                      <Input
+                        placeholder="Digite a série"
+                        value={field.value ?? ''}
+                        onChange={e => field.onChange(e.target.value)}
+                      />
+                    </FormControl>
+                    <Button type="button" variant="outline" size="sm" onClick={() => { setCustomGradeMode(false); field.onChange(null); }}>
+                      Escolher da lista
+                    </Button>
+                  </div>
+                ) : (
+                  <Select
+                    onValueChange={(v) => {
+                      if (v === OTHER_GRADE) {
+                        setCustomGradeMode(true);
+                        field.onChange('');
+                      } else {
+                        field.onChange(v);
+                      }
+                    }}
+                    value={field.value ?? undefined}
+                  >
+                    <FormControl>
+                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {field.value && !knownGrades.has(field.value) && (
+                        <SelectGroup>
+                          <SelectLabel>Série atual</SelectLabel>
+                          <SelectItem value={field.value}>{field.value}</SelectItem>
+                        </SelectGroup>
+                      )}
+                      {gradeGroups.map(group => (
+                        <SelectGroup key={group.label}>
+                          <SelectLabel>{group.label}</SelectLabel>
+                          {group.grades.map(g => (
+                            <SelectItem key={g} value={g}>{g}</SelectItem>
+                          ))}
+                        </SelectGroup>
+                      ))}
+                      <SelectItem value={OTHER_GRADE}>Outra série (digitar)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
                 <FormMessage />
               </FormItem>
             )} />

@@ -19,6 +19,7 @@ import {
   SlidersHorizontal,
   Bug,
   Sparkles,
+  History,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSchool } from "@/contexts/SchoolContext";
@@ -189,6 +190,19 @@ export function AppSidebar() {
                 >
                   <Bug className="h-4 w-4" />
                   {!collapsed && <span className="font-semibold">Relatórios de Bug</span>}
+                </NavLink>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
+          {isMasterAdmin && (
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild>
+                <NavLink
+                  to="/master/historico"
+                  className={`flex items-center gap-2 ${getNavCls(isActive("/master/historico"))} ${isActive("/master/historico") ? "" : "text-amber-600"}`}
+                >
+                  <History className="h-4 w-4" />
+                  {!collapsed && <span className="font-semibold">Histórico global</span>}
                 </NavLink>
               </SidebarMenuButton>
             </SidebarMenuItem>

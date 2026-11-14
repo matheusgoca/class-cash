@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { School, BookOpen, GraduationCap, Building2, Lightbulb } from 'lucide-react';
+import { School } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -11,15 +11,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSchool } from '@/contexts/SchoolContext';
 import { supabase } from '@/integrations/supabase/client';
-import { cn } from '@/lib/utils';
 import { getFriendlyErrorMessage } from '@/lib/friendlyError';
-
-const SEGMENTS = [
-  { value: 'infantil',    label: 'Educação Infantil', icon: Lightbulb,     description: 'Berçário ao Pré' },
-  { value: 'fundamental', label: 'Ensino Fundamental', icon: BookOpen,      description: '1º ao 9º Ano' },
-  { value: 'medio',       label: 'Ensino Médio',       icon: GraduationCap, description: '1ª à 3ª Série' },
-  { value: 'tecnico',     label: 'Curso Técnico',      icon: Building2,     description: 'Cursos profissionalizantes' },
-];
+import { SegmentPicker } from '@/components/settings/SegmentPicker';
+import { normalizeSegments } from '@/lib/segments';
 
 // accept-invite (chamada em Auth.tsx logo após definir a senha) já deveria
 // marcar o convite como aceito e garantir a role de dono — mas ela tinha um
@@ -47,8 +41,9 @@ async function ensureOwnerRoleAndInviteAccepted(userId: string, userEmail: strin
 }
 
 const schema = z.object({
-  name:     z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
-  segments: z.array(z.string()).min(1, 'Selecione pelo menos um segmento'),
+  name:            z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
+  segments:        z.array(z.string()).min(1, 'Selecione pelo menos um segmento'),
+  primary_segment: z.string().nullable(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -71,13 +66,21 @@ export default function Onboarding() {
     setAutoCreating(true);
     (async () => {
       try {
+        // user_metadata pode ter sido gravado antes desta sprint, com o valor
+        // antigo 'fundamental' — normaliza pro schema novo (fundamental_1 +
+        // fundamental_2) antes de gravar, senão o CHECK constraint recusa.
+        const normalizedSegments = normalizeSegments(meta.pending_school_segments);
         const { data: school, error: schoolError } = await (supabase as any)
           .from('schools')
           .insert({
-            name:          meta.pending_school_name,
-            segments:      meta.pending_school_segments ?? [],
-            plan:          meta.pending_school_plan ?? 'starter',
-            owner_user_id: user.id,
+            name:            meta.pending_school_name,
+            segments:        normalizedSegments,
+            // Convite do master não escolhe principal; usa o primeiro na
+            // ordem pedagógica (mesma regra do backfill da migration de
+            // segments). O dono ajusta depois em Configurações se quiser outro.
+            primary_segment: normalizedSegments[0] ?? null,
+            plan:            meta.pending_school_plan ?? 'starter',
+            owner_user_id:   user.id,
           })
           .select('id')
           .single();
@@ -111,18 +114,11 @@ export default function Onboarding() {
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { name: '', segments: [] },
+    defaultValues: { name: '', segments: [], primary_segment: null },
   });
 
   const selectedSegments = form.watch('segments');
-
-  const toggleSegment = (value: string) => {
-    const current = form.getValues('segments');
-    const next = current.includes(value)
-      ? current.filter(s => s !== value)
-      : [...current, value];
-    form.setValue('segments', next, { shouldValidate: true });
-  };
+  const primarySegment = form.watch('primary_segment');
 
   const handleSubmit = async (data: FormData) => {
     if (!user) return;
@@ -131,9 +127,10 @@ export default function Onboarding() {
       const { data: school, error: schoolError } = await (supabase as any)
         .from('schools')
         .insert({
-          name:          data.name,
-          segments:      data.segments,
-          owner_user_id: user.id,
+          name:            data.name,
+          segments:        data.segments,
+          primary_segment: data.primary_segment,
+          owner_user_id:   user.id,
         })
         .select('id')
         .single();
@@ -212,29 +209,18 @@ export default function Onboarding() {
               render={() => (
                 <FormItem>
                   <FormLabel className="text-base font-medium">Segmentos atendidos</FormLabel>
-                  <p className="text-xs text-muted-foreground -mt-1">Selecione um ou mais</p>
-                  <div className="grid grid-cols-2 gap-3 mt-1">
-                    {SEGMENTS.map((seg) => {
-                      const Icon   = seg.icon;
-                      const active = selectedSegments.includes(seg.value);
-                      return (
-                        <button
-                          key={seg.value}
-                          type="button"
-                          onClick={() => toggleSegment(seg.value)}
-                          className={cn(
-                            'flex flex-col items-start gap-1 rounded-xl border-2 p-4 text-left transition-all',
-                            active
-                              ? 'border-primary bg-primary/5 shadow-sm'
-                              : 'border-border hover:border-primary/40 hover:bg-accent'
-                          )}
-                        >
-                          <Icon className={cn('h-5 w-5', active ? 'text-primary' : 'text-muted-foreground')} />
-                          <span className={cn('text-sm font-semibold', active ? 'text-primary' : '')}>{seg.label}</span>
-                          <span className="text-xs text-muted-foreground">{seg.description}</span>
-                        </button>
-                      );
-                    })}
+                  <p className="text-xs text-muted-foreground -mt-1">
+                    Marque todos os que se aplicam. Depois indique qual é o principal.
+                  </p>
+                  <div className="mt-1">
+                    <SegmentPicker
+                      selected={selectedSegments}
+                      primary={primarySegment}
+                      onChange={(next, nextPrimary) => {
+                        form.setValue('segments', next, { shouldValidate: true });
+                        form.setValue('primary_segment', nextPrimary, { shouldValidate: true });
+                      }}
+                    />
                   </div>
                   <FormMessage />
                 </FormItem>
