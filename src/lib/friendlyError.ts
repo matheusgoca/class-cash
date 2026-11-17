@@ -44,3 +44,27 @@ export function getFriendlyErrorMessage(error: any, fallback?: string): string {
 
   return fallback ?? message ?? 'Ocorreu um erro inesperado.';
 }
+
+/**
+ * Erros de MFA (TOTP) do Supabase Auth em português. Nunca devolve o texto cru
+ * do erro: ele pode carregar detalhes que não queremos expor nem logar.
+ */
+export function getFriendlyMfaError(error: unknown): string {
+  const e = (error ?? {}) as { code?: string; message?: string; status?: number };
+  const code = e.code ?? '';
+  const message = e.message ?? '';
+
+  if (code === 'mfa_verification_failed' || /invalid totp code/i.test(message)) {
+    return 'Código incorreto ou expirado. Confira o horário do celular e tente de novo.';
+  }
+  if (code === 'mfa_challenge_expired') {
+    return 'O código expirou. Digite o novo código que aparece no aplicativo.';
+  }
+  if (code === 'over_request_rate_limit' || e.status === 429) {
+    return 'Muitas tentativas. Aguarde um minuto e tente de novo.';
+  }
+  if (code === 'mfa_factor_not_found' || message === 'no-factor') {
+    return 'Nenhum autenticador encontrado para esta conta.';
+  }
+  return 'Não foi possível verificar o código. Tente novamente.';
+}

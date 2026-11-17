@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSchool } from '@/contexts/SchoolContext';
 import { useMasterAdmin } from '@/contexts/MasterAdminContext';
 import { useRole, type AppRole } from '@/hooks/use-role';
+import { MfaGate } from '@/components/security/MfaGate';
 
 
 interface ProtectedRouteProps {
@@ -48,7 +49,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireSchool
       );
     }
     // School loaded or error — let through regardless (master always has access)
-    return <>{children}</>;
+    return <MfaGate>{children}</MfaGate>;
   }
 
   // Master admin without viewingSchoolId: always redirect to /master
@@ -88,7 +89,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireSchool
     }
   }
 
-  return <>{children}</>;
+  return <MfaGate>{children}</MfaGate>;
 };
 
 export default ProtectedRoute;

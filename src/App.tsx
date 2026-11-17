@@ -7,6 +7,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { MasterAdminProvider } from "./contexts/MasterAdminContext";
 import { useMasterAdmin } from "./contexts/MasterAdminContext";
 import { SchoolProvider } from "./contexts/SchoolContext";
+import { MfaGateProvider } from "./contexts/MfaGateContext";
 import { ThemeProvider } from "./contexts/ThemeProvider";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { Layout } from "@/components/layout/Layout";
@@ -53,6 +54,7 @@ const App = () => (
           <AuthProvider>
             <MasterAdminProvider>
             <SchoolProvider>
+            <MfaGateProvider>
               <Routes>
                 <Route path="/" element={<RootRoute />} />
                 <Route path="/auth" element={<Auth />} />
@@ -218,6 +220,7 @@ const App = () => (
                 />
                 <Route path="*" element={<NotFound />} />
               </Routes>
+            </MfaGateProvider>
             </SchoolProvider>
             </MasterAdminProvider>
           </AuthProvider>

@@ -11,6 +11,7 @@ export interface School {
   logo_url: string | null;
   owner_user_id: string;
   plan: string;
+  require_2fa: boolean;
 }
 
 type SchoolStatus = 'loading' | 'found' | 'not_found' | 'error';
@@ -42,7 +43,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (isMasterAdmin && viewingSchoolId) {
       const { data: schoolData, error: schoolError } = await (supabase as any)
         .from('schools')
-        .select('id, name, segments, primary_segment, logo_url, owner_user_id, plan')
+        .select('id, name, segments, primary_segment, logo_url, owner_user_id, plan, require_2fa')
         .eq('id', viewingSchoolId)
         .maybeSingle();
 
@@ -51,7 +52,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setSchoolStatus('error');
         return;
       }
-      setSchool({ ...schoolData, segments: schoolData.segments ?? [] });
+      setSchool({ ...schoolData, segments: schoolData.segments ?? [], require_2fa: schoolData.require_2fa ?? false });
       setSchoolStatus('found');
       return;
     }
@@ -107,7 +108,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // 3. Fetch full school data
       const { data: schoolData, error: schoolError } = await (supabase as any)
         .from('schools')
-        .select('id, name, segments, primary_segment, logo_url, owner_user_id, plan')
+        .select('id, name, segments, primary_segment, logo_url, owner_user_id, plan, require_2fa')
         .eq('id', schoolId)
         .maybeSingle();
 
@@ -125,7 +126,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return;
       }
 
-      setSchool({ ...schoolData, segments: schoolData.segments ?? [] });
+      setSchool({ ...schoolData, segments: schoolData.segments ?? [], require_2fa: schoolData.require_2fa ?? false });
       setSchoolStatus('found');
     } catch (err) {
       console.error('[SchoolContext] exception:', err);
