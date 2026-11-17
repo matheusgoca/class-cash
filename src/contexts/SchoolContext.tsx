@@ -7,7 +7,6 @@ export interface School {
   id: string;
   name: string;
   segments: string[];
-  primary_segment: string | null;
   logo_url: string | null;
   owner_user_id: string;
   plan: string;
@@ -42,7 +41,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (isMasterAdmin && viewingSchoolId) {
       const { data: schoolData, error: schoolError } = await (supabase as any)
         .from('schools')
-        .select('id, name, segments, primary_segment, logo_url, owner_user_id, plan')
+        .select('id, name, segments, logo_url, owner_user_id, plan')
         .eq('id', viewingSchoolId)
         .maybeSingle();
 
@@ -107,7 +106,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // 3. Fetch full school data
       const { data: schoolData, error: schoolError } = await (supabase as any)
         .from('schools')
-        .select('id, name, segments, primary_segment, logo_url, owner_user_id, plan')
+        .select('id, name, segments, logo_url, owner_user_id, plan')
         .eq('id', schoolId)
         .maybeSingle();
 
