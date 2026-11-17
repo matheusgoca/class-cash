@@ -38,10 +38,7 @@ interface SchoolRow {
   class_count: number;
   teacher_count: number;
   segments: string[];
-  primary_segment: string | null;
 }
-
-const SEGMENT_FILTER_ALL = '__all__';
 
 const PLAN_LABELS: Record<string, string> = {
   starter: "Starter",
@@ -70,7 +67,6 @@ export default function MasterAdmin() {
   const [showCreate, setShowCreate] = useState(false);
   const [createForm, setCreateForm] = useState({ name: '', ownerEmail: '', plan: 'starter', segments: [] as string[] });
   const [creating, setCreating] = useState(false);
-  const [segmentFilter, setSegmentFilter] = useState(SEGMENT_FILTER_ALL);
   const [pendingInvites, setPendingInvites] = useState<PendingOwnerInvite[]>([]);
   const [resendingId, setResendingId] = useState<string | null>(null);
 
@@ -108,7 +104,7 @@ export default function MasterAdmin() {
       // escola"), evitando ter que dar visibilidade cross-escola em
       // expenses/service_charges via RLS só pra um card aqui.
       const [schoolsRes, profilesRes, studentsRes, classesRes, teachersRes] = await Promise.all([
-        (supabase as any).from("schools").select("id, name, plan, status, created_at, owner_user_id, segments, primary_segment").order("created_at", { ascending: false }),
+        (supabase as any).from("schools").select("id, name, plan, status, created_at, owner_user_id, segments").order("created_at", { ascending: false }),
         (supabase as any).from("profiles").select("user_id, email"),
         (supabase as any).from("students").select("school_id").eq("status", "active"),
         (supabase as any).from("classes").select("school_id"),
@@ -142,7 +138,6 @@ export default function MasterAdmin() {
         class_count: classCount[s.id] || 0,
         teacher_count: teacherCount[s.id] || 0,
         segments: s.segments ?? [],
-        primary_segment: s.primary_segment ?? null,
       }));
 
       setSchools(rows);
@@ -253,22 +248,6 @@ export default function MasterAdmin() {
     enterSchool(schoolRow.id, schoolRow.name);
   };
 
-  // Mistura de clientes por segmento (S2, Fase 2, item 4): quantas escolas
-  // atendem cada segmento (uma escola conta em vários) e quantas o marcam
-  // como principal. Uma escola sem nenhum segmento marcado não conta em
-  // lugar nenhum aqui -- aparece só no total de "Escolas ativas".
-  const segmentMix = SEGMENTS.map((seg) => ({
-    ...seg,
-    schoolCount: schools.filter((s) => s.segments.includes(seg.value)).length,
-    primaryCount: schools.filter((s) => s.primary_segment === seg.value).length,
-  }));
-  const maxSchoolCount = Math.max(1, ...segmentMix.map((s) => s.schoolCount));
-
-  const filteredSchools =
-    segmentFilter === SEGMENT_FILTER_ALL
-      ? schools
-      : schools.filter((s) => s.segments.includes(segmentFilter));
-
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
@@ -325,67 +304,19 @@ export default function MasterAdmin() {
         </Card>
       )}
 
-      {/* Mistura de clientes por segmento */}
-      {!loading && schools.length > 0 && (
-        <Card>
-          <CardContent className="p-5 space-y-3">
-            <div>
-              <h2 className="text-base font-semibold">Mistura de clientes por segmento</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Quantas escolas atendem cada segmento (uma escola pode contar em vários) e quantas o marcaram como principal.
-              </p>
-            </div>
-            <div className="space-y-2">
-              {segmentMix.map((seg) => (
-                <div key={seg.value} className="grid grid-cols-[140px_1fr_140px] gap-3 items-center text-sm">
-                  <span className="font-medium truncate">{seg.label}</span>
-                  <div className="h-2.5 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className="h-full bg-primary rounded-full"
-                      style={{ width: `${(seg.schoolCount / maxSchoolCount) * 100}%` }}
-                    />
-                  </div>
-                  <span className="text-muted-foreground text-xs text-right">
-                    {seg.schoolCount} escola{seg.schoolCount !== 1 ? "s" : ""} · {seg.primaryCount} principal
-                  </span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Counter + filtro de segmento */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-sm font-medium text-muted-foreground">
-          Escolas ({filteredSchools.length}{filteredSchools.length !== schools.length ? ` de ${schools.length}` : ""})
-        </p>
-        <div className="flex items-center gap-2">
-          <Label className="text-xs text-muted-foreground">Filtrar por segmento</Label>
-          <Select value={segmentFilter} onValueChange={setSegmentFilter}>
-            <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value={SEGMENT_FILTER_ALL}>Todos</SelectItem>
-              {SEGMENTS.map((seg) => (
-                <SelectItem key={seg.value} value={seg.value}>{seg.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      {/* Counter */}
+      <p className="text-sm font-medium text-muted-foreground">Escolas ({schools.length})</p>
 
       {/* School cards grid */}
       {loading ? (
         <div className="flex items-center justify-center py-16">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
         </div>
-      ) : filteredSchools.length === 0 ? (
-        <p className="text-center py-16 text-muted-foreground">
-          {schools.length === 0 ? "Nenhuma escola cadastrada." : "Nenhuma escola atende esse segmento."}
-        </p>
+      ) : schools.length === 0 ? (
+        <p className="text-center py-16 text-muted-foreground">Nenhuma escola cadastrada.</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredSchools.map((school) => (
+          {schools.map((school) => (
             <Card key={school.id} className="overflow-hidden">
               <CardContent className="p-5 space-y-4">
 
@@ -419,12 +350,7 @@ export default function MasterAdmin() {
                 {/* Row 2b: segmentos */}
                 {school.segments.length > 0 ? (
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    {school.primary_segment && (
-                      <Badge className="bg-primary text-primary-foreground hover:bg-primary text-xs">
-                        {segmentLabel(school.primary_segment)}
-                      </Badge>
-                    )}
-                    {school.segments.filter((s) => s !== school.primary_segment).map((s) => (
+                    {school.segments.map((s) => (
                       <Badge key={s} variant="outline" className="text-xs">{segmentLabel(s)}</Badge>
                     ))}
                   </div>

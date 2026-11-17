@@ -9,7 +9,7 @@
 --
 -- Como rodar ANTES de aplicar B e C: gerar um arquivo que substitui as linhas
 -- marcadoras "-- @@MIGRATION_B@@" e "-- @@MIGRATION_C@@" pelo conteúdo das
--- migrations 20261117121000 e 20261117122000, e rodar esse arquivo com
+-- migrations 20261117130000 e 20261117131000, e rodar esse arquivo com
 --   supabase db query --linked -f <arquivo>
 -- Depois de aplicadas, rodar este arquivo direto.
 -- Saída: uma linha por verificação; "ok" deve ser true em TODAS.

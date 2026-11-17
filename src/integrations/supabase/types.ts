@@ -773,7 +773,6 @@ export type Database = {
           name: string
           owner_user_id: string | null
           plan: string | null
-          primary_segment: string | null
           require_2fa: boolean
           segments: string[] | null
           status: string | null
@@ -786,7 +785,6 @@ export type Database = {
           name: string
           owner_user_id?: string | null
           plan?: string | null
-          primary_segment?: string | null
           require_2fa?: boolean
           segments?: string[] | null
           status?: string | null
@@ -799,7 +797,6 @@ export type Database = {
           name?: string
           owner_user_id?: string | null
           plan?: string | null
-          primary_segment?: string | null
           require_2fa?: boolean
           segments?: string[] | null
           status?: string | null

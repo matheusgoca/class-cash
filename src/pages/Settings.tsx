@@ -21,7 +21,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 const schoolSchema = z.object({
   name:            z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
   segments:        z.array(z.string()).min(1, 'Selecione pelo menos um segmento'),
-  primary_segment: z.string().nullable(),
 });
 
 type SchoolFormData = z.infer<typeof schoolSchema>;
@@ -34,21 +33,19 @@ function SchoolProfileSection() {
   const form = useForm<SchoolFormData>({
     resolver: zodResolver(schoolSchema),
     defaultValues: {
-      name:            school?.name            ?? '',
-      segments:        school?.segments         ?? [],
-      primary_segment: school?.primary_segment  ?? null,
+      name:     school?.name     ?? '',
+      segments: school?.segments ?? [],
     },
   });
 
   // Sync when school loads
   useEffect(() => {
     if (school) {
-      form.reset({ name: school.name, segments: school.segments, primary_segment: school.primary_segment });
+      form.reset({ name: school.name, segments: school.segments });
     }
   }, [school]);
 
   const selectedSegments = form.watch('segments');
-  const primarySegment = form.watch('primary_segment');
 
   const handleSubmit = async (data: SchoolFormData) => {
     if (!school) return;
@@ -56,7 +53,7 @@ function SchoolProfileSection() {
     try {
       const { error } = await (supabase as any)
         .from('schools')
-        .update({ name: data.name, segments: data.segments, primary_segment: data.primary_segment })
+        .update({ name: data.name, segments: data.segments })
         .eq('id', school.id);
 
       if (error) throw error;
@@ -109,16 +106,12 @@ function SchoolProfileSection() {
                   <FormItem>
                     <FormLabel>Segmentos atendidos</FormLabel>
                     <p className="text-xs text-muted-foreground">
-                      Marque todos os que se aplicam. Depois indique qual é o principal.
+                      Marque todos os que se aplicam.
                     </p>
                     <div className="mt-1">
                       <SegmentPicker
                         selected={selectedSegments}
-                        primary={primarySegment}
-                        onChange={(next, nextPrimary) => {
-                          form.setValue('segments', next, { shouldValidate: true });
-                          form.setValue('primary_segment', nextPrimary, { shouldValidate: true });
-                        }}
+                        onChange={(next) => form.setValue('segments', next, { shouldValidate: true })}
                       />
                     </div>
                     <FormMessage />

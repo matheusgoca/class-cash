@@ -56,11 +56,6 @@ describe("SEGMENTS", () => {
   it("tem exatamente os 6 valores novos, sem o antigo 'fundamental' solto", () => {
     expect(SEGMENT_VALUES).toEqual(["infantil", "fundamental_1", "fundamental_2", "medio", "tecnico", "idiomas"]);
   });
-
-  it("técnico e idiomas são marcados como secundários; os demais não", () => {
-    const secondary = SEGMENTS.filter((s) => s.secondary).map((s) => s.value);
-    expect(secondary).toEqual(["tecnico", "idiomas"]);
-  });
 });
 
 describe("segmentLabel", () => {

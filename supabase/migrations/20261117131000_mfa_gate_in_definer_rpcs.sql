@@ -1,7 +1,7 @@
 -- Fase 3 (S2): o gate de 2FA também nas RPCs SECURITY DEFINER.
 --
 -- Funções SECURITY DEFINER rodam como dono e IGNORAM o RLS, então sem isto elas
--- seriam uma porta lateral ao gate das policies (migration 20261117121000).
+-- seriam uma porta lateral ao gate das policies (migration 20261117130000).
 -- Cada uma ganhou UMA linha no início do corpo: perform public.assert_mfa_gate();
 -- O resto é a definição que está em produção em 17/11/2026, byte a byte
 -- (conferido por diff no momento da geração desta migration).

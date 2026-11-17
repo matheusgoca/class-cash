@@ -43,7 +43,6 @@ async function ensureOwnerRoleAndInviteAccepted(userId: string, userEmail: strin
 const schema = z.object({
   name:            z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
   segments:        z.array(z.string()).min(1, 'Selecione pelo menos um segmento'),
-  primary_segment: z.string().nullable(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -75,10 +74,6 @@ export default function Onboarding() {
           .insert({
             name:            meta.pending_school_name,
             segments:        normalizedSegments,
-            // Convite do master não escolhe principal; usa o primeiro na
-            // ordem pedagógica (mesma regra do backfill da migration de
-            // segments). O dono ajusta depois em Configurações se quiser outro.
-            primary_segment: normalizedSegments[0] ?? null,
             plan:            meta.pending_school_plan ?? 'starter',
             owner_user_id:   user.id,
           })
@@ -114,11 +109,10 @@ export default function Onboarding() {
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { name: '', segments: [], primary_segment: null },
+    defaultValues: { name: '', segments: [] },
   });
 
   const selectedSegments = form.watch('segments');
-  const primarySegment = form.watch('primary_segment');
 
   const handleSubmit = async (data: FormData) => {
     if (!user) return;
@@ -129,7 +123,6 @@ export default function Onboarding() {
         .insert({
           name:            data.name,
           segments:        data.segments,
-          primary_segment: data.primary_segment,
           owner_user_id:   user.id,
         })
         .select('id')
@@ -210,16 +203,12 @@ export default function Onboarding() {
                 <FormItem>
                   <FormLabel className="text-base font-medium">Segmentos atendidos</FormLabel>
                   <p className="text-xs text-muted-foreground -mt-1">
-                    Marque todos os que se aplicam. Depois indique qual é o principal.
+                    Marque todos os que se aplicam.
                   </p>
                   <div className="mt-1">
                     <SegmentPicker
                       selected={selectedSegments}
-                      primary={primarySegment}
-                      onChange={(next, nextPrimary) => {
-                        form.setValue('segments', next, { shouldValidate: true });
-                        form.setValue('primary_segment', nextPrimary, { shouldValidate: true });
-                      }}
+                      onChange={(next) => form.setValue('segments', next, { shouldValidate: true })}
                     />
                   </div>
                   <FormMessage />

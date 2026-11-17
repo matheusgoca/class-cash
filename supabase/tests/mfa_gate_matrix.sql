@@ -43,6 +43,12 @@ declare
 begin
   perform pg_temp.as_service();
 
+  -- O teste não pode depender do estado real (o master, por exemplo, já tem
+  -- fator verificado e carência em produção). Dentro da transação, limpa os dos
+  -- usuários de teste; o ROLLBACK devolve tudo.
+  delete from auth.mfa_factors where user_id in (u_master, u_admin_t, u_fin_t, u_owner_p, u_fin_p);
+  delete from public.mfa_grace  where user_id in (u_master, u_admin_t, u_fin_t, u_owner_p, u_fin_p);
+
   -- C1: nenhuma escola exige → aal1 passa, para qualquer um (exceto master, C8)
   perform pg_temp.as_user(u_admin_t, 'aal1');
   perform pg_temp.rec('C1  escola não exige, admin aal1', public.mfa_gate_ok()::text, 'true');
