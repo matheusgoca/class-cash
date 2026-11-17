@@ -1,5 +1,5 @@
 -- Fase 3 (S2): exigir 2FA. Esta migration só cria a infraestrutura; NENHUMA
--- tabela usa o gate ainda (isso é a migration 20261117121000). Rodar sozinha
+-- tabela usa o gate ainda (isso é a migration 20261117130000). Rodar sozinha
 -- não bloqueia ninguém.
 --
 -- Quem é exigido: owner e admin de escola com require_2fa = true, e o master

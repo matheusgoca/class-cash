@@ -7,6 +7,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { MasterAdminProvider } from "./contexts/MasterAdminContext";
 import { useMasterAdmin } from "./contexts/MasterAdminContext";
 import { SchoolProvider } from "./contexts/SchoolContext";
+import { MfaGateProvider } from "./contexts/MfaGateContext";
 import { ThemeProvider } from "./contexts/ThemeProvider";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { Layout } from "@/components/layout/Layout";
@@ -30,6 +31,7 @@ import MasterAdmin from "./pages/MasterAdmin";
 import MasterBugs from "./pages/MasterBugs";
 import MasterAuditHistory from "./pages/MasterAuditHistory";
 import Team from "./pages/Team";
+import Security from "./pages/Security";
 import { PrivacyPolicy, TermsOfUse } from "./pages/Legal";
 
 const queryClient = new QueryClient();
@@ -53,6 +55,7 @@ const App = () => (
           <AuthProvider>
             <MasterAdminProvider>
             <SchoolProvider>
+            <MfaGateProvider>
               <Routes>
                 <Route path="/" element={<RootRoute />} />
                 <Route path="/auth" element={<Auth />} />
@@ -187,6 +190,16 @@ const App = () => (
                   }
                 />
                 <Route
+                  path="/seguranca"
+                  element={
+                    <ProtectedRoute>
+                      <Layout>
+                        <Security />
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/master"
                   element={
                     <ProtectedRoute requireMasterAdmin>
@@ -218,6 +231,7 @@ const App = () => (
                 />
                 <Route path="*" element={<NotFound />} />
               </Routes>
+            </MfaGateProvider>
             </SchoolProvider>
             </MasterAdminProvider>
           </AuthProvider>

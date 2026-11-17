@@ -94,6 +94,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   user_roles: "Equipe",
   invitations: "Equipe",
   schools: "Escola",
+  mfa_factors: "Segurança da conta",
 };
 
 /** Agrupa as tabelas auditadas pela categoria que aparece no filtro "Onde" da tela. */
@@ -533,6 +534,13 @@ function buildSummary(log: AuditLogRow, names: ResolvedNames): { summary: string
       return { summary: `${ACTION_VERBS[action]} o contrato de ${subject}.` };
     case "schools":
       return { summary: `${ACTION_VERBS[action]} os dados da escola.` };
+    case "mfa_factors": {
+      // Linha gravada pela Edge Function reset-user-mfa; o nome vem dentro do
+      // próprio registro para não precisar de busca em lote.
+      const row = (log.new_data ?? log.old_data) as Record<string, unknown> | null;
+      const target = typeof row?.target_name === "string" && row.target_name ? row.target_name : "um usuário";
+      return { summary: `Redefiniu o 2FA de ${target}.` };
+    }
     default:
       return { summary: `${ACTION_VERBS[action]} ${genericCategoryLabel(log.table_name).toLowerCase()}: ${subject}.` };
   }

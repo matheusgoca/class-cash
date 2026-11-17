@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ImportSection } from '@/components/settings/ImportSection';
 import { AuditHistorySection } from '@/components/settings/AuditHistorySection';
 import { SegmentPicker } from '@/components/settings/SegmentPicker';
+import { Require2faSection } from '@/components/settings/Require2faSection';
 import { getFriendlyErrorMessage } from '@/lib/friendlyError';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -142,6 +143,7 @@ const Settings = () => {
       <Tabs defaultValue="escola">
         <TabsList>
           <TabsTrigger value="escola">Escola</TabsTrigger>
+          <TabsTrigger value="seguranca">Segurança</TabsTrigger>
           <TabsTrigger value="historico">Histórico de alterações</TabsTrigger>
         </TabsList>
 
@@ -166,6 +168,10 @@ const Settings = () => {
               </Button>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="seguranca" className="space-y-6 mt-6">
+          <Require2faSection />
         </TabsContent>
 
         <TabsContent value="historico" className="mt-6">

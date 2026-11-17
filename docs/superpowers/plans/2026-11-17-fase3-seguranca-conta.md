@@ -50,7 +50,7 @@ Pular o passo 2 antes do 4 trancaria o master (sem linha em `mfa_grace` = bloque
 |---|---|
 | `src/lib/passwordRules.ts` (+test) | Checklist de requisitos de senha (puro) |
 | `src/lib/mfaGate.ts` (+test) | `resolveMfaGate()` puro — única fonte do estado de 2FA no front |
-| `src/hooks/useMfaGate.ts` | Junta AAL, `listFactors`, escola, role, RPC de carência → `resolveMfaGate` |
+| `src/contexts/MfaGateContext.tsx` | **(mudou na execução: Provider, não hook por rota)** Junta AAL, `listFactors`, escola, role, RPC de carência → `resolveMfaGate`; exporta `MfaGateProvider` e `useMfaGate()` |
 | `src/components/security/MfaChallenge.tsx` | Tela "digite o código" (login e retomada de sessão) |
 | `src/components/security/MfaEnrollFlow.tsx` | Ativação em 3 passos (reutilizado na forçada e em Configurações) |
 | `src/components/security/MfaGate.tsx` | Envolve rotas: decide challenge / enroll forçado / banner de carência |
@@ -58,8 +58,8 @@ Pular o passo 2 antes do 4 trancaria o master (sem linha em `mfa_grace` = bloque
 | `src/components/settings/PasswordChangeFlow.tsx` | Troca de senha em 3 passos |
 | `src/components/settings/MfaRecoveryButton.tsx` | Admin remove o fator de um membro (chama a Edge Function) |
 | `supabase/migrations/20261117120000_mfa_schema_and_gate_fn.sql` | `require_2fa`, `mfa_grace`, `start_mfa_grace()`, `mfa_gate_ok()`, trigger do toggle |
-| `supabase/migrations/20261117121000_mfa_restrictive_policies.sql` | Policies RESTRICTIVE por tabela |
-| `supabase/migrations/20261117122000_mfa_gate_in_definer_rpcs.sql` | `assert_mfa_gate()` nas RPCs `SECURITY DEFINER` |
+| `supabase/migrations/20261117130000_mfa_restrictive_policies.sql` | Policies RESTRICTIVE por tabela |
+| `supabase/migrations/20261117131000_mfa_gate_in_definer_rpcs.sql` | `assert_mfa_gate()` nas RPCs `SECURITY DEFINER` |
 | `supabase/functions/reset-user-mfa/index.ts` | Remove fatores de outro usuário (service role) |
 | `supabase/tests/mfa_gate_matrix.sql` | Roteiro `BEGIN…ROLLBACK` com a matriz de cenários |
 
@@ -400,7 +400,7 @@ Cenários mínimos (todos devem ser exercitados): C1 escola não exige/aal1 → 
 ### Task 4: Migration B — policies RESTRICTIVE nas tabelas sensíveis
 
 **Files:**
-- Create: `supabase/migrations/20261117121000_mfa_restrictive_policies.sql`
+- Create: `supabase/migrations/20261117130000_mfa_restrictive_policies.sql`
 - Modify: `supabase/tests/mfa_gate_matrix.sql` (adicionar leitura em tabelas)
 
 **Tabelas gateadas:** `students, teachers, classes, class_teachers, contracts, enrollments, tuitions, expenses, expense_categories, recurring_expenses, service_charges, school_services, student_services, renegotiations, audit_logs`.
@@ -448,7 +448,7 @@ end $$;
 RPCs `SECURITY DEFINER` rodam como dono e **ignoram RLS** — sem esta task, `import_*` / `insert_generated_*` / `renegotiate_tuitions` / `save_class_with_teachers` seriam uma porta lateral ao gate.
 
 **Files:**
-- Create: `supabase/migrations/20261117122000_mfa_gate_in_definer_rpcs.sql`
+- Create: `supabase/migrations/20261117131000_mfa_gate_in_definer_rpcs.sql`
 
 - [ ] **Step 1: Inventário em produção** (não assumir a lista do `types.ts`):
 
@@ -592,7 +592,9 @@ serve(async (req) => {
 
 ---
 
-### Task 8: Aba "Segurança" em Configurações (senha, 2FA, toggle, recuperação)
+### Task 8: Página pessoal `/seguranca` + toggle em Configurações (senha, 2FA, toggle, recuperação)
+
+> **Mudança de desenho (descoberta na Task 7):** senha e 2FA são pessoais e valem para TODOS os papéis (inclusive master, financeiro e professor), mas `/configuracoes` é só de admin. Criar a rota `/seguranca` (`ProtectedRoute` sem `requireSchool`, dentro do `Layout`, com link no menu) com `PasswordChangeFlow` + card de 2FA. O banner de carência (`MfaGate`) já aponta para `/seguranca`. Em Configurações fica só o toggle `require_2fa` (admin).
 
 **Files:**
 - Create: `src/components/settings/SecuritySection.tsx`, `src/components/settings/PasswordChangeFlow.tsx`, `src/components/settings/MfaRecoveryButton.tsx`
