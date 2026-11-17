@@ -40,8 +40,6 @@ interface SchoolRow {
   segments: string[];
 }
 
-const SEGMENT_FILTER_ALL = '__all__';
-
 const PLAN_LABELS: Record<string, string> = {
   starter: "Starter",
   pro: "Pro",
@@ -69,7 +67,6 @@ export default function MasterAdmin() {
   const [showCreate, setShowCreate] = useState(false);
   const [createForm, setCreateForm] = useState({ name: '', ownerEmail: '', plan: 'starter', segments: [] as string[] });
   const [creating, setCreating] = useState(false);
-  const [segmentFilter, setSegmentFilter] = useState(SEGMENT_FILTER_ALL);
   const [pendingInvites, setPendingInvites] = useState<PendingOwnerInvite[]>([]);
   const [resendingId, setResendingId] = useState<string | null>(null);
 
@@ -251,11 +248,6 @@ export default function MasterAdmin() {
     enterSchool(schoolRow.id, schoolRow.name);
   };
 
-  const filteredSchools =
-    segmentFilter === SEGMENT_FILTER_ALL
-      ? schools
-      : schools.filter((s) => s.segments.includes(segmentFilter));
-
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
@@ -312,37 +304,19 @@ export default function MasterAdmin() {
         </Card>
       )}
 
-      {/* Counter + filtro de segmento */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-sm font-medium text-muted-foreground">
-          Escolas ({filteredSchools.length}{filteredSchools.length !== schools.length ? ` de ${schools.length}` : ""})
-        </p>
-        <div className="flex items-center gap-2">
-          <Label className="text-xs text-muted-foreground">Filtrar por segmento</Label>
-          <Select value={segmentFilter} onValueChange={setSegmentFilter}>
-            <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value={SEGMENT_FILTER_ALL}>Todos</SelectItem>
-              {SEGMENTS.map((seg) => (
-                <SelectItem key={seg.value} value={seg.value}>{seg.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      {/* Counter */}
+      <p className="text-sm font-medium text-muted-foreground">Escolas ({schools.length})</p>
 
       {/* School cards grid */}
       {loading ? (
         <div className="flex items-center justify-center py-16">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
         </div>
-      ) : filteredSchools.length === 0 ? (
-        <p className="text-center py-16 text-muted-foreground">
-          {schools.length === 0 ? "Nenhuma escola cadastrada." : "Nenhuma escola atende esse segmento."}
-        </p>
+      ) : schools.length === 0 ? (
+        <p className="text-center py-16 text-muted-foreground">Nenhuma escola cadastrada.</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredSchools.map((school) => (
+          {schools.map((school) => (
             <Card key={school.id} className="overflow-hidden">
               <CardContent className="p-5 space-y-4">
 
