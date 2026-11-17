@@ -20,6 +20,7 @@ import {
   Bug,
   Sparkles,
   History,
+  KeyRound,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSchool } from "@/contexts/SchoolContext";
@@ -264,6 +265,17 @@ export function AppSidebar() {
 
         <SidebarSeparator className="mt-auto" />
         <SidebarMenu className="pt-2">
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild>
+              <NavLink
+                to="/seguranca"
+                className={`flex items-center gap-2 ${getNavCls(isActive("/seguranca"))}`}
+              >
+                <KeyRound className="h-4 w-4" />
+                {!collapsed && <span>Segurança da conta</span>}
+              </NavLink>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton onClick={() => signOut()}>
               <LogOut className="h-4 w-4" />

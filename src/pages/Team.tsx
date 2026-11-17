@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { getFriendlyErrorMessage } from "@/lib/friendlyError";
 import { UserPlus, Users, RefreshCw, Mail, Pencil, Trash2 } from "lucide-react";
+import { MfaRecoveryButton } from "@/components/settings/MfaRecoveryButton";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -337,20 +338,25 @@ export default function Team() {
                       </TableCell>
                       <TableCell>{fmt(m.created_at)}</TableCell>
                       <TableCell>
-                        {/* Owner não pode ser editado/removido por aqui — é
-                            dono da escola (schools.owner_user_id), não um
-                            vínculo comum de user_roles. */}
-                        {m.role !== "owner" && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => openRemove(m)}
-                            className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                            title="Remover acesso"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
+                        <div className="flex items-center gap-1">
+                          {/* Recuperação de 2FA vale para todos, inclusive o owner
+                              (quem perde o celular precisa de outro admin). */}
+                          <MfaRecoveryButton userId={m.user_id} fullName={m.full_name} />
+                          {/* Owner não pode ser editado/removido por aqui — é
+                              dono da escola (schools.owner_user_id), não um
+                              vínculo comum de user_roles. */}
+                          {m.role !== "owner" && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => openRemove(m)}
+                              className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                              title="Remover acesso"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

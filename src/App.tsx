@@ -31,6 +31,7 @@ import MasterAdmin from "./pages/MasterAdmin";
 import MasterBugs from "./pages/MasterBugs";
 import MasterAuditHistory from "./pages/MasterAuditHistory";
 import Team from "./pages/Team";
+import Security from "./pages/Security";
 import { PrivacyPolicy, TermsOfUse } from "./pages/Legal";
 
 const queryClient = new QueryClient();
@@ -184,6 +185,16 @@ const App = () => (
                     <ProtectedRoute requireSchool allowedRoles={['admin']}>
                       <Layout>
                         <Settings />
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/seguranca"
+                  element={
+                    <ProtectedRoute>
+                      <Layout>
+                        <Security />
                       </Layout>
                     </ProtectedRoute>
                   }

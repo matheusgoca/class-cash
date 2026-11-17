@@ -68,3 +68,24 @@ export function getFriendlyMfaError(error: unknown): string {
   }
   return 'Não foi possível verificar o código. Tente novamente.';
 }
+
+/** Erros da troca de senha (Supabase Auth) em português, sem vazar o texto cru. */
+export function getFriendlyPasswordError(error: unknown): string {
+  const e = (error ?? {}) as { code?: string; message?: string; status?: number };
+  const code = e.code ?? '';
+  const message = e.message ?? '';
+
+  if (code === 'same_password' || /different from the old password/i.test(message)) {
+    return 'A nova senha precisa ser diferente da atual.';
+  }
+  if (code === 'weak_password') {
+    return 'Essa senha é fraca ou já apareceu em vazamentos. Escolha outra.';
+  }
+  if (code === 'reauthentication_needed') {
+    return 'Por segurança, saia e entre novamente antes de trocar a senha.';
+  }
+  if (code === 'over_request_rate_limit' || e.status === 429) {
+    return 'Muitas tentativas. Aguarde um minuto e tente de novo.';
+  }
+  return 'Não foi possível alterar a senha. Tente novamente.';
+}
