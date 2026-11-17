@@ -1,5 +1,47 @@
 # Application Sync Changelog
 
+## Sprint S1 — Auditoria financeira, base de logs e novo copy da LP (2026-11-13)
+
+Escopo definido em `docs/PLANO_SPRINTS_NOV2026.md` e `docs/PROMPT_S1_CLAUDE_CODE.md`. Fases 1 e 2 aplicadas em produção; Fase 3 só no código (sem migration).
+
+### Fase 1 — Confiança nos números
+- **Item A:** `getTuitionValue()` em `src/lib/calculations.ts` centraliza `final_amount ?? amount`; `FinancialMetrics` e `DashboardCharts` passaram a usar o helper, alinhando com Mensalidades e `ClassHealthCards`.
+- **Itens B/C (decisão do usuário):** Saldo Realizado (regime de caixa, `paid_date`) como métrica principal do Dashboard, Saldo Previsto (competência, `due_date`) como apoio. Implementado em `src/lib/financialBalance.ts` (`calculateMonthlyBalance`).
+- **Item D:** seletor de mês recriado no Dashboard (mesmo padrão do Kanban); Saldo, Despesas do mês e tendência seguem o mês escolhido.
+- **Item G:** relatório de Rentabilidade por Turma ganhou a linha "Custos gerais da escola (não rateados)" (`unallocatedSchoolCost` em `classCost.ts`), fechando o custo total com os gerais.
+- **Item H:** migration com job diário (`pg_cron`) promovendo `tuitions.status = 'pending'` vencida para `'overdue'` no banco; `isTuitionOverdue()` mantido como segurança na UI.
+- **Itens F e I:** apenas listados (histórico de salário do professor com vigência; unificar valor da mensalidade) — decisão de produto pendente, não implementados nesta sprint.
+- Vitest instalado (não existia antes); `src/lib/*.test.ts` cobre os helpers novos.
+
+### Fase 2 — Base de logs (`audit_logs`)
+- Tabela `audit_logs` (append-only, sem policies de UPDATE/DELETE), RLS de SELECT para owner/admin da própria escola e master admin.
+- Trigger genérica `audit_trigger_fn()` (`AFTER INSERT/UPDATE/DELETE`) aplicada em 15 tabelas, registrando ator, papel, `is_master_action`, tabela, registro e diff de campos.
+- Coluna `source` (`manual` / `generated` / `import`) para diferenciar lançamento manual de geração em lote (mensalidades, despesas recorrentes, importação de planilha).
+- RPCs novas: `insert_generated_tuitions`, `insert_generated_expenses`, `import_teacher`, `import_student`, `import_enrollment`, `import_contract`; `save_class_with_teachers` ganhou o parâmetro `p_source`.
+- `generateTuitions.ts`, `generateExpenses.ts` e `src/lib/import/execute.ts` migrados para usar essas RPCs em vez de insert direto.
+- Validado em produção: despesa manual e despesa recorrente geradas em escola de teste, como master admin, confirmando `is_master_action = true` e os campos corretos no log; dados de teste removidos depois (migration de cleanup).
+- `supabase gen types typescript` rodado após as migrations; `as any` removido das chamadas às RPCs novas.
+
+### Fase 3 — Novo copy da LP
+- `src/pages/Landing.tsx` reescrita conforme `docs/mockups/LP.dc.html`: copy por problema ("Quem está inadimplente?", "Essa turma dá lucro?", "Quanto sobrou este mês?"), público principal escolas do infantil ao ensino médio (técnico e idiomas como "também atende"), sem números ou depoimentos inventados (espaço reservado para depoimento real da escola piloto).
+- Mudança estrutural: a seção de Preços saiu do ar e os CTAs principais passaram de "Começar grátis" (self-signup) para "Conversar com a gente" / "Quero conhecer" (contato direto) — consistente com a fase de piloto do produto, sem venda self-service ativa ainda.
+- Mantidos componentes e tokens do projeto (`ui/`, `success`/`warning`/`danger`, `brand-accent`); nenhum hex do mockup foi copiado.
+
+### Seed de dados de teste (Colégio Estrela)
+Escola de teste usada na validação da Fase 2 estava com 100% das 2.105 mensalidades vencidas desde março/2026 sem nenhum pagamento, e zero despesas cadastradas — não dava pra testar nada além do "tudo zerado". Aplicado direto em produção via `supabase db query --linked` (autorizado pelo usuário nesta sessão):
+- Mensalidades: histórico de pagamento plausível (~90% pagas em dia, ~6% pagas com atraso e multa, ~4% seguem vencidas). Um registro foi fixado deterministicamente como exemplar do roteiro de QA (itens 1 e 2): aluno Jonas Barbosa, turma Fund. 1A, vencimento 05/09, desconto R$ 50 + multa R$ 35, pago em 02/10 (mês diferente do vencimento).
+- Despesas: 5 `recurring_expenses` (Água, Luz, Internet/Telefone, IPTU, Coordenação) com lançamentos gerados para set/out (pagos) e nov/2026 (vencido, ainda não pago) via `set_config('app.audit_source', 'generated', ...)` — mesmo mecanismo das RPCs de geração em lote. Mais 3 despesas pontuais (`source='manual'`): manutenção, marketing e material didático (essa última com rateio `per_student` na turma Fund. 1A, pra exercitar os dois métodos de rateio no relatório).
+- Validado: `audit_logs` registrou as despesas geradas com `source='generated'` e as manuais com `source='manual'`, como esperado.
+
+### Pendente ao final da sprint
+- Roteiro de QA manual (ver `QA_CHECKLIST.md`) ainda precisa ser executado na prática — os dados para rodá-lo já estão prontos.
+
+### Achados laterais registrados, não resolvidos nesta sprint
+- `ClassHealthCards.tsx` não usa `classCost.ts` apesar do `CLAUDE.md` descrever essa centralização — calcula só ocupação/receita/inadimplência, não custo por turma. `CLAUDE.md` está desatualizado nesse ponto.
+- `DashboardCharts.tsx` já era regime de caixa (`paid_date`) antes da Fase 1; só `FinancialMetrics.tsx` não era — agora os dois são consistentes.
+
+---
+
 ## Schema Synchronization - [Date]
 
 This changelog documents all changes made to sync the application code with the exact Supabase database schema.

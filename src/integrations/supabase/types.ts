@@ -541,6 +541,24 @@ export type Database = {
           },
         ]
       }
+      mfa_grace: {
+        Row: {
+          grace_until: string
+          started_at: string
+          user_id: string
+        }
+        Insert: {
+          grace_until: string
+          started_at?: string
+          user_id: string
+        }
+        Update: {
+          grace_until?: string
+          started_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -755,6 +773,8 @@ export type Database = {
           name: string
           owner_user_id: string | null
           plan: string | null
+          primary_segment: string | null
+          require_2fa: boolean
           segments: string[] | null
           status: string | null
           updated_at: string | null
@@ -766,6 +786,8 @@ export type Database = {
           name: string
           owner_user_id?: string | null
           plan?: string | null
+          primary_segment?: string | null
+          require_2fa?: boolean
           segments?: string[] | null
           status?: string | null
           updated_at?: string | null
@@ -777,6 +799,8 @@ export type Database = {
           name?: string
           owner_user_id?: string | null
           plan?: string | null
+          primary_segment?: string | null
+          require_2fa?: boolean
           segments?: string[] | null
           status?: string | null
           updated_at?: string | null
@@ -1170,6 +1194,14 @@ export type Database = {
       }
     }
     Functions: {
+      assert_mfa_gate: { Args: never; Returns: undefined }
+      audit_logs_hidden_summary: {
+        Args: { p_date_from?: string; p_date_to?: string; p_school_id: string }
+        Returns: {
+          cnt: number
+          table_name: string
+        }[]
+      }
       get_active_teachers_salary_sum: {
         Args: { p_school_id: string }
         Returns: number
@@ -1216,6 +1248,11 @@ export type Database = {
         Returns: number
       }
       is_master_admin: { Args: never; Returns: boolean }
+      mfa_gate_ok: { Args: never; Returns: boolean }
+      mfa_is_admin_or_owner: {
+        Args: { p_school: string; p_user: string }
+        Returns: boolean
+      }
       promote_overdue_tuitions: { Args: never; Returns: undefined }
       renegotiate_tuitions: {
         Args: {
@@ -1247,6 +1284,7 @@ export type Database = {
         }
         Returns: string
       }
+      start_mfa_grace: { Args: never; Returns: string }
     }
     Enums: {
       app_role: "admin" | "financial" | "teacher"
@@ -1384,5 +1422,3 @@ export const Constants = {
     },
   },
 } as const
-A new version of Supabase CLI is available: v3.1.0 (currently installed v2.117.0)
-We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

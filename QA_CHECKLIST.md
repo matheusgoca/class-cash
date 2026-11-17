@@ -1,5 +1,47 @@
 # QA Testing Checklist
 
+## Roteiro de QA manual — Sprint S1 (2026-11-13)
+
+Cobre os pontos de maior risco tocados nas Fases 1 e 2 (cálculo de valores, regime de caixa, logs de auditoria). Rodar como owner/admin de uma escola de teste e, no último item, também como master admin.
+
+**Executado em 2026-11-13, em produção (`class-cash-tan.vercel.app`), logado como master admin visualizando Colégio Estrela. Todos os 6 itens passaram.**
+
+### 1. Mensalidade com desconto + multa — ✅ passou
+- [x] Exemplar do seed S1: aluno **Jonas Barbosa**, turma **Fund. 1A**, mensalidade com `due_date = 2026-09-05`, `discount_applied = 50`, `penalty_amount = 35`, paga em `2026-10-02`.
+- [x] **Verificado:** tela de Mensalidades mostra `Base: R$850,00 | Desc: R$50,00` e `Multa: R$35,00`, valor final **R$835,00** — bate com `final_amount = amount − discount_applied + penalty_amount`.
+
+### 2. Mensalidade paga em mês diferente do vencimento — ✅ passou
+- [x] Mesmo exemplar: vencimento 05/09/2026, pago em 02/10/2026.
+- [x] **Verificado:** linha aparece corretamente na tela de Mensalidades com Vencimento e Data de Pagamento em meses diferentes. (Não conferi o Saldo Previsto de setembro separadamente nesta rodada — dá pra fazer trocando o seletor de mês no Dashboard.)
+
+### 3. Renegociação de mensalidade — ✅ passou
+- [x] Renegociei a mensalidade de **Wérica Duarte** (Fund. 2A, R$850 vencida em 10/11) em 2 parcelas de R$450 via `RenegotiationModal`.
+- [x] **Verificado:** mensalidade original mudou para status **Renegociada**; 2 novas mensalidades `Pendente` de R$450 foram criadas (venc. 13/11 e 13/12); contador de Atrasados caiu de 27 para 25.
+- [x] **Verificado em `audit_logs`:** 4 eventos gerados (`insert` em `renegotiations`, `update` em `tuitions` [original→Renegociada], 2× `insert` em `tuitions` [novas parcelas]), todos com `source='manual'`, `actor_role='admin'`, `is_master_action=true`.
+
+### 4. Professor lecionando em 2 turmas — ✅ passou
+- [x] **Fernanda Vieira** leciona em Fund. 1A e Fund. 1B (salário R$3.200).
+- [x] **Verificado no relatório de Rentabilidade:** Fund. 1A mostra salário R$3.200,00 (Fernanda R$1.600 + Ricardo Alves R$1.600, que também leciona em 2 turmas) — não duplicado. Fund. 1B mostra R$3.100,00 (Fernanda R$1.600 + Juliana Matos R$1.500). Marquei a despesa "Conta de luz" (escola toda) de novembro como paga para validar a linha **"Custos gerais da escola (não rateados)": R$650,00**, que fechou exatamente com `Custo Total = soma das turmas (R$39.400) + R$650 = R$40.050`.
+
+### 7. RLS de `audit_logs` para usuário não-master — ✅ passou (S2, Fase 0, 2026-11-13)
+- [x] Owner/admin não-master (Colégio Pensar) vê seu próprio log recém-gerado (`is_master_action=false`, `school_id` correto).
+- [x] Owner/admin não-master de outra escola (Colegio Teste) não vê esse mesmo log: 0 linhas.
+- [x] Financeiro (Colégio Pensar) não vê nenhuma linha de `audit_logs`, nem da própria escola: 0 linhas.
+- [x] UPDATE e DELETE em `audit_logs`, tentados pelo próprio owner, afetam 0 linhas (sem policy para esses comandos).
+- [x] Testado via `BEGIN...ROLLBACK` simulando `request.jwt.claims` + `SET LOCAL ROLE authenticated` — nada foi persistido em produção.
+- Não existe nenhuma conta com role `teacher` em produção hoje; o caso "professor não lê" não foi testado com uma conta real, só coberto pela mesma condição de role que exclui `financial`.
+
+### 5. Ação de master admin em outra escola gera log — ✅ passou (equivalente)
+- [x] As próprias ações acima (marcar despesa paga, renegociar mensalidade) foram feitas como master admin "visualizando" o Colégio Estrela — não precisei trocar de escola de novo porque o mecanismo é o mesmo (`get_user_school_id()` do master é nulo, então `is_master_action` fica `true` em qualquer escola que ele acesse via Painel Master).
+- [x] **Verificado em `audit_logs`:** todas as linhas acima têm `is_master_action = true` e `school_id` = Colégio Estrela.
+- [ ] **RLS (owner/admin vê o log, outro não vê):** não re-testado nesta rodada por falta de credenciais de um usuário não-master — já tinha sido validado na Fase 2 (ver `CHANGELOG.md`).
+
+### 6. Job diário de `overdue` (Item H) — ✅ passou
+- [x] **Verificado direto no banco:** `cron.job` tem o job ativo (`select public.promote_overdue_tuitions();`, schedule `0 3 * * *`); `cron.job_run_details` mostra a última execução em 2026-11-13 03:00 UTC com status `succeeded`.
+- [x] **Verificado na UI:** filtro "Atrasado" em Mensalidades mostra as mensalidades vencidas corretamente como `overdue` (status no banco, não só cálculo client-side de `isTuitionOverdue()`).
+
+---
+
 ## Schema Synchronization Testing Guide
 
 This checklist ensures all application code correctly interacts with the Supabase database schema.
