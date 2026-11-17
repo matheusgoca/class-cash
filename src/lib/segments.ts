@@ -12,8 +12,6 @@ export interface SegmentOption {
   label: string;
   description: string;
   icon: LucideIcon;
-  /** técnico e idiomas aparecem como secundários na UI — nunca como principal sugerido. */
-  secondary?: boolean;
 }
 
 export const SEGMENTS: SegmentOption[] = [
@@ -21,8 +19,8 @@ export const SEGMENTS: SegmentOption[] = [
   { value: "fundamental_1", label: "Fundamental I", description: "1º ao 5º ano", icon: BookOpen },
   { value: "fundamental_2", label: "Fundamental II", description: "6º ao 9º ano", icon: BookOpen },
   { value: "medio", label: "Ensino Médio", description: "1ª à 3ª série", icon: GraduationCap },
-  { value: "tecnico", label: "Curso Técnico", description: "Cursos profissionalizantes", icon: Building2, secondary: true },
-  { value: "idiomas", label: "Idiomas", description: "Níveis e módulos", icon: Languages, secondary: true },
+  { value: "tecnico", label: "Curso Técnico", description: "Cursos profissionalizantes", icon: Building2 },
+  { value: "idiomas", label: "Idiomas", description: "Níveis e módulos", icon: Languages },
 ];
 
 export const SEGMENT_VALUES = SEGMENTS.map((s) => s.value);
