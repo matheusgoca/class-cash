@@ -49,6 +49,11 @@ export function MfaRecoveryButton({ userId, fullName }: MfaRecoveryButtonProps) 
         toast({ title: 'Erro', description: json.error ?? 'Não foi possível redefinir o 2FA.', variant: 'destructive' });
         return;
       }
+      if (json.removed === 0) {
+        toast({ title: 'Nada a redefinir', description: `${fullName} não tinha o 2FA ativo.` });
+        setOpen(false);
+        return;
+      }
       toast({
         title: '2FA redefinido',
         description: `${fullName} precisará ativar a verificação em duas etapas de novo no próximo acesso.`,

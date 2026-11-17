@@ -28,3 +28,6 @@ max_client_conn = 200
 
 [storage.vector]
 enabled = false
+
+[functions.reset-user-mfa]
+verify_jwt = false

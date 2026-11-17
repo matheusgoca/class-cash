@@ -253,3 +253,27 @@ describe("formatAuditEntry — exclusão", () => {
     expect(entry.summary).toBe("Excluiu o aluno Pedro Henrique.");
   });
 });
+
+describe("formatAuditEntry — mfa_factors (redefinição de 2FA)", () => {
+  const log = makeLog({
+    table_name: "mfa_factors",
+    action: "update",
+    changed_fields: ["mfa_reset"],
+    new_data: { target_name: "Ana Lima", removed_factors: 1 },
+  });
+
+  it("resumo em português com o nome de quem teve o 2FA redefinido", () => {
+    const entry = formatAuditEntry(log, baseOptions);
+    expect(entry.summary).toBe("Redefiniu o 2FA de Ana Lima.");
+    expect(entry.categoryLabel).toBe("Segurança da conta");
+  });
+
+  it("não mostra o campo técnico 'mfa_reset' como diff cru", () => {
+    expect(formatAuditEntry(log, baseOptions).diffs).toEqual([]);
+  });
+
+  it("sem nome gravado, cai em 'um usuário' (não quebra)", () => {
+    const anon = makeLog({ table_name: "mfa_factors", action: "update", changed_fields: ["mfa_reset"], new_data: {} });
+    expect(formatAuditEntry(anon, baseOptions).summary).toBe("Redefiniu o 2FA de um usuário.");
+  });
+});
