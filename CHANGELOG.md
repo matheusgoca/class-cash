@@ -1,5 +1,17 @@
 # Application Sync Changelog
 
+## Sprint S3 — Preferências de notificação (2026-11-18)
+
+Spec: `docs/superpowers/specs/2026-11-18-preferencias-notificacao-design.md`. Plano: `docs/superpowers/plans/2026-11-18-preferencias-notificacao.md`.
+
+- Tabelas `notification_preferences` (usuário × escola × evento) e `notification_settings` (resumo diário, fuso, `confirmed_at`), escritas só pelos RPCs `ensure_notification_preferences()` e `save_notification_preferences(...)`; padrões, opções e direção numa única função (`notification_event_defaults()`). Migration `20261118120000_notification_preferences.sql`.
+- E-mail nasce desligado e só vale depois do 1º save (`confirmed_at`); Rematrícula só para owner/admin; gate de 2FA (`mfa_gate` + `assert_mfa_gate()`); FKs com cascade para `schools` e `auth.users`.
+- Front: central `/notificacoes` (estado vazio) e `/notificacoes/preferencias` conforme o mockup; grupo **Conta** na barra lateral com Notificações e Segurança da conta.
+- **Desvio da spec:** opções de antecedência, direção e "recomendado" vêm do payload do RPC em vez de um catálogo no front (evita duas fontes).
+- Migration aplicada em produção em 2026-11-18. Primeira tentativa falhou (`uuid_generate_v4()` não existe no search_path do `db push`; a extensão vive no schema `extensions`) e nada foi gravado; corrigido para `gen_random_uuid()`, o padrão de todas as tabelas de produção. Drift: `update_updated_at_column()` também não existe em produção — os triggers usam `set_updated_at()`.
+- Matriz `supabase/tests/notification_prefs_matrix.sql`: 30/30 em `BEGIN ... ROLLBACK` contra o schema aplicado.
+- Nada é gerado nem enviado ainda (gerador: próximos passos da S3; e-mail: S4).
+
 ## Sprint S2 — Histórico de alterações, segmentos e segurança da conta (2026-11-13 a 2026-11-17)
 
 Escopo em `docs/PLANO_SPRINTS_NOV2026.md` (linha S2). Entregue em três PRs (#1, #2, #3), todos mergeados; migrations aplicadas em produção e Edge Function deployada (conferido em 2026-11-18).

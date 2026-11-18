@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Histórico de alterações (owner)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:#0B1220;background:#F6F8FA}
+*{box-sizing:border-box}
+.nav a{display:block;padding:9px 12px;border-radius:8px;color:#334155;text-decoration:none;font-size:14px}
+.nav a.on{background:#E3F1EE;color:#145A52;font-weight:600}
+.nav h6{margin:18px 12px 6px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#64748B;font-weight:600}
+.card{background:#fff;border:1px solid #E2E8F0;border-radius:12px}
+.btn{display:inline-block;padding:8px 14px;border-radius:8px;background:#186D63;color:#fff;font-size:13px;font-weight:600;text-decoration:none;border:0;min-height:36px}
+.btn.ghost{background:#fff;color:#145A52;border:1px solid #CBD5E1}
+.tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600}
+.tabs a{display:inline-block;padding:10px 14px;font-size:14px;color:#475569;text-decoration:none;border-bottom:2px solid transparent}
+.tabs a.on{color:#145A52;font-weight:600;border-bottom-color:#186D63}
+.inp{min-height:40px;padding:0 12px;border:1px solid #CBD5E1;border-radius:8px;font:inherit;font-size:14px;background:#fff}
+.ev{display:flex;gap:14px;padding:16px 20px;border-top:1px solid #E2E8F0}
+.av{width:36px;height:36px;border-radius:50%;background:#E3F1EE;color:#145A52;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex:0 0 36px}
+.diff{display:inline-block;padding:1px 6px;border-radius:4px;font-size:13px}
+.old{background:#FDE8E8;color:#7F1D1D;text-decoration:line-through}
+.new{background:#E1F4E8;color:#14532D}
+</style>
+</helmet>
+<div style="display:flex;flex-wrap:wrap;min-height:960px;background:#F6F8FA">
+  <aside class="nav" style="flex:0 0 240px;background:#fff;border-right:1px solid #E2E8F0;padding:20px 12px">
+    <div style="font-weight:700;font-size:18px;color:#186D63;padding:4px 12px 12px">Class Cash</div>
+    <a href="#">Dashboard</a>
+    <h6>Gestão</h6>
+    <a href="#">Alunos</a><a href="#">Professores</a><a href="#">Turmas</a>
+    <h6>Financeiro</h6>
+    <a href="#">Contratos</a><a href="#">Mensalidades</a><a href="#">Despesas</a><a href="#">Serviços</a><a href="#">Relatórios</a>
+    <h6>Conta</h6>
+    <a href="#">Notificações</a><a class="on" href="#">Configurações</a>
+  </aside>
+  <main style="flex:999 1 560px;min-width:0;padding:28px 32px;display:flex;flex-direction:column;gap:18px">
+    <div>
+      <h1 style="margin:0;font-size:28px;letter-spacing:-.01em">Configurações</h1>
+      <p style="margin:4px 0 0;color:#475569;font-size:14px">Informações e preferências da escola</p>
+    </div>
+    <nav class="tabs" style="border-bottom:1px solid #E2E8F0;display:flex;flex-wrap:wrap">
+      <a href="Config-Escola.dc.html">Escola</a><a href="Config-Notificacoes-Seguranca.dc.html">Notificações e segurança</a><a href="#">Equipe</a><a class="on" href="#">Histórico de alterações</a><a href="#">Importação</a>
+    </nav>
+
+    <div class="card" style="padding:16px 20px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+      <div><label for="u" style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;color:#475569">Quem</label><select class="inp" id="u"><option>Todos</option></select></div>
+      <div><label for="t" style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;color:#475569">Onde</label><select class="inp" id="t"><option>Todas as telas</option></select></div>
+      <div><label for="p" style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;color:#475569">Período</label><select class="inp" id="p"><option>Últimos 30 dias</option></select></div>
+      <label style="display:flex;gap:8px;align-items:center;font-size:14px;min-height:40px"><input type="checkbox"> Só ações do suporte</label>
+      <a class="btn ghost" href="#" style="margin-left:auto">Exportar CSV</a>
+    </div>
+
+    <section class="card" style="overflow:hidden">
+      <div class="ev" style="border-top:0;background:#FBF4EE">
+        <span class="av" style="background:#F3DFD0;color:#7A3A14">CC</span>
+        <div style="flex:1;min-width:0"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><strong style="font-size:14px">Suporte Class Cash</strong><span class="tag" style="background:#A95223;color:#fff">Ação do suporte</span></div>
+        <div style="font-size:14px;margin-top:4px">Corrigiu o professor da turma <strong>5º Ano A</strong>.</div>
+        <div style="font-size:13px;color:#475569;margin-top:4px">Professor: <span class="diff old">Sem professor</span> → <span class="diff new">Carla Mendes</span></div></div>
+        <span style="font-size:12px;color:#64748B;white-space:nowrap">Hoje 14:12</span>
+      </div>
+      <div class="ev">
+        <span class="av">MS</span>
+        <div style="flex:1;min-width:0"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><strong style="font-size:14px">Marina Souza</strong><span class="tag" style="background:#E8EEF9;color:#1E3A8A">Contratos</span></div>
+        <div style="font-size:14px;margin-top:4px">Alterou o valor da mensalidade de <strong>João Pereira</strong>.</div>
+        <div style="font-size:13px;color:#475569;margin-top:4px">Valor: <span class="diff old">R$ 500,00</span> → <span class="diff new">R$ 450,00</span> · desconto de 10%</div></div>
+        <span style="font-size:12px;color:#64748B;white-space:nowrap">Hoje 10:41</span>
+      </div>
+      <div class="ev">
+        <span class="av">RA</span>
+        <div style="flex:1;min-width:0"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><strong style="font-size:14px">Rafael Alves</strong><span class="tag" style="background:#E1F4E8;color:#146B3A">Mensalidades</span></div>
+        <div style="font-size:14px;margin-top:4px">Marcou como paga a mensalidade de <strong>Beatriz Lima</strong> (outubro).</div>
+        <div style="font-size:13px;color:#475569;margin-top:4px">Status: <span class="diff old">Pendente</span> → <span class="diff new">Pago</span> · PIX</div></div>
+        <span style="font-size:12px;color:#64748B;white-space:nowrap">Ontem 17:03</span>
+      </div>
+      <div class="ev">
+        <span class="av">MS</span>
+        <div style="flex:1;min-width:0"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><strong style="font-size:14px">Marina Souza</strong><span class="tag" style="background:#FEF3C7;color:#7A4B00">Professores</span></div>
+        <div style="font-size:14px;margin-top:4px">Alterou o salário de <strong>Carla Mendes</strong>.</div>
+        <div style="font-size:13px;color:#475569;margin-top:4px">Salário: <span class="diff old">R$ 3.000,00</span> → <span class="diff new">R$ 3.300,00</span></div></div>
+        <span style="font-size:12px;color:#64748B;white-space:nowrap">Ontem 09:20</span>
+      </div>
+      <div class="ev">
+        <span class="av">RA</span>
+        <div style="flex:1;min-width:0"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><strong style="font-size:14px">Rafael Alves</strong><span class="tag" style="background:#E8EEF9;color:#1E3A8A">Despesas</span></div>
+        <div style="font-size:14px;margin-top:4px">Criou a despesa recorrente <strong>Internet</strong>.</div>
+        <div style="font-size:13px;color:#475569;margin-top:4px">R$ 280,00 por mês · 12 lançamentos gerados automaticamente</div></div>
+        <span style="font-size:12px;color:#64748B;white-space:nowrap">Seg 15:48</span>
+      </div>
+      <div class="ev">
+        <span class="av">MS</span>
+        <div style="flex:1;min-width:0"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><strong style="font-size:14px">Marina Souza</strong><span class="tag" style="background:#F1F5F9;color:#334155">Equipe</span></div>
+        <div style="font-size:14px;margin-top:4px">Convidou <strong>rafael@escola.exemplo</strong> como Financeiro.</div></div>
+        <span style="font-size:12px;color:#64748B;white-space:nowrap">Seg 08:55</span>
+      </div>
+    </section>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:#475569"><span>Os registros ficam guardados por 24 meses e não podem ser editados.</span><a href="#">Carregar mais</a></div>
+    <p style="margin:0;font-size:12px;color:#64748B">Mockup com dados ilustrativos.</p>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":960}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

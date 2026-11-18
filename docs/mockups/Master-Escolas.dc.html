@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Painel master — Escolas e segmentos</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:#0B1220;background:#F6F8FA}
+*{box-sizing:border-box}
+.nav a{display:block;padding:9px 12px;border-radius:8px;color:#334155;text-decoration:none;font-size:14px}
+.nav a.on{background:#E3F1EE;color:#145A52;font-weight:600}
+.nav h6{margin:18px 12px 6px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#64748B;font-weight:600}
+.card{background:#fff;border:1px solid #E2E8F0;border-radius:12px}
+.btn{display:inline-block;padding:8px 14px;border-radius:8px;background:#186D63;color:#fff;font-size:13px;font-weight:600;text-decoration:none;min-height:36px}
+.btn.ghost{background:#fff;color:#145A52;border:1px solid #CBD5E1}
+.tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600}
+.inp{min-height:40px;padding:0 12px;border:1px solid #CBD5E1;border-radius:8px;font:inherit;font-size:14px;background:#fff}
+table{border-collapse:collapse;width:100%;font-size:13px;min-width:760px}
+th{text-align:left;padding:10px 14px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#64748B;background:#F8FAFC;font-weight:600}
+td{padding:12px 14px;border-top:1px solid #E2E8F0;vertical-align:middle}
+.bar{height:10px;border-radius:5px;background:#E2E8F0;overflow:hidden}
+.bar i{display:block;height:100%;background:#186D63}
+</style>
+</helmet>
+<div style="display:flex;flex-wrap:wrap;min-height:900px;background:#F6F8FA">
+  <aside class="nav" style="flex:0 0 240px;background:#fff;border-right:1px solid #E2E8F0;padding:20px 12px">
+    <div style="font-weight:700;font-size:18px;color:#186D63;padding:4px 12px 2px">Class Cash</div>
+    <div style="padding:0 12px 12px"><span class="tag" style="background:#A95223;color:#fff">Master admin</span></div>
+    <a class="on" href="#">Escolas</a><a href="#">Convites de owners</a><a href="#">Planos e limites</a>
+    <h6>Auditoria</h6>
+    <a href="Historico-Master.dc.html">Histórico global</a><a href="#">Relatos de bug</a>
+  </aside>
+  <main style="flex:999 1 560px;min-width:0;padding:28px 32px;display:flex;flex-direction:column;gap:18px">
+    <div>
+      <h1 style="margin:0;font-size:28px;letter-spacing:-.01em">Escolas</h1>
+      <p style="margin:4px 0 0;color:#475569;font-size:14px">Visão geral dos clientes e do perfil de cada escola</p>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px">
+      <div class="card" style="padding:16px 18px"><div style="font-size:13px;color:#475569">Escolas ativas</div><div style="font-size:24px;font-weight:700;margin-top:4px">3</div></div>
+      <div class="card" style="padding:16px 18px"><div style="font-size:13px;color:#475569">Alunos ativos (total)</div><div style="font-size:24px;font-weight:700;margin-top:4px">412</div></div>
+      <div class="card" style="padding:16px 18px"><div style="font-size:13px;color:#475569">Segmento principal mais comum</div><div style="font-size:24px;font-weight:700;margin-top:4px">Fundamental I</div></div>
+    </div>
+
+    <section class="card" style="padding:20px 24px">
+      <h2 style="margin:0 0 4px;font-size:18px">Mistura de clientes por segmento</h2>
+      <p style="margin:0 0 16px;font-size:13px;color:#475569">Quantas escolas atendem cada segmento (uma escola pode contar em vários) e quantas o marcaram como principal.</p>
+      <div style="display:grid;gap:12px">
+        <div style="display:grid;grid-template-columns:150px minmax(0,1fr) 150px;gap:14px;align-items:center;font-size:13px"><span style="font-weight:600">Educação Infantil</span><div class="bar"><i style="width:67%"></i></div><span style="color:#475569">2 escolas · 1 principal</span></div>
+        <div style="display:grid;grid-template-columns:150px minmax(0,1fr) 150px;gap:14px;align-items:center;font-size:13px"><span style="font-weight:600">Fundamental I</span><div class="bar"><i style="width:100%"></i></div><span style="color:#475569">3 escolas · 2 principal</span></div>
+        <div style="display:grid;grid-template-columns:150px minmax(0,1fr) 150px;gap:14px;align-items:center;font-size:13px"><span style="font-weight:600">Fundamental II</span><div class="bar"><i style="width:67%"></i></div><span style="color:#475569">2 escolas · 0 principal</span></div>
+        <div style="display:grid;grid-template-columns:150px minmax(0,1fr) 150px;gap:14px;align-items:center;font-size:13px"><span style="font-weight:600">Ensino Médio</span><div class="bar"><i style="width:33%"></i></div><span style="color:#475569">1 escola · 0 principal</span></div>
+        <div style="display:grid;grid-template-columns:150px minmax(0,1fr) 150px;gap:14px;align-items:center;font-size:13px"><span style="font-weight:600">Curso Técnico</span><div class="bar"><i style="width:0%"></i></div><span style="color:#475569">0 escolas</span></div>
+        <div style="display:grid;grid-template-columns:150px minmax(0,1fr) 150px;gap:14px;align-items:center;font-size:13px"><span style="font-weight:600">Idiomas</span><div class="bar"><i style="width:0%"></i></div><span style="color:#475569">0 escolas</span></div>
+      </div>
+    </section>
+
+    <section class="card" style="overflow:hidden">
+      <div style="padding:16px 20px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;justify-content:space-between">
+        <h2 style="margin:0;font-size:18px">Todas as escolas</h2>
+        <div><label for="s" style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;color:#475569">Filtrar por segmento</label><select class="inp" id="s"><option>Todos</option></select></div>
+      </div>
+      <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Escola</th><th>Segmento principal</th><th>Outros segmentos</th><th>Alunos</th><th>Plano</th><th></th></tr></thead>
+        <tbody>
+          <tr><td><strong>Escola Exemplo</strong></td><td><span class="tag" style="background:#186D63;color:#fff">Fundamental I</span></td><td>Infantil, Fundamental II</td><td>180</td><td>[PLANO]</td><td><a class="btn ghost" href="#">Visualizar</a></td></tr>
+          <tr><td><strong>Colégio Modelo</strong></td><td><span class="tag" style="background:#186D63;color:#fff">Educação Infantil</span></td><td>Fundamental I e II, Médio</td><td>164</td><td>[PLANO]</td><td><a class="btn ghost" href="#">Visualizar</a></td></tr>
+          <tr><td><strong>Escola Três</strong></td><td><span class="tag" style="background:#186D63;color:#fff">Fundamental I</span></td><td>Infantil</td><td>68</td><td>[PLANO]</td><td><a class="btn ghost" href="#">Visualizar</a></td></tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+    <p style="margin:0;font-size:12px;color:#64748B">Mockup com dados ilustrativos.</p>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

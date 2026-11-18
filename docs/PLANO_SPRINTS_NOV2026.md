@@ -56,6 +56,11 @@ Público principal: escolas particulares do infantil ao médio. Técnico e idiom
 ## 3. Notificações
 Eventos: vencimento próximo/atraso de mensalidade, parcela de renegociação, despesa a pagar, fim de contrato (rematrícula). `contracts.renewed_from_id` já existe e permite saber quem já rematriculou; falta o conceito de ciclo letivo para disparar o lembrete. Tabelas: `notifications`, `notification_preferences` (evento × canal × antecedência × resumo diário). Envio: pg_cron + Edge Function + e-mail transacional. Mockups: `Main.dc.html` (sino + card de atenção), `Notificacoes.dc.html`, `Config-Notificacoes-Seguranca.dc.html`.
 
+**Regras herdadas da tela de preferências (S3, 2026-11-18) que o gerador e o envio precisam respeitar:**
+- E-mail (eventos e resumo) **só** se `notification_settings.confirmed_at is not null` e o canal estiver ligado. Quem nunca salvou recebe só aviso no sistema, com os padrões de `notification_event_defaults()`.
+- O gerador junta as preferências com o **papel e o vínculo atuais** (`profiles.school_id`, `user_roles`, `schools.owner_user_id`): linha de `reenrollment` de quem virou financeiro, ou de quem saiu da escola, é ignorada (as linhas não são apagadas).
+- Horário do resumo = `digest_time` composto com `timezone` no momento do disparo; nunca guardar UTC fixo. O `timezone` é sobrescrito pelo navegador a cada save (último dispositivo vence).
+
 ## 4. Logs de alteração (novo)
 
 **Dois públicos:** owner da escola (só a própria escola) e master admin (todas, com filtro por escola).

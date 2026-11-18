@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Configurações — Notificações e segurança</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:#0B1220;background:#F6F8FA}
+*{box-sizing:border-box}
+.nav a{display:block;padding:9px 12px;border-radius:8px;color:#334155;text-decoration:none;font-size:14px}
+.nav a.on{background:#E3F1EE;color:#145A52;font-weight:600}
+.nav h6{margin:18px 12px 6px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#64748B;font-weight:600}
+.card{background:#fff;border:1px solid #E2E8F0;border-radius:12px}
+.btn{display:inline-block;padding:8px 14px;border-radius:8px;background:#186D63;color:#fff;font-size:13px;font-weight:600;text-decoration:none;border:0;min-height:36px}
+.btn.ghost{background:#fff;color:#145A52;border:1px solid #CBD5E1}
+.tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600}
+.tabs a{display:inline-block;padding:10px 14px;font-size:14px;color:#475569;text-decoration:none;border-bottom:2px solid transparent}
+.tabs a.on{color:#145A52;font-weight:600;border-bottom-color:#186D63}
+.lbl{font-size:13px;font-weight:600;margin-bottom:6px;display:block}
+.inp{width:100%;min-height:40px;padding:0 12px;border:1px solid #CBD5E1;border-radius:8px;font:inherit;font-size:14px;background:#fff}
+.sw{appearance:none;-webkit-appearance:none;width:42px;height:24px;border-radius:12px;background:#94A3B8;position:relative;cursor:pointer;margin:0;flex:0 0 42px}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s}
+.sw:checked{background:#186D63}
+.sw:checked::after{left:21px}
+.mx{display:grid;grid-template-columns:minmax(0,2fr) 90px 90px minmax(0,1.2fr);gap:12px;align-items:center;padding:14px 0;border-top:1px solid #E2E8F0}
+.step{display:flex;gap:12px;align-items:flex-start}
+.num{width:28px;height:28px;border-radius:50%;background:#186D63;color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 28px}
+.num.off{background:#E2E8F0;color:#334155}
+</style>
+</helmet>
+<div style="display:flex;flex-wrap:wrap;min-height:1240px;background:#F6F8FA">
+  <aside class="nav" style="flex:0 0 240px;background:#fff;border-right:1px solid #E2E8F0;padding:20px 12px">
+    <div style="font-weight:700;font-size:18px;color:#186D63;padding:4px 12px 12px">Class Cash</div>
+    <a href="#">Dashboard</a>
+    <h6>Gestão</h6>
+    <a href="#">Alunos</a><a href="#">Professores</a><a href="#">Turmas</a>
+    <h6>Financeiro</h6>
+    <a href="#">Contratos</a><a href="#">Mensalidades</a><a href="#">Despesas</a><a href="#">Serviços</a><a href="#">Relatórios</a>
+    <h6>Conta</h6>
+    <a href="#">Notificações</a><a class="on" href="#">Configurações</a>
+  </aside>
+  <main style="flex:999 1 560px;min-width:0;padding:28px 32px;display:flex;flex-direction:column;gap:18px">
+    <div>
+      <h1 style="margin:0;font-size:28px;letter-spacing:-.01em">Configurações</h1>
+      <p style="margin:4px 0 0;color:#475569;font-size:14px">Informações e preferências da escola</p>
+    </div>
+    <nav class="tabs" style="border-bottom:1px solid #E2E8F0;display:flex;flex-wrap:wrap">
+      <a href="Config-Escola.dc.html">Escola</a><a class="on" href="#">Notificações e segurança</a><a href="#">Equipe</a><a href="Historico-Owner.dc.html">Histórico de alterações</a><a href="#">Importação</a>
+    </nav>
+
+    <section class="card" style="padding:24px">
+      <h2 style="margin:0;font-size:18px">Notificações</h2>
+      <p style="margin:4px 0 16px;font-size:13px;color:#475569">Escolha o que avisar, onde e com quanta antecedência. Vale para o seu usuário.</p>
+      <div class="mx" style="border-top:0;padding-top:0;font-size:12px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:.05em"><span>Evento</span><span>No sistema</span><span>E-mail</span><span>Antecedência</span></div>
+      <div class="mx"><div><strong style="font-size:14px">Mensalidade a vencer</strong><div style="font-size:13px;color:#475569">Lembrete antes do vencimento</div></div><input class="sw" type="checkbox" checked aria-label="Mensalidade a vencer no sistema"><input class="sw" type="checkbox" aria-label="Mensalidade a vencer por e-mail"><select class="inp" aria-label="Antecedência mensalidade"><option>3 dias antes</option></select></div>
+      <div class="mx"><div><strong style="font-size:14px">Mensalidade em atraso</strong><div style="font-size:13px;color:#475569">Quando passa do vencimento</div></div><input class="sw" type="checkbox" checked aria-label="Atraso no sistema"><input class="sw" type="checkbox" checked aria-label="Atraso por e-mail"><select class="inp" aria-label="Frequência atraso"><option>Após 5 dias</option></select></div>
+      <div class="mx"><div><strong style="font-size:14px">Parcela de renegociação</strong><div style="font-size:13px;color:#475569">Parcelas dos acordos ativos</div></div><input class="sw" type="checkbox" checked aria-label="Renegociação no sistema"><input class="sw" type="checkbox" checked aria-label="Renegociação por e-mail"><select class="inp" aria-label="Antecedência renegociação"><option>1 dia antes</option></select></div>
+      <div class="mx"><div><strong style="font-size:14px">Despesa a pagar</strong><div style="font-size:13px;color:#475569">Despesas e recorrências</div></div><input class="sw" type="checkbox" checked aria-label="Despesa no sistema"><input class="sw" type="checkbox" aria-label="Despesa por e-mail"><select class="inp" aria-label="Antecedência despesa"><option>2 dias antes</option></select></div>
+      <div class="mx"><div><strong style="font-size:14px">Rematrícula</strong><div style="font-size:13px;color:#475569">Contratos perto do fim</div></div><input class="sw" type="checkbox" checked aria-label="Rematrícula no sistema"><input class="sw" type="checkbox" checked aria-label="Rematrícula por e-mail"><select class="inp" aria-label="Antecedência rematrícula"><option>45 dias antes</option></select></div>
+      <div style="border-top:1px solid #E2E8F0;padding-top:16px;display:flex;gap:24px;flex-wrap:wrap;align-items:flex-end">
+        <label style="display:flex;gap:10px;align-items:center;font-size:14px;font-weight:500"><input class="sw" type="checkbox" checked> Receber um resumo diário por e-mail</label>
+        <div style="width:160px"><label class="lbl" for="h">Horário do resumo</label><select class="inp" id="h"><option>07:00</option></select></div>
+      </div>
+    </section>
+
+    <section class="card" style="padding:24px;display:flex;flex-direction:column;gap:18px">
+      <div><h2 style="margin:0;font-size:18px">Segurança da conta</h2><p style="margin:4px 0 0;font-size:13px;color:#475569">Proteja o acesso aos dados financeiros da escola, em etapas.</p></div>
+
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">
+        <div style="border:1px solid #E2E8F0;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;justify-content:space-between;align-items:center"><strong style="font-size:15px">Alterar senha</strong><span style="font-size:12px;color:#64748B">Passo 2 de 3</span></div>
+          <div class="step"><span class="num">✓</span><div><strong style="font-size:14px">Confirmar senha atual</strong><div style="font-size:13px;color:#475569">Concluído</div></div></div>
+          <div class="step"><span class="num">2</span><div style="flex:1"><strong style="font-size:14px">Criar nova senha</strong><div style="margin-top:8px"><label class="lbl" for="np">Nova senha</label><input class="inp" id="np" type="password" value="exemplo-senha"></div><div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><span class="tag" style="background:#E1F4E8;color:#146B3A">10+ caracteres</span><span class="tag" style="background:#E1F4E8;color:#146B3A">Número</span><span class="tag" style="background:#F1F5F9;color:#334155">Símbolo</span></div></div></div>
+          <div class="step"><span class="num off">3</span><div><strong style="font-size:14px;color:#64748B">Confirmar e sair dos outros aparelhos</strong></div></div>
+          <div style="display:flex;gap:10px"><a class="btn" href="#">Continuar</a><a class="btn ghost" href="#">Voltar</a></div>
+        </div>
+
+        <div style="border:1px solid #E2E8F0;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;justify-content:space-between;align-items:center"><strong style="font-size:15px">Verificação em duas etapas (2FA)</strong><span class="tag" style="background:#FEF3C7;color:#7A4B00">Desativada</span></div>
+          <div class="step"><span class="num">1</span><div><strong style="font-size:14px">Instale um app autenticador</strong><div style="font-size:13px;color:#475569">Google Authenticator, Authy ou similar.</div></div></div>
+          <div class="step"><span class="num">2</span><div style="flex:1"><strong style="font-size:14px">Escaneie o QR code</strong><div style="display:flex;gap:14px;margin-top:8px;align-items:center;flex-wrap:wrap"><div role="img" aria-label="Espaço do QR code" style="width:120px;height:120px;border:2px dashed #94A3B8;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#64748B;text-align:center">QR code<br>gerado aqui</div><div style="font-size:12px;color:#475569;flex:1;min-width:140px">Sem câmera? Digite a chave manualmente no app.</div></div></div></div>
+          <div class="step"><span class="num">3</span><div style="flex:1"><strong style="font-size:14px">Digite o código de 6 dígitos</strong><div style="margin-top:8px;max-width:180px"><input class="inp" aria-label="Código de 6 dígitos" placeholder="000000" style="letter-spacing:.3em;text-align:center"></div></div></div>
+          <a class="btn" href="#" style="align-self:flex-start">Ativar 2FA</a>
+        </div>
+      </div>
+
+      <div style="border:1px solid #E2E8F0;border-radius:12px;padding:16px 18px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap">
+        <div><strong style="font-size:14px">Exigir 2FA de quem administra a escola</strong><div style="font-size:13px;color:#475569;margin-top:2px">Owner e administradores precisam confirmar o segundo fator para acessar. Financeiro e professores seguem opcionais.</div></div>
+        <input class="sw" type="checkbox" aria-label="Exigir 2FA de owner e admin">
+      </div>
+    </section>
+    <p style="margin:0;font-size:12px;color:#64748B">Mockup com dados ilustrativos.</p>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1240}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Landing page — novo tom</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:wght@600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:#0B1220;background:#FFFFFF}
+*{box-sizing:border-box}
+h1,h2{font-family:Fraunces,Georgia,serif;letter-spacing:-.01em}
+.btn{display:inline-block;padding:13px 22px;border-radius:10px;background:#186D63;color:#fff;font-size:15px;font-weight:600;text-decoration:none;min-height:44px}
+.btn.ghost{background:#fff;color:#145A52;border:1px solid #CBD5E1}
+.card{background:#fff;border:1px solid #E2E8F0;border-radius:14px}
+a{color:#145A52}
+</style>
+</helmet>
+<div style="width:100%;max-width:1280px;margin:0 auto;min-height:1560px">
+  <header style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:20px 64px">
+    <strong style="font-size:20px;color:#186D63">Class Cash</strong>
+    <nav style="display:flex;gap:24px;align-items:center;flex-wrap:wrap;font-size:14px"><a href="#" style="text-decoration:none;color:#334155">Como ajuda</a><a href="#" style="text-decoration:none;color:#334155">Para quem é</a><a href="#" style="text-decoration:none;color:#334155">Perguntas</a><a class="btn ghost" href="#" style="padding:9px 16px;font-size:14px">Entrar</a></nav>
+  </header>
+
+  <section style="display:flex;flex-wrap:wrap;gap:40px;align-items:center;padding:56px 64px 64px">
+    <div style="flex:1 1 440px;min-width:0">
+      <span style="display:inline-block;padding:4px 12px;border-radius:999px;background:#E3F1EE;color:#145A52;font-size:13px;font-weight:600">Gestão financeira para escolas particulares</span>
+      <h1 style="margin:16px 0 16px;font-size:52px;line-height:1.08">Saiba quanto sua escola realmente ganha, turma por turma.</h1>
+      <p style="margin:0 0 28px;font-size:18px;line-height:1.55;color:#334155;max-width:540px">Mensalidades, inadimplência, salários e despesas num só lugar. Feito para escolas do infantil ao ensino médio, sem planilha espalhada e sem fim de mês no escuro.</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap"><a class="btn" href="#">Conversar com a gente</a><a class="btn ghost" href="#">Ver como funciona</a></div>
+      <p style="margin:16px 0 0;font-size:13px;color:#475569">Sem cartão de crédito para começar a conversa.</p>
+    </div>
+    <div class="card" style="flex:1 1 380px;min-width:0;padding:22px;box-shadow:0 20px 40px rgba(15,23,42,.08)">
+      <div style="font-size:13px;color:#475569">Saldo financeiro do mês</div>
+      <div style="font-size:34px;font-weight:700;color:#146B3A;margin:2px 0 14px">R$ 18.420,00</div>
+      <div style="display:grid;gap:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;border:1px solid #E2E8F0;border-radius:10px;padding:10px 12px"><strong style="font-size:14px">5º Ano A</strong><span style="padding:2px 8px;border-radius:999px;background:#E1F4E8;color:#146B3A;font-size:12px;font-weight:600">Excelente</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;border:1px solid #E2E8F0;border-radius:10px;padding:10px 12px"><strong style="font-size:14px">2º Ano B</strong><span style="padding:2px 8px;border-radius:999px;background:#FEF3C7;color:#7A4B00;font-size:12px;font-weight:600">Atenção</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;border:1px solid #E2E8F0;border-radius:10px;padding:10px 12px"><strong style="font-size:14px">Pré II</strong><span style="padding:2px 8px;border-radius:999px;background:#FDE8E8;color:#9B1C1C;font-size:12px;font-weight:600">Crítico</span></div>
+      </div>
+      <div style="font-size:11px;color:#64748B;margin-top:12px">Tela ilustrativa com dados de exemplo.</div>
+    </div>
+  </section>
+
+  <section style="padding:56px 64px;background:#F6F8FA">
+    <h2 style="margin:0 0 8px;font-size:34px">Perguntas que todo dono de escola se faz</h2>
+    <p style="margin:0 0 28px;color:#475569;font-size:16px">E que, hoje, costumam levar uma tarde inteira de planilha para responder.</p>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px">
+      <div class="card" style="padding:22px"><h3 style="margin:0 0 8px;font-size:18px">Quem está inadimplente?</h3><p style="margin:0;color:#475569;font-size:15px;line-height:1.55">Veja o que venceu, quanto é e de qual turma, sem cruzar listas. Renegocie direto da cobrança.</p></div>
+      <div class="card" style="padding:22px"><h3 style="margin:0 0 8px;font-size:18px">Essa turma dá lucro?</h3><p style="margin:0;color:#475569;font-size:15px;line-height:1.55">O custo de professores e das despesas é dividido entre as turmas, e você vê o resultado de cada uma.</p></div>
+      <div class="card" style="padding:22px"><h3 style="margin:0 0 8px;font-size:18px">Quanto sobrou este mês?</h3><p style="margin:0;color:#475569;font-size:15px;line-height:1.55">Receita recebida menos salários e despesas, com comparação com o mês anterior.</p></div>
+    </div>
+  </section>
+
+  <section style="padding:56px 64px">
+    <h2 style="margin:0 0 28px;font-size:34px">O que você controla no Class Cash</h2>
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 40px">
+      <div><h3 style="margin:0 0 4px;font-size:17px">Alunos, turmas e contratos</h3><p style="margin:0;color:#475569;font-size:15px;line-height:1.55">Matrículas com valor, desconto e vencimento. As mensalidades são geradas para você.</p></div>
+      <div><h3 style="margin:0 0 4px;font-size:17px">Despesas e recorrências</h3><p style="margin:0;color:#475569;font-size:15px;line-height:1.55">Aluguel, luz, material: cadastre uma vez e o sistema lança todo mês.</p></div>
+      <div><h3 style="margin:0 0 4px;font-size:17px">Lembretes no momento certo</h3><p style="margin:0;color:#475569;font-size:15px;line-height:1.55">Avisos de vencimento, renegociação e rematrícula, no sistema e por e-mail.</p></div>
+      <div><h3 style="margin:0 0 4px;font-size:17px">Histórico de alterações</h3><p style="margin:0;color:#475569;font-size:15px;line-height:1.55">Saiba quem mudou o quê e quando, com registro que ninguém consegue apagar.</p></div>
+    </div>
+  </section>
+
+  <section style="padding:56px 64px;background:#F0F8F6" id="para-quem">
+    <h2 style="margin:0 0 8px;font-size:34px">Feito para a rotina da escola particular</h2>
+    <p style="margin:0 0 24px;color:#334155;font-size:16px;max-width:680px">Nosso foco são escolas do infantil ao ensino médio. Cursos técnicos e de idiomas também usam, com as adaptações que fizerem sentido.</p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <span style="padding:10px 18px;border-radius:999px;background:#186D63;color:#fff;font-weight:600;font-size:15px">Educação Infantil</span>
+      <span style="padding:10px 18px;border-radius:999px;background:#186D63;color:#fff;font-weight:600;font-size:15px">Fundamental I e II</span>
+      <span style="padding:10px 18px;border-radius:999px;background:#186D63;color:#fff;font-weight:600;font-size:15px">Ensino Médio</span>
+      <span style="padding:10px 18px;border-radius:999px;background:#fff;color:#145A52;border:1px solid #9CC8C1;font-size:15px">Também atende: técnico e idiomas</span>
+    </div>
+  </section>
+
+  <section style="padding:56px 64px">
+    <h2 style="margin:0 0 24px;font-size:34px">Como começar</h2>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px">
+      <div class="card" style="padding:22px"><div style="font-size:13px;font-weight:700;color:#A95223">1</div><h3 style="margin:4px 0 6px;font-size:17px">Cadastre ou importe</h3><p style="margin:0;color:#475569;font-size:15px;line-height:1.55">Turmas, professores e alunos, um a um ou por planilha.</p></div>
+      <div class="card" style="padding:22px"><div style="font-size:13px;font-weight:700;color:#A95223">2</div><h3 style="margin:4px 0 6px;font-size:17px">Crie os contratos</h3><p style="margin:0;color:#475569;font-size:15px;line-height:1.55">As mensalidades e os vencimentos nascem sozinhos.</p></div>
+      <div class="card" style="padding:22px"><div style="font-size:13px;font-weight:700;color:#A95223">3</div><h3 style="margin:4px 0 6px;font-size:17px">Acompanhe o painel</h3><p style="margin:0;color:#475569;font-size:15px;line-height:1.55">Saldo, atrasos e saúde de cada turma, atualizados todo dia.</p></div>
+    </div>
+  </section>
+
+  <section style="padding:48px 64px;background:#F6F8FA">
+    <div class="card" style="padding:28px 32px;display:flex;gap:24px;flex-wrap:wrap;align-items:center;justify-content:space-between">
+      <div style="flex:1 1 420px"><h2 style="margin:0 0 6px;font-size:26px">Nasceu dentro de uma escola de verdade</h2><p style="margin:0;color:#475569;font-size:15px;line-height:1.55">O Class Cash foi criado para resolver o financeiro de uma escola particular familiar, que é a primeira usuária em produção. [DEPOIMENTO REAL — adicionar quando houver autorização]</p></div>
+      <a class="btn" href="#">Quero conhecer</a>
+    </div>
+  </section>
+
+  <section style="padding:56px 64px">
+    <h2 style="margin:0 0 20px;font-size:30px">Perguntas frequentes</h2>
+    <div style="display:grid;gap:12px;max-width:820px">
+      <details class="card" style="padding:16px 20px"><summary style="font-weight:600;cursor:pointer">Preciso trocar o sistema que já uso para a secretaria?</summary><p style="margin:10px 0 0;color:#475569;font-size:15px">Não. O Class Cash cuida do financeiro e pode conviver com o seu sistema acadêmico.</p></details>
+      <details class="card" style="padding:16px 20px"><summary style="font-weight:600;cursor:pointer">Consigo trazer meus dados de planilha?</summary><p style="margin:10px 0 0;color:#475569;font-size:15px">Sim. Há modelos de planilha para turmas, professores, alunos e matrículas.</p></details>
+      <details class="card" style="padding:16px 20px"><summary style="font-weight:600;cursor:pointer">Os dados da minha escola ficam separados dos de outras?</summary><p style="margin:10px 0 0;color:#475569;font-size:15px">Sim. Cada escola enxerga apenas os próprios dados.</p></details>
+    </div>
+  </section>
+
+  <footer style="padding:28px 64px;border-top:1px solid #E2E8F0;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:13px;color:#475569"><span>Class Cash · gestão financeira para escolas</span><span><a href="#">Termos</a> · <a href="#">Privacidade</a></span></footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1560}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

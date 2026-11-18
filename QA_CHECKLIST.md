@@ -1,5 +1,19 @@
 # QA Testing Checklist
 
+## Roteiro de QA manual — S3, preferências de notificação (2026-11-18)
+
+Matriz SQL: `supabase/tests/notification_prefs_matrix.sql` (30 verificações em `BEGIN ... ROLLBACK`).
+
+- [x] Grupo **Conta** na barra lateral (Notificações + Segurança da conta); rodapé só com Sair (2026-11-18: master sem escola vê só Segurança; na própria escola vê Notificações + Segurança; rodapé só com Sair)
+- [x] `/notificacoes`: cabeçalho, botão Preferências, estado vazio (2026-11-18)
+- [x] 1º acesso: e-mails desligados, selo "Recomendado" em 3 eventos, aviso, Salvar habilitado (2026-11-18; no banco: 5 linhas com e-mail desligado e confirmed_at nulo)
+- [x] "Ativar e-mails recomendados" → salvar → recarregar mostra o gravado; aviso some (2026-11-18; no banco: e-mail ligado só nos 3 recomendados, confirmed_at preenchido, fuso America/Sao_Paulo)
+- [x] Antecedência e horário do resumo salvos e recarregados; horário desabilitado com o resumo desligado (2026-11-18: 5 dias antes e 08:00 gravados e recarregados; Salvar desabilitado sem mudanças)
+- [x] Master visualizando outra escola: item some; URL direta mostra aviso e não carrega (2026-11-18: item some; página acessada pelo histórico mostra o aviso e não carrega nada. Acesso por URL direta não é testável: recarregar a página já perde a escola visualizada — comportamento anterior a este branch)
+- [ ] 375 px: matriz em cartões, sem rolagem horizontal (não testado em 375 px: o Chrome não reduz a janela abaixo de 500 px; a 500 px os cartões empilham, sem rolagem horizontal)
+- [ ] Financeiro não vê Rematrícula (depende de login com a conta de teste; coberto pela matriz SQL, casos 1c/1d/4b)
+- [ ] Professor não vê Notificações (vê Segurança da conta) (depende de login com a conta de teste; coberto por src/lib/accountMenu.test.ts)
+
 ## Roteiro de QA manual — Sprint S2, Fase 3: segurança da conta (2026-11-18)
 
 Migrations A/B/C aplicadas em produção e Edge Function `reset-user-mfa` deployada (confirmado em 2026-11-18 via `migration list` / `functions list`). Master admin já tem 1 fator TOTP verificado. **Itens marcados ✅ já foram verificados; o resto ainda precisa ser executado.**

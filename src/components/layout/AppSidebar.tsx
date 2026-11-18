@@ -21,7 +21,10 @@ import {
   Sparkles,
   History,
   KeyRound,
+  Bell,
+  UserCircle,
 } from "lucide-react";
+import { showNotificationsItem } from "@/lib/accountMenu";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSchool } from "@/contexts/SchoolContext";
 import { useMasterAdmin } from "@/contexts/MasterAdminContext";
@@ -108,7 +111,7 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const currentPath = location.pathname;
-  const [openGroups, setOpenGroups] = useState<string[]>(["Gestão", "Financeiro", "Configurações"]);
+  const [openGroups, setOpenGroups] = useState<string[]>(["Gestão", "Financeiro", "Configurações", "Conta"]);
 
   const isActive = (path: string) => currentPath === path;
   // The shadcn Sidebar's own SidebarMenuButton/SidebarMenuSubButton classes
@@ -139,6 +142,18 @@ export function AppSidebar() {
 
   // Master admin without a viewing school: show only "Painel Master", hide school menu
   const masterWithoutSchool = isMasterAdmin && !viewingSchoolId;
+
+  const showNotifications = showNotificationsItem({
+    role,
+    isMasterAdmin,
+    viewingSchoolId,
+    homeSchoolId: profile?.school_id ?? null,
+  });
+  const accountItems = [
+    ...(showNotifications ? [{ title: "Notificações", url: "/notificacoes", icon: Bell }] : []),
+    { title: "Segurança da conta", url: "/seguranca", icon: KeyRound },
+  ];
+  const isActivePrefix = (path: string) => currentPath === path || currentPath.startsWith(`${path}/`);
 
   const visibleItems = masterWithoutSchool
     ? []
@@ -261,21 +276,44 @@ export function AppSidebar() {
               )}
             </SidebarMenuItem>
           ))}
+          <SidebarMenuItem key="Conta">
+            <Collapsible open={openGroups.includes("Conta")} onOpenChange={() => toggleGroup("Conta")}>
+              <CollapsibleTrigger asChild>
+                <SidebarMenuButton className="w-full justify-between">
+                  <div className="flex items-center gap-2">
+                    <UserCircle className="h-4 w-4" />
+                    {!collapsed && <span>Conta</span>}
+                  </div>
+                  {!collapsed && (
+                    <ChevronDown className={`h-4 w-4 transition-transform ${openGroups.includes("Conta") ? "rotate-180" : ""}`} />
+                  )}
+                </SidebarMenuButton>
+              </CollapsibleTrigger>
+              {!collapsed && (
+                <CollapsibleContent>
+                  <SidebarMenuSub>
+                    {accountItems.map((subItem) => (
+                      <SidebarMenuSubItem key={subItem.title}>
+                        <SidebarMenuSubButton asChild>
+                          <NavLink
+                            to={subItem.url}
+                            className={`flex items-center gap-2 ${getNavCls(isActivePrefix(subItem.url))}`}
+                          >
+                            <subItem.icon className="h-4 w-4" />
+                            <span>{subItem.title}</span>
+                          </NavLink>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    ))}
+                  </SidebarMenuSub>
+                </CollapsibleContent>
+              )}
+            </Collapsible>
+          </SidebarMenuItem>
         </SidebarMenu>
 
         <SidebarSeparator className="mt-auto" />
         <SidebarMenu className="pt-2">
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild>
-              <NavLink
-                to="/seguranca"
-                className={`flex items-center gap-2 ${getNavCls(isActive("/seguranca"))}`}
-              >
-                <KeyRound className="h-4 w-4" />
-                {!collapsed && <span>Segurança da conta</span>}
-              </NavLink>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton onClick={() => signOut()}>
               <LogOut className="h-4 w-4" />
