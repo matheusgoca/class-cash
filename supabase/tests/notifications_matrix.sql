@@ -54,7 +54,7 @@ declare
   u_fin    uuid := 'b7ba4eb2-c7a2-4129-83a8-de8e7175c446'; -- financeiro, Colegio Teste (movido para a escola X)
   c_now    timestamptz := '2031-03-10 08:00:00+00';       -- 05:00 em São Paulo → "hoje" = 2031-03-10
   d        date := date '2031-03-10';
-  s_x uuid; cl1 uuid; cl2 uuid; st uuid; k1 uuid; k2 uuid; k3 uuid; cat uuid; rn uuid;
+  s_x uuid; s_y uuid; cly uuid; sty uuid; ky uuid; caty uuid; rny uuid; cl1 uuid; cl2 uuid; st uuid; k1 uuid; k2 uuid; k3 uuid; cat uuid; rn uuid;
   v text; v_id uuid;
 begin
   perform set_config('request.jwt.claims', '', true);
@@ -101,6 +101,26 @@ begin
     (s_x, cat, 'Aluguel', 4200, d + 2, 'pending'),
     (s_x, cat, 'Luz', 300, d + 2, 'paid');
 
+  -- Escola Y (decoys): mesmas datas, valores 7777, sem nenhum destinatário. Se algum filtro de school_id
+  -- sumir do gerador, os totais/contagens de 1a-1e e 5b da escola X vazam e quebram.
+  insert into public.schools (name, owner_user_id) values ('Escola Teste Notificações Y', u_master) returning id into s_y;
+  insert into public.classes (name, school_id) values ('Turma Y', s_y) returning id into cly;
+  insert into public.students (full_name, birth_date, school_id) values ('Aluno Y', date '2015-01-01', s_y) returning id into sty;
+  insert into public.contracts (student_id, class_id, school_id, start_date, end_date, status, monthly_amount)
+    values (sty, cly, s_y, date '2031-01-01', d + 45, 'active', 7777) returning id into ky;
+  insert into public.contracts (student_id, class_id, school_id, start_date, end_date, status, monthly_amount, renewed_from_id)
+    values (sty, cly, s_y, d + 46, d + 400, 'active', 7777, k1);   -- aponta para o contrato da escola X
+  insert into public.tuitions (student_id, contract_id, school_id, description, amount, due_date, status) values
+    (sty, ky, s_y, 'Mensalidade', 7777, d + 3, 'pending'),
+    (sty, ky, s_y, 'Mensalidade', 7777, d - 6, 'overdue');
+  insert into public.renegotiations (student_id, school_id, original_amount, new_installment_amount, installments, total_renegotiated, first_due_date)
+    values (sty, s_y, 7777, 7777, 1, 7777, d + 1) returning id into rny;
+  insert into public.tuitions (student_id, school_id, description, amount, due_date, status, renegotiation_id) values
+    (sty, s_y, 'Parcela 1/1', 7777, d + 1, 'pending', rny);
+  insert into public.expense_categories (school_id, name) values (s_y, 'Infraestrutura Y') returning id into caty;
+  insert into public.expenses (school_id, category_id, description, amount, due_date, status) values
+    (s_y, caty, 'Aluguel Y', 7777, d + 2, 'pending');
+
   -- caso 3/4: financeiro desliga despesas no sistema e usa N=5 em mensalidade a vencer
   insert into public.notification_preferences (school_id, user_id, event, in_app, email, offset_days) values
     (s_x, u_fin, 'expense_due', false, false, 2),
@@ -133,6 +153,9 @@ begin
   -- 8. Isolamento: nenhuma linha dos dois usuários fora da escola X
   perform pg_temp.rec('8a linhas só da escola X',
     (select count(*)::text from public.notifications where user_id in (u_admin, u_fin) and school_id <> s_x), '0');
+
+  perform pg_temp.rec('8b escola Y (sem destinatários) não gera linhas',
+    (select count(*)::text from public.notifications where school_id = s_y), '0');
 
   -- 9. RPCs (como usuário, RLS real)
   perform pg_temp.rec('9a list admin: total',  pg_temp.run_as(u_admin, 'aal1', 'select (public.list_notifications()->>''total'')'), '5');
