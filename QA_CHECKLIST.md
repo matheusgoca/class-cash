@@ -1,5 +1,19 @@
 # QA Testing Checklist
 
+## Roteiro de QA manual — S3, preferências de notificação (2026-11-18)
+
+Matriz SQL: `supabase/tests/notification_prefs_matrix.sql` (30 verificações em `BEGIN ... ROLLBACK`).
+
+- [ ] Grupo **Conta** na barra lateral (Notificações + Segurança da conta); rodapé só com Sair
+- [ ] `/notificacoes`: cabeçalho, botão Preferências, estado vazio
+- [ ] 1º acesso: e-mails desligados, selo "Recomendado" em 3 eventos, aviso, Salvar habilitado
+- [ ] "Ativar e-mails recomendados" → salvar → recarregar mostra o gravado; aviso some
+- [ ] Antecedência e horário do resumo salvos e recarregados; horário desabilitado com o resumo desligado
+- [ ] Master visualizando outra escola: item some; URL direta mostra aviso e não carrega
+- [ ] 375 px: matriz em cartões, sem rolagem horizontal
+- [ ] Financeiro não vê Rematrícula
+- [ ] Professor não vê Notificações (vê Segurança da conta)
+
 ## Roteiro de QA manual — Sprint S2, Fase 3: segurança da conta (2026-11-18)
 
 Migrations A/B/C aplicadas em produção e Edge Function `reset-user-mfa` deployada (confirmado em 2026-11-18 via `migration list` / `functions list`). Master admin já tem 1 fator TOTP verificado. **Itens marcados ✅ já foram verificados; o resto ainda precisa ser executado.**
