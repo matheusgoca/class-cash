@@ -32,6 +32,8 @@ import MasterBugs from "./pages/MasterBugs";
 import MasterAuditHistory from "./pages/MasterAuditHistory";
 import Team from "./pages/Team";
 import Security from "./pages/Security";
+import Notifications from "./pages/Notifications";
+import NotificationPreferences from "./pages/NotificationPreferences";
 import { PrivacyPolicy, TermsOfUse } from "./pages/Legal";
 
 const queryClient = new QueryClient();
@@ -195,6 +197,26 @@ const App = () => (
                     <ProtectedRoute>
                       <Layout>
                         <Security />
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/notificacoes"
+                  element={
+                    <ProtectedRoute requireSchool allowedRoles={['admin', 'financial']}>
+                      <Layout>
+                        <Notifications />
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/notificacoes/preferencias"
+                  element={
+                    <ProtectedRoute requireSchool allowedRoles={['admin', 'financial']}>
+                      <Layout>
+                        <NotificationPreferences />
                       </Layout>
                     </ProtectedRoute>
                   }
