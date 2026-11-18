@@ -1,5 +1,43 @@
 # Application Sync Changelog
 
+## Sprint S2 — Histórico de alterações, segmentos e segurança da conta (2026-11-13 a 2026-11-17)
+
+Escopo em `docs/PLANO_SPRINTS_NOV2026.md` (linha S2). Entregue em três PRs (#1, #2, #3), todos mergeados; migrations aplicadas em produção e Edge Function deployada (conferido em 2026-11-18).
+
+### Fase 0 — Diagnóstico e pendências da S1 (PR #1)
+- RLS de `audit_logs` validada com usuário não-master em `BEGIN...ROLLBACK` (isolamento por escola, financeiro sem acesso, UPDATE/DELETE bloqueados).
+- Migration limpando o ramo morto `'owner'` da policy de `audit_logs` + índice `created_at desc` para o painel master.
+
+### Fase 1 — Histórico de alterações (PR #1)
+- `src/lib/auditFormat.ts` (formatador em português, Vitest) e `src/lib/auditLog.ts` (paginação por cursor, resolução de nomes em lote filtrando por `school_id`).
+- Ação de master aparece como "Suporte Class Cash" para o owner; salário só para quem já vê salário.
+- RPC `audit_logs_hidden_summary` (resumo dos eventos `generated`/`import`, ocultos por padrão).
+- UI: aba "Histórico de alterações" em Configurações e painel `/master/historico`.
+
+### Fase 2 — Segmentos (PR #1, revisto no PR #2)
+- `fundamental` virou `fundamental_1` + `fundamental_2`; `src/lib/segments.ts` como fonte única; `SegmentPicker` compartilhado (Onboarding + Configurações).
+- `ClassForm` filtra Série/Ano pelos segmentos da escola (com "Outra série" e preservação de valores antigos).
+- **PR #2 (feedback de uso):** removidos o segmento principal (`primary_segment`, coluna dropada em `20261117123000`) e a mistura de clientes por segmento no Painel Master.
+
+### Fase 3 — Segurança da conta (PR #3)
+- Página `/seguranca` (todos os papéis): troca de senha em 3 passos (`src/lib/passwordRules.ts`; encerra as outras sessões) e 2FA TOTP (ativar em 3 passos, desativar pedindo código).
+- Gate de 2FA no front (`MfaGateProvider` + `MfaGate`, decisão pura em `src/lib/mfaGate.ts`): desafio no login, ativação forçada ou faixa de carência de 7 dias.
+- Configurações → toggle "Exigir 2FA de owner e admin"; Equipe → "Redefinir 2FA" por membro (Edge Function `reset-user-mfa`).
+- Exigidos: owner/admin de escola com `require_2fa`, e o master sempre. Financeiro e professor não.
+- Migrations, aplicadas nesta ordem depois do deploy do front e do master ativar o 2FA:
+  1. `20261117120000_mfa_schema_and_gate_fn.sql` — `schools.require_2fa`, `mfa_grace`, `mfa_gate_ok()`, `assert_mfa_gate()`, `start_mfa_grace()`, trigger do toggle.
+  2. `20261117130000_mfa_restrictive_policies.sql` — policy RESTRICTIVE `mfa_gate` em 15 tabelas + gate na view `teachers_directory`.
+  3. `20261117131000_mfa_gate_in_definer_rpcs.sql` — `assert_mfa_gate()` nas 9 RPCs `SECURITY DEFINER` com dados de escola.
+- **Bypass de RLS pré-existente corrigido:** `teachers_directory` (auto-atualizável, rodando como dono) permitia ao papel `teacher` fazer UPDATE/DELETE em todos os professores da escola. Sem exposição ativa (não havia usuários `teacher`), escrita na view revogada.
+- Validação: `mfa_gate_matrix.sql` 30/30, `mfa_rls_matrix.sql` 36/36, 90 testes Vitest.
+
+### Pendente ao final da S2
+- QA manual da Fase 3 (roteiro em `QA_CHECKLIST.md`): toggle por escola, troca de senha ponta a ponta e "Redefinir 2FA" com sessão autenticada ainda não verificados.
+- **Tela de preferências de notificação** (prevista na S2 em `PLANO_SPRINTS_NOV2026.md`) não foi implementada — puxar para o início da S3, junto com as tabelas `notifications`/`notification_preferences`.
+- Branch `fix/lp-ajustes` (blur no saldo do hero, remove selo do topo e seção de depoimento) sem PR aberto.
+
+---
+
 ## Sprint S1 — Auditoria financeira, base de logs e novo copy da LP (2026-11-13)
 
 Escopo definido em `docs/PLANO_SPRINTS_NOV2026.md` e `docs/PROMPT_S1_CLAUDE_CODE.md`. Fases 1 e 2 aplicadas em produção; Fase 3 só no código (sem migration).
