@@ -29,13 +29,18 @@ const NotificationPreferences = () => {
   const [saving, setSaving] = useState(false);
 
   // D4: o RPC grava na escola de casa; visualizando outra escola, não carrega nada.
-  const otherSchool = isMasterViewingOtherSchool({
+  // Sem profile, isMasterAdmin e homeSchoolId ainda não são confiáveis: não decide nada antes disso.
+  const profileReady = profile !== null;
+  const otherSchool = profileReady && isMasterViewingOtherSchool({
     role, isMasterAdmin, viewingSchoolId, homeSchoolId: profile?.school_id ?? null,
   });
 
   useEffect(() => {
-    if (otherSchool) return;
+    if (!profileReady || otherSchool) return;
     let cancelled = false;
+    setLoadError(null);
+    setSaved(null);
+    setDraft(null);
     ensurePreferences()
       .then((loaded) => {
         if (cancelled) return;
@@ -52,7 +57,7 @@ const NotificationPreferences = () => {
     return () => {
       cancelled = true;
     };
-  }, [otherSchool]);
+  }, [profileReady, otherSchool]);
 
   const handleSave = async () => {
     if (!draft) return;
