@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Dashboard com notificações</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:#0B1220;background:#F6F8FA}
+*{box-sizing:border-box}
+.nav a{display:block;padding:9px 12px;border-radius:8px;color:#334155;text-decoration:none;font-size:14px}
+.nav a.on{background:#E3F1EE;color:#145A52;font-weight:600}
+.nav h6{margin:18px 12px 6px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#64748B;font-weight:600}
+.card{background:#fff;border:1px solid #E2E8F0;border-radius:12px}
+.btn{display:inline-block;padding:8px 14px;border-radius:8px;background:#186D63;color:#fff;font-size:13px;font-weight:600;text-decoration:none;border:0;min-height:36px}
+.btn.ghost{background:#fff;color:#145A52;border:1px solid #CBD5E1}
+.tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600}
+</style>
+</helmet>
+<div style="display:flex;flex-wrap:wrap;min-height:1060px;background:#F6F8FA">
+  <aside class="nav" style="flex:0 0 240px;background:#fff;border-right:1px solid #E2E8F0;padding:20px 12px">
+    <div style="font-weight:700;font-size:18px;color:#186D63;padding:4px 12px 12px">Class Cash</div>
+    <a class="on" href="#">Dashboard</a>
+    <h6>Gestão</h6>
+    <a href="#">Alunos</a><a href="#">Professores</a><a href="#">Turmas</a>
+    <h6>Financeiro</h6>
+    <a href="#">Contratos</a><a href="#">Mensalidades</a><a href="#">Despesas</a><a href="#">Serviços</a><a href="#">Relatórios</a>
+    <h6>Conta</h6>
+    <a href="#">Notificações</a><a href="#">Configurações</a>
+  </aside>
+  <main style="flex:999 1 560px;min-width:0;padding:28px 32px;display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div>
+        <h1 style="margin:0;font-size:28px;letter-spacing:-.01em">Dashboard</h1>
+        <p style="margin:4px 0 0;color:#475569;font-size:14px">Escola Exemplo · visão do mês</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;position:relative">
+        <select aria-label="Mês" style="min-height:40px;padding:0 12px;border:1px solid #CBD5E1;border-radius:8px;background:#fff;font:inherit;font-size:14px"><option>Novembro 2026</option></select>
+        <button aria-label="Notificações, 4 não lidas" style="position:relative;width:40px;height:40px;border-radius:10px;border:1px solid #CBD5E1;background:#fff;cursor:pointer">
+          <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+          <span style="position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;border-radius:10px;background:#A95223;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 5px">4</span>
+        </button>
+        <div class="card" style="position:absolute;right:0;top:50px;width:380px;z-index:5;box-shadow:0 12px 32px rgba(15,23,42,.14)">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #E2E8F0"><strong style="font-size:14px">Notificações</strong><a href="#" style="font-size:13px">Marcar todas como lidas</a></div>
+          <div style="display:flex;flex-direction:column">
+            <div style="padding:12px 16px;border-bottom:1px solid #F1F5F9;background:#F4FAF9"><div style="font-size:13px;font-weight:600">12 mensalidades vencidas</div><div style="font-size:12px;color:#475569;margin-top:2px">R$ 6.840,00 em atraso há mais de 5 dias · hoje 08:00</div></div>
+            <div style="padding:12px 16px;border-bottom:1px solid #F1F5F9;background:#F4FAF9"><div style="font-size:13px;font-weight:600">3 parcelas de renegociação vencem amanhã</div><div style="font-size:12px;color:#475569;margin-top:2px">Hoje 08:00</div></div>
+            <div style="padding:12px 16px;border-bottom:1px solid #F1F5F9;background:#F4FAF9"><div style="font-size:13px;font-weight:600">Despesa a pagar: Aluguel</div><div style="font-size:12px;color:#475569;margin-top:2px">Vence em 2 dias · hoje 08:00</div></div>
+            <div style="padding:12px 16px"><div style="font-size:13px;font-weight:600">18 contratos terminam em 45 dias</div><div style="font-size:12px;color:#475569;margin-top:2px">Hora de abrir a rematrícula · ontem</div></div>
+          </div>
+          <div style="padding:12px 16px;border-top:1px solid #E2E8F0;text-align:center"><a href="Notificacoes.dc.html" style="font-size:13px;font-weight:600">Ver todas as notificações</a></div>
+        </div>
+      </div>
+    </div>
+
+    <section class="card" style="padding:22px 24px;border:2px solid #BFDDD8">
+      <div style="font-size:13px;color:#475569;font-weight:500">Saldo financeiro do mês</div>
+      <div style="font-size:40px;font-weight:700;color:#146B3A;margin-top:4px">R$ 18.420,00</div>
+      <div style="font-size:13px;color:#475569;margin-top:4px">Receita recebida no mês menos salários e despesas · <span style="color:#146B3A;font-weight:600">+8,2% vs mês anterior</span></div>
+    </section>
+
+    <section class="card" style="padding:20px 24px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <h2 style="margin:0;font-size:18px">Precisa da sua atenção hoje</h2>
+        <span class="tag" style="background:#FBEFE7;color:#8A4017">4 itens</span>
+      </div>
+      <div style="display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 0;border-top:1px solid #E2E8F0">
+          <div><div style="font-size:14px;font-weight:600">12 mensalidades vencidas há mais de 5 dias</div><div style="font-size:13px;color:#475569">R$ 6.840,00 · 3 turmas afetadas</div></div>
+          <a class="btn" href="#">Ver cobranças</a>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 0;border-top:1px solid #E2E8F0">
+          <div><div style="font-size:14px;font-weight:600">3 parcelas de renegociação vencem amanhã</div><div style="font-size:13px;color:#475569">Acordos ativos com parcelas em aberto</div></div>
+          <a class="btn ghost" href="#">Abrir renegociações</a>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 0;border-top:1px solid #E2E8F0">
+          <div><div style="font-size:14px;font-weight:600">Despesa a pagar: Aluguel</div><div style="font-size:13px;color:#475569">Vence em 2 dias · R$ 4.200,00</div></div>
+          <a class="btn ghost" href="#">Ver despesa</a>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 0;border-top:1px solid #E2E8F0">
+          <div><div style="font-size:14px;font-weight:600">18 contratos terminam em 45 dias</div><div style="font-size:13px;color:#475569">6 já rematriculados · 12 pendentes</div></div>
+          <a class="btn ghost" href="#">Abrir rematrícula</a>
+        </div>
+      </div>
+    </section>
+
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px">
+      <div class="card" style="padding:16px 18px"><div style="font-size:13px;color:#475569">Receita recebida</div><div style="font-size:22px;font-weight:700;margin-top:4px">R$ 62.300,00</div></div>
+      <div class="card" style="padding:16px 18px"><div style="font-size:13px;color:#475569">Taxa de inadimplência</div><div style="font-size:22px;font-weight:700;margin-top:4px">9,8%</div></div>
+      <div class="card" style="padding:16px 18px"><div style="font-size:13px;color:#475569">Despesas do mês</div><div style="font-size:22px;font-weight:700;margin-top:4px">R$ 21.900,00</div></div>
+    </div>
+
+    <section class="card" style="padding:20px 24px">
+      <h2 style="margin:0 0 12px;font-size:18px">Saúde financeira das turmas</h2>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px">
+        <div style="border:1px solid #E2E8F0;border-radius:10px;padding:14px"><div style="display:flex;justify-content:space-between;align-items:center"><strong style="font-size:14px">5º Ano A</strong><span class="tag" style="background:#E1F4E8;color:#146B3A">Excelente</span></div><div style="font-size:13px;color:#475569;margin-top:8px">Resultado: R$ 5.120,00</div></div>
+        <div style="border:1px solid #E2E8F0;border-radius:10px;padding:14px"><div style="display:flex;justify-content:space-between;align-items:center"><strong style="font-size:14px">2º Ano B</strong><span class="tag" style="background:#FEF3C7;color:#7A4B00">Atenção</span></div><div style="font-size:13px;color:#475569;margin-top:8px">Resultado: R$ 940,00</div></div>
+        <div style="border:1px solid #E2E8F0;border-radius:10px;padding:14px"><div style="display:flex;justify-content:space-between;align-items:center"><strong style="font-size:14px">Pré II</strong><span class="tag" style="background:#FDE8E8;color:#9B1C1C">Crítico</span></div><div style="font-size:13px;color:#475569;margin-top:8px">Resultado: −R$ 1.310,00</div></div>
+      </div>
+    </section>
+    <p style="margin:0;font-size:12px;color:#64748B">Mockup com dados ilustrativos.</p>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1060}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Histórico global (master admin)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:#0B1220;background:#F6F8FA}
+*{box-sizing:border-box}
+.nav a{display:block;padding:9px 12px;border-radius:8px;color:#334155;text-decoration:none;font-size:14px}
+.nav a.on{background:#E3F1EE;color:#145A52;font-weight:600}
+.nav h6{margin:18px 12px 6px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#64748B;font-weight:600}
+.card{background:#fff;border:1px solid #E2E8F0;border-radius:12px}
+.btn{display:inline-block;padding:8px 14px;border-radius:8px;background:#186D63;color:#fff;font-size:13px;font-weight:600;text-decoration:none;border:0;min-height:36px}
+.btn.ghost{background:#fff;color:#145A52;border:1px solid #CBD5E1}
+.tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600}
+.inp{min-height:40px;padding:0 12px;border:1px solid #CBD5E1;border-radius:8px;font:inherit;font-size:14px;background:#fff}
+table{border-collapse:collapse;width:100%;font-size:13px;min-width:860px}
+th{text-align:left;padding:10px 14px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#64748B;background:#F8FAFC;font-weight:600}
+td{padding:12px 14px;border-top:1px solid #E2E8F0;vertical-align:top}
+tr.m td{background:#FBF4EE}
+.old{background:#FDE8E8;color:#7F1D1D;text-decoration:line-through;padding:1px 5px;border-radius:4px}
+.new{background:#E1F4E8;color:#14532D;padding:1px 5px;border-radius:4px}
+</style>
+</helmet>
+<div style="display:flex;flex-wrap:wrap;min-height:960px;background:#F6F8FA">
+  <aside class="nav" style="flex:0 0 240px;background:#fff;border-right:1px solid #E2E8F0;padding:20px 12px">
+    <div style="font-weight:700;font-size:18px;color:#186D63;padding:4px 12px 2px">Class Cash</div>
+    <div style="padding:0 12px 12px"><span class="tag" style="background:#A95223;color:#fff">Master admin</span></div>
+    <a href="#">Escolas</a><a href="#">Convites de owners</a><a href="#">Planos e limites</a>
+    <h6>Auditoria</h6>
+    <a class="on" href="#">Histórico global</a><a href="#">Relatos de bug</a>
+  </aside>
+  <main style="flex:999 1 560px;min-width:0;padding:28px 32px;display:flex;flex-direction:column;gap:18px">
+    <div>
+      <h1 style="margin:0;font-size:28px;letter-spacing:-.01em">Histórico global de alterações</h1>
+      <p style="margin:4px 0 0;color:#475569;font-size:14px">Todas as escolas · registros imutáveis · retenção de 24 meses</p>
+    </div>
+
+    <div class="card" style="padding:16px 20px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+      <div><label for="e" style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;color:#475569">Escola</label><select class="inp" id="e"><option>Todas as escolas</option></select></div>
+      <div><label for="u" style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;color:#475569">Usuário</label><select class="inp" id="u"><option>Todos</option></select></div>
+      <div><label for="t" style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;color:#475569">Tabela</label><select class="inp" id="t"><option>Todas</option></select></div>
+      <div><label for="a" style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;color:#475569">Ação</label><select class="inp" id="a"><option>Todas</option></select></div>
+      <label style="display:flex;gap:8px;align-items:center;font-size:14px;min-height:40px"><input type="checkbox" checked> Só ações master</label>
+      <a class="btn ghost" href="#" style="margin-left:auto">Exportar CSV</a>
+    </div>
+
+    <section class="card" style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Quando</th><th>Escola</th><th>Quem</th><th>Tela</th><th>Ação</th><th>Detalhe</th></tr></thead>
+        <tbody>
+          <tr class="m"><td style="white-space:nowrap">Hoje 14:12</td><td>Escola Exemplo</td><td><strong>Master</strong><br><span class="tag" style="background:#A95223;color:#fff">master</span></td><td>Turmas</td><td>Atualizou</td><td>Professor: <span class="old">Sem professor</span> → <span class="new">Carla Mendes</span><br><span style="color:#64748B">via função de salvar turma</span></td></tr>
+          <tr class="m"><td style="white-space:nowrap">Hoje 14:05</td><td>Escola Exemplo</td><td><strong>Master</strong><br><span class="tag" style="background:#A95223;color:#fff">master</span></td><td>Mensalidades</td><td>Renegociou</td><td>3 mensalidades canceladas · 6 parcelas novas de R$ 410,00</td></tr>
+          <tr><td style="white-space:nowrap">Hoje 10:41</td><td>Escola Exemplo</td><td>Marina Souza<br><span style="color:#64748B">owner</span></td><td>Contratos</td><td>Atualizou</td><td>Valor: <span class="old">R$ 500,00</span> → <span class="new">R$ 450,00</span></td></tr>
+          <tr><td style="white-space:nowrap">Hoje 09:30</td><td>Colégio Modelo</td><td>Paulo Dias<br><span style="color:#64748B">admin</span></td><td>Alunos</td><td>Criou</td><td>Novo aluno matriculado no 2º Ano B</td></tr>
+          <tr><td style="white-space:nowrap">Ontem 17:03</td><td>Escola Exemplo</td><td>Rafael Alves<br><span style="color:#64748B">financeiro</span></td><td>Mensalidades</td><td>Atualizou</td><td>Status: <span class="old">Pendente</span> → <span class="new">Pago</span></td></tr>
+          <tr><td style="white-space:nowrap">Ontem 11:12</td><td>Colégio Modelo</td><td>Paulo Dias<br><span style="color:#64748B">admin</span></td><td>Equipe</td><td>Alterou papel</td><td>Papel: <span class="old">Financeiro</span> → <span class="new">Admin</span> · usuária Ana Costa</td></tr>
+          <tr><td style="white-space:nowrap">Seg 15:48</td><td>Escola Exemplo</td><td>Rafael Alves<br><span style="color:#64748B">financeiro</span></td><td>Despesas</td><td>Criou</td><td>Recorrência Internet · R$ 280,00/mês</td></tr>
+        </tbody>
+      </table>
+    </section>
+    <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:13px;color:#475569"><span>Linhas destacadas são ações feitas pelo master em escolas de clientes; o owner vê o mesmo registro como "Suporte Class Cash".</span><a href="#">Carregar mais</a></div>
+    <p style="margin:0;font-size:12px;color:#64748B">Mockup com dados ilustrativos.</p>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":960}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
