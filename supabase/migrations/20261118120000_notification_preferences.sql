@@ -4,7 +4,7 @@
 
 -- 1. Tabelas -------------------------------------------------------------------
 create table if not exists public.notification_preferences (
-  id          uuid primary key default uuid_generate_v4(),
+  id          uuid primary key default gen_random_uuid(),
   school_id   uuid not null references public.schools(id) on delete cascade,
   user_id     uuid not null references auth.users(id)     on delete cascade,
   event       text not null
@@ -20,7 +20,7 @@ create index if not exists idx_notification_preferences_school_event
   on public.notification_preferences (school_id, event);
 
 create table if not exists public.notification_settings (
-  id             uuid primary key default uuid_generate_v4(),
+  id             uuid primary key default gen_random_uuid(),
   school_id      uuid not null references public.schools(id) on delete cascade,
   user_id        uuid not null references auth.users(id)     on delete cascade,
   digest_enabled boolean not null default false,
