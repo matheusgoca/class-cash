@@ -37,6 +37,22 @@ export function getFriendlyErrorMessage(error: any, fallback?: string): string {
     return 'Aguarde um momento antes de tentar novamente.';
   }
 
+  // RPCs das preferências de notificação (S3) e gate de 2FA (Fase 3)
+  const rpcMessages: Record<string, string> = {
+    MFA_REQUIRED: 'Esta conta precisa da verificação em duas etapas (2FA) para continuar.',
+    NO_SCHOOL: 'Sua conta ainda não está vinculada a uma escola.',
+    NOT_ALLOWED: 'Seu perfil não tem acesso às preferências de notificação.',
+    EVENT_NOT_ALLOWED: 'Seu perfil não pode configurar um dos avisos escolhidos.',
+    INVALID_OFFSET: 'Uma das antecedências escolhidas não é permitida.',
+    INVALID_TIMEZONE: 'Não foi possível identificar o fuso horário do seu navegador.',
+    INVALID_DIGEST_TIME: 'Escolha um horário de resumo entre 06:00 e 20:00.',
+    INVALID_EVENT: 'Um dos avisos enviados não existe. Recarregue a página e tente de novo.',
+    INVALID_PREFERENCES: 'Não foi possível ler as preferências enviadas. Recarregue a página e tente de novo.',
+  };
+  if (rpcMessages[message.trim()]) {
+    return rpcMessages[message.trim()];
+  }
+
   // Postgres check_violation (ex: due_day fora de 1-28, discount fora de 0-100)
   if (code === '23514' || /violates check constraint/i.test(message)) {
     return 'Um dos valores informados está fora do permitido — confira os campos e tente novamente.';
