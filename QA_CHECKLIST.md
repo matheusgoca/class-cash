@@ -8,7 +8,7 @@ Já coberto por SQL (`BEGIN ... ROLLBACK` contra produção): `supabase/tests/mf
 
 ### 1. Login com 2FA (master)
 - [x] Master ativou 2FA e o login passou a pedir o código (testado pelo mantenedor em localhost, 2026-11-17)
-- [ ] Mesmo teste em produção: sair → entrar → tela de código → dados carregam normalmente após o código
+- [x] Mesmo teste em produção: login com código e dados carregando (2026-11-18)
 - [ ] Código errado mostra "Código incorreto ou expirado..." e não libera
 
 ### 2. Troca de senha em 3 passos (`/seguranca`)
@@ -23,10 +23,11 @@ Já coberto por SQL (`BEGIN ... ROLLBACK` contra produção): `supabase/tests/mf
 - [ ] Abandonar no passo 2 e voltar: não fica fator duplicado (o não verificado é descartado)
 - [ ] Desativar pede o código atual antes de remover
 - [ ] Owner/admin de escola com `require_2fa` ligado: botão Desativar oculto, texto "Sua escola exige 2FA"
+- [x] Master: botão Desativar oculto, texto "Contas master precisam manter o 2FA ativo" (2026-11-18)
 
 ### 4. Exigência por escola (Configurações → Segurança)
 - [ ] Owner sem 2FA tenta ligar o toggle → é levado a ativar o próprio 2FA antes
-- [ ] Owner com 2FA (`aal2`) liga o toggle → salva
+- [x] Owner com 2FA (`aal2`) liga o toggle → salva: toast "Exigência de 2FA ligada", `require_2fa = true` no banco, evento em `audit_logs`, persiste ao recarregar; desligado em seguida (também registrado). Feito como master na Colegio Teste, 2026-11-18
 - [ ] Admin sem 2FA da mesma escola, no próximo acesso: faixa de carência "Ative até {data} (7 dias)" e app funcionando
 - [ ] Carência vencida (forçar `grace_until` no passado numa escola de teste) → tela cheia de ativação forçada, dados não carregam
 - [ ] **Financeiro e professor da escola que exige 2FA continuam entrando sem 2FA**
@@ -34,7 +35,8 @@ Já coberto por SQL (`BEGIN ... ROLLBACK` contra produção): `supabase/tests/mf
 
 ### 5. Recuperação (Equipe → "Redefinir 2FA")
 - [ ] Admin redefine o 2FA de um membro da própria escola → fator some; membro precisa ativar de novo no próximo acesso
-- [ ] Botão não aparece para o próprio usuário
+- [x] Caminho autenticado da Edge Function (master `aal2` → admin de teste sem fator): diálogo de confirmação correto, resposta 200 com `removed: 0`, sem linha em `audit_logs` (comportamento intencional: nada a remover). 2026-11-18
+- [x] Botão não aparece para o próprio usuário (2026-11-18)
 - [ ] Admin de escola não consegue redefinir o 2FA do master (403)
 - [ ] Evento aparece em Histórico de alterações
 
