@@ -65,7 +65,6 @@ declare
   q_direct_upd  text := 'with x as (update public.notification_preferences set email = true where user_id = auth.uid() returning 1) select count(*)::text from x';
   q_read_admin_t text := format('select count(*)::text from public.notification_preferences where user_id = %L', 'e0185312-eea9-4273-a9a8-ad9d575d4781');
   v_before text;
-  v_n int;
 begin
   -- estado controlado: sem fatores, sem carência, sem exigência; nenhuma preferência prévia
   perform set_config('request.jwt.claims', '', true);
@@ -84,16 +83,20 @@ begin
   perform pg_temp.rec('1f confirmed_at nulo após ensure',    pg_temp.run_as(u_admin_t, 'aal1', q_confirmed), 'false');
 
   -- 2. ensure idempotente
-  v_before := (select string_agg(id::text || updated_at::text, ',' order by event) from public.notification_preferences where user_id = u_admin_t);
+  -- xmin muda em qualquer UPDATE, mesmo dentro da mesma transação (now() é constante aqui)
+  v_before := (select string_agg(id::text || xmin::text, ',' order by event) from public.notification_preferences where user_id = u_admin_t);
   perform pg_temp.run_as(u_admin_t, 'aal1', q_ensure);
   perform pg_temp.rec('2a ensure 2x não duplica',            pg_temp.run_as(u_admin_t, 'aal1', q_count_mine), '5');
   perform pg_temp.rec('2b ensure 2x não altera linhas',
-    ((select string_agg(id::text || updated_at::text, ',' order by event) from public.notification_preferences where user_id = u_admin_t) = v_before)::text, 'true');
+    ((select string_agg(id::text || xmin::text, ',' order by event) from public.notification_preferences where user_id = u_admin_t) = v_before)::text, 'true');
 
   -- 3. save grava e confirma; 2º save não muda confirmed_at
   perform pg_temp.rec('3a save devolve horário salvo',       pg_temp.run_as(u_admin_t, 'aal1', q_save_ok), '08:00');
   perform pg_temp.rec('3b save preenche confirmed_at',       pg_temp.run_as(u_admin_t, 'aal1', q_confirmed), 'true');
   perform pg_temp.rec('3c e-mail ligado só no evento salvo', pg_temp.run_as(u_admin_t, 'aal1', q_email_on), '1');
+  -- now() é constante na transação: recua confirmed_at 1 dia (como superusuário) para que now() != valor atual
+  perform set_config('request.jwt.claims', '', true);
+  update public.notification_settings set confirmed_at = confirmed_at - interval '1 day' where user_id = u_admin_t;
   v_before := (select confirmed_at::text from public.notification_settings where user_id = u_admin_t);
   perform pg_temp.run_as(u_admin_t, 'aal1', q_save_ok);
   perform pg_temp.rec('3d 2º save mantém confirmed_at',
