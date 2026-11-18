@@ -559,6 +559,94 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_preferences: {
+        Row: {
+          created_at: string
+          email: boolean
+          event: string
+          id: string
+          in_app: boolean
+          offset_days: number
+          school_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: boolean
+          event: string
+          id?: string
+          in_app: boolean
+          offset_days: number
+          school_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: boolean
+          event?: string
+          id?: string
+          in_app?: boolean
+          offset_days?: number
+          school_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_preferences_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_settings: {
+        Row: {
+          confirmed_at: string | null
+          created_at: string
+          digest_enabled: boolean
+          digest_time: string
+          id: string
+          school_id: string
+          timezone: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          confirmed_at?: string | null
+          created_at?: string
+          digest_enabled?: boolean
+          digest_time?: string
+          id?: string
+          school_id: string
+          timezone?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          confirmed_at?: string | null
+          created_at?: string
+          digest_enabled?: boolean
+          digest_time?: string
+          id?: string
+          school_id?: string
+          timezone?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_settings_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -1199,6 +1287,7 @@ export type Database = {
           table_name: string
         }[]
       }
+      ensure_notification_preferences: { Args: never; Returns: Json }
       get_active_teachers_salary_sum: {
         Args: { p_school_id: string }
         Returns: number
@@ -1250,6 +1339,25 @@ export type Database = {
         Args: { p_school: string; p_user: string }
         Returns: boolean
       }
+      notification_actor: { Args: never; Returns: Record<string, unknown> }
+      notification_event_defaults: {
+        Args: never
+        Returns: {
+          admin_only: boolean
+          allowed_offsets: number[]
+          direction: string
+          email: boolean
+          email_recommended: boolean
+          event: string
+          in_app: boolean
+          offset_days: number
+          sort_order: number
+        }[]
+      }
+      notification_preferences_payload: {
+        Args: { p_admin: boolean; p_school: string; p_uid: string }
+        Returns: Json
+      }
       promote_overdue_tuitions: { Args: never; Returns: undefined }
       renegotiate_tuitions: {
         Args: {
@@ -1280,6 +1388,15 @@ export type Database = {
           p_teacher_ids: string[]
         }
         Returns: string
+      }
+      save_notification_preferences: {
+        Args: {
+          p_digest_enabled: boolean
+          p_digest_time: string
+          p_prefs: Json
+          p_timezone: string
+        }
+        Returns: Json
       }
       start_mfa_grace: { Args: never; Returns: string }
     }
