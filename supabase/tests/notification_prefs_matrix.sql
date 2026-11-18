@@ -1,9 +1,10 @@
 -- Matriz das preferências de notificação (S3). Spec: docs/superpowers/specs/2026-11-18-preferencias-notificacao-design.md
 -- Tudo dentro de BEGIN ... ROLLBACK: nada persiste.
+-- ATENÇÃO: roda contra PRODUÇÃO e apaga fatores de 2FA, um usuário de teste e liga require_2fa dentro da transação — NUNCA remova o "rollback;" do final.
 --
 -- Como rodar:
 --   Migration já aplicada:  npx supabase@2.117.0 db query --linked -f supabase/tests/notification_prefs_matrix.sql
---   Migration NÃO aplicada: gerar um arquivo que troca a linha "-- @@MIGRATION@@" pelo conteúdo de
+--   Migration NÃO aplicada: gerar um arquivo que troca a linha marcadora MIGRATION (abaixo) pelo conteúdo de
 --     supabase/migrations/20261118120000_notification_preferences.sql e rodar esse arquivo.
 -- Saída: uma linha por verificação; "ok" deve ser true em TODAS.
 
