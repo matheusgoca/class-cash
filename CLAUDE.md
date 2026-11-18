@@ -21,6 +21,8 @@ O histórico de decisões, QA e revisões de produto deste projeto é mantido no
 - **Erros amigáveis.** Use `getFriendlyErrorMessage` (`src/lib/friendlyError.ts`) para traduzir erros do Postgres (ex: `23505` unique_violation) em mensagens em português, em vez de expor `error.message` cru na tela.
 - **Máscaras de moeda/telefone.** `src/components/ui/currency-input.tsx` e `phone-input.tsx` tratam cada tecla como dígito puro (modelo "calculadora/POS"), não reformatam uma string já formatada — evita os bugs clássicos de cursor pulando e vírgula decimal quebrada. Ainda não aplicado em todos os campos financeiros (ver histórico de QA no Claude Project).
 - **Todas as tabelas são multi-tenant por `school_id` + RLS.** Ao escrever uma query nova, filtre por `school_id` explicitamente mesmo confiando no RLS — já foi encontrada mais de uma tela que dependia só do RLS e por acidente não filtrava (`ClassProfitability.tsx`, corrigido).
+- **Gate de 2FA no banco = policy RESTRICTIVE `mfa_gate` por tabela + `assert_mfa_gate()` nas RPCs `SECURITY DEFINER`.** A decisão está em `public.mfa_gate_ok()` (espelho no front: `resolveMfaGate()` em `src/lib/mfaGate.ts`). Exigidos: owner/admin de escola com `schools.require_2fa = true`, e o master admin **sempre**. **Tabela nova com dados de escola** precisa ganhar a policy `mfa_gate` (ver `20261117130000_mfa_restrictive_policies.sql`); **RPC `SECURITY DEFINER` nova** que lê/escreve dados de escola precisa de `perform public.assert_mfa_gate();` como primeira instrução (ver `20261117131000_mfa_gate_in_definer_rpcs.sql`) — senão vira porta lateral ao gate. Ficam de fora de propósito: `profiles`, `schools`, `user_roles`, `invitations` (a tela de ativação depende delas em `aal1`), `debug_reports` e `mfa_grace`. View nova sobre tabela com gate: usar `security_invoker` ou colocar `(select public.mfa_gate_ok())` no `where`, como em `teachers_directory`.
+- **Recuperação de 2FA.** Membro de escola: botão "Redefinir 2FA" em Equipe (Edge Function `reset-user-mfa`). **Master que perdeu o aparelho não passa pela Edge Function** (não consegue sessão `aal2`): remover o fator no painel do Supabase (Authentication → Users → MFA) ou `delete from auth.mfa_factors where user_id = '<uid>'`.
 
 ## Drift de schema (risco conhecido)
 
@@ -32,7 +34,7 @@ Antes de assumir a forma de uma constraint ou coluna a partir do histórico de m
 
 ## Executando SQL em produção
 
-Sessões do Claude neste projeto normalmente não têm uma ferramenta de execução SQL direta — migrations novas precisam ser entregues para o usuário rodar via Supabase Studio (SQL Editor) ou `supabase db push`. O SQL Editor do Studio (editor Monaco) já corrompeu o paste de blocos `$$ ... $$` PL/pgSQL grandes — para migrations com funções grandes, prefira dividir em partes menores ou recomendar `supabase db push` pelo CLI.
+O projeto está linkado ao Supabase CLI (`npx supabase@2.117.0 ...` funciona mesmo sem o CLI instalado globalmente): `migration list --linked` e `db query --linked "<sql>"` servem para diagnóstico de leitura; validação com `BEGIN ... ROLLBACK` também. Escrita em produção (`db push`, `functions deploy`, DML) só com autorização explícita do usuário, mostrando o `--dry-run` antes. O SQL Editor do Studio (editor Monaco) já corrompeu o paste de blocos `$$ ... $$` PL/pgSQL grandes — para migrations com funções grandes, prefira dividir em partes menores ou recomendar `supabase db push` pelo CLI.
 
 ## Comportamento esperado
 

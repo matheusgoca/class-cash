@@ -1,5 +1,47 @@
 # QA Testing Checklist
 
+## Roteiro de QA manual — Sprint S2, Fase 3: segurança da conta (2026-11-18)
+
+Migrations A/B/C aplicadas em produção e Edge Function `reset-user-mfa` deployada (confirmado em 2026-11-18 via `migration list` / `functions list`). Master admin já tem 1 fator TOTP verificado. **Itens marcados ✅ já foram verificados; o resto ainda precisa ser executado.**
+
+Já coberto por SQL (`BEGIN ... ROLLBACK` contra produção): `supabase/tests/mfa_gate_matrix.sql` 30/30 (cenários C1–C10 do plano) e `supabase/tests/mfa_rls_matrix.sql` 36/36 (RLS real com `SET ROLE`). Decisão de autorização da Edge Function coberta por `supabase/functions/reset-user-mfa/authz.test.ts`.
+
+### 1. Login com 2FA (master)
+- [x] Master ativou 2FA e o login passou a pedir o código (testado pelo mantenedor em localhost, 2026-11-17)
+- [ ] Mesmo teste em produção: sair → entrar → tela de código → dados carregam normalmente após o código
+- [ ] Código errado mostra "Código incorreto ou expirado..." e não libera
+
+### 2. Troca de senha em 3 passos (`/seguranca`)
+- [ ] Senha atual errada → "Senha atual incorreta." e permanece no passo 1
+- [ ] Checklist ao vivo: botão desabilitado até ≥ 10 caracteres + número; símbolo aparece como recomendado
+- [ ] Confirmação diferente da nova senha bloqueia o envio
+- [ ] Sucesso → toast "Senha alterada..." e **outra sessão aberta (outro navegador) é encerrada**
+- [ ] Usuário com 2FA continua em `aal2` depois de trocar a senha (não cai no desafio de novo)
+
+### 3. Ativar / desativar 2FA (`/seguranca`)
+- [ ] Ativar em 3 passos: QR code + chave manual → código de 6 dígitos → badge "Ativo"
+- [ ] Abandonar no passo 2 e voltar: não fica fator duplicado (o não verificado é descartado)
+- [ ] Desativar pede o código atual antes de remover
+- [ ] Owner/admin de escola com `require_2fa` ligado: botão Desativar oculto, texto "Sua escola exige 2FA"
+
+### 4. Exigência por escola (Configurações → Segurança)
+- [ ] Owner sem 2FA tenta ligar o toggle → é levado a ativar o próprio 2FA antes
+- [ ] Owner com 2FA (`aal2`) liga o toggle → salva
+- [ ] Admin sem 2FA da mesma escola, no próximo acesso: faixa de carência "Ative até {data} (7 dias)" e app funcionando
+- [ ] Carência vencida (forçar `grace_until` no passado numa escola de teste) → tela cheia de ativação forçada, dados não carregam
+- [ ] **Financeiro e professor da escola que exige 2FA continuam entrando sem 2FA**
+- [ ] Desligar e religar o toggle reinicia a carência de quem já tinha estourado
+
+### 5. Recuperação (Equipe → "Redefinir 2FA")
+- [ ] Admin redefine o 2FA de um membro da própria escola → fator some; membro precisa ativar de novo no próximo acesso
+- [ ] Botão não aparece para o próprio usuário
+- [ ] Admin de escola não consegue redefinir o 2FA do master (403)
+- [ ] Evento aparece em Histórico de alterações
+
+> Nunca verificado ponta a ponta até aqui: Edge Function chamada com sessão autenticada (403 por regra e 200 com remoção real). Ver PR #3.
+
+---
+
 ## Roteiro de QA manual — Sprint S1 (2026-11-13)
 
 Cobre os pontos de maior risco tocados nas Fases 1 e 2 (cálculo de valores, regime de caixa, logs de auditoria). Rodar como owner/admin de uma escola de teste e, no último item, também como master admin.
