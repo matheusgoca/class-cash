@@ -24,11 +24,10 @@ Documentos de referência:
 
 1. **QA visual da etapa 2** (roteiro em `QA_CHECKLIST.md`, seção "S3, notificações etapa 2") e merge do PR.
    A 1ª execução real do gerador já foi conferida em 2026-11-19: `succeeded`, 3 avisos `tuition_overdue` na Colegio Teste (717 mensalidades vencidas; ainda não confirmado se são reais ou seed).
-2. **Decidir `renewed_count`:** "já rematriculado" deve excluir contratos `cancelled`? (a UI da etapa 2 já exibe esse número).
-3. **Outras pendências** (listadas também no fim da spec do gerador):
+2. **Outras pendências** (listadas também no fim da spec do gerador):
    - Monitorar falhas do job (uma execução que falha perde os avisos de dia exato daquele dia).
    - Revogar `TRUNCATE` (e demais grants de escrita) de `anon`/`authenticated` nas tabelas — padrão do Supabase, não explorável via REST, endurecimento barato.
-4. **QA pendente:** S2 Fase 3 (troca de senha, carência do admin, financeiro sem 2FA); S3 preferências (login como financeiro e professor; tela a 375 px). Ver `QA_CHECKLIST.md`.
+3. **QA pendente:** S2 Fase 3 (troca de senha, carência do admin, financeiro sem 2FA); S3 preferências (login como financeiro e professor; tela a 375 px). Ver `QA_CHECKLIST.md`.
 
 ## Setup em outra máquina
 

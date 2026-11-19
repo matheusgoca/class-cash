@@ -69,7 +69,7 @@ A etapa 1 pode ir a produção sozinha (os avisos começam a se acumular; ningu�
 | `tuition_overdue` | `tuitions.status = 'overdue'`, `due_date < hoje - N` (acumulado) | `{ "class_count": int }` |
 | `renegotiation_installment` | `tuitions.status = 'pending'`, `renegotiation_id is not null`, `due_date = hoje + N` | `{}` |
 | `expense_due` | `expenses.status in ('pending','overdue')` (exclui `paid` e `cancelled`; confirmado em produção), `due_date = hoje + N` | `{ "description": text }` só quando `item_count = 1` |
-| `reenrollment` | `contracts.status = 'active'` (confirmar valores), `end_date = hoje + N` | `{ "renewed_count": int }` = quantos desses contratos já têm um contrato com `renewed_from_id` apontando para eles |
+| `reenrollment` | `contracts.status = 'active'` (confirmar valores), `end_date = hoje + N` | `{ "renewed_count": int }` = quantos desses contratos já têm um contrato **não cancelado** com `renewed_from_id` apontando para eles |
 
 Turmas de uma mensalidade: via `contracts.class_id` (`tuitions.contract_id`); mensalidade sem contrato não conta turma. Contagem zero → nenhuma linha. Toda consulta filtra por `school_id` explicitamente.
 
@@ -164,7 +164,7 @@ Vitest: `describeNotification` (5 eventos × singular/plural/0/1), `groupByDay`,
 
 - ~~**Acúmulo do lembrete de atraso**~~ — **resolvido** pela migration `20261118160000_notifications_supersede_overdue.sql`: o aviso de atraso de hoje substitui os de dias anteriores ainda não lidos (lidos ficam). Matriz casos 12a–12d.
 - **Execução que falha perde o dia:** o gerador roda numa transação só; se falhar, os eventos de dia exato daquele dia não são recuperados no dia seguinte, e o `cron.job_run_details` não mostra a contagem. Hoje não há monitoramento.
-- **`renewed_count` conta renovações canceladas:** decidir se "já rematriculado" exclui contratos `cancelled`.
+- ~~**`renewed_count` conta renovações canceladas**~~ — **resolvido** pela migration `20261119120000_notifications_renewed_count_exclude_cancelled.sql` (aplicada em 2026-11-19): renovação `cancelled` não conta. Matriz caso 1e.
 
 ## Ordem de entrega
 
