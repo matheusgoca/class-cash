@@ -10,7 +10,7 @@
 | S2: histórico, segmentos, segurança (senha + 2FA) | ✅ concluída (PRs #1–#5); QA da Fase 3 parcial | ✅ |
 | S3: preferências de notificação (tela + dados) | ✅ concluída (PR #6) | ✅ migration `20261118120000` |
 | S3, etapa 1: gerador diário de notificações | ✅ concluída (PR #7) | ✅ migrations `20261118150000` e `20261118160000`; job `generate-daily-notifications` ativo às 08:00 UTC (05:00 Brasília) |
-| S3, etapa 2: sino, central preenchida, card "Precisa da sua atenção" | ✅ código pronto, PR aberto; **QA visual no navegador pendente** (só front, sem migration) | após merge |
+| S3, etapa 2: sino, central preenchida, card "Precisa da sua atenção" | ✅ mergeada (PR #9, 2026-11-19); **QA visual no navegador pendente**; migration `20261119120000` (`renewed_count`) | ✅ |
 | S4: e-mail, resumo diário, ciclo de rematrícula | ⬜ não iniciada | — |
 
 Documentos de referência:
@@ -22,7 +22,7 @@ Documentos de referência:
 
 ## O que fazer em seguida (em ordem)
 
-1. **QA visual da etapa 2** (roteiro em `QA_CHECKLIST.md`, seção "S3, notificações etapa 2") e merge do PR.
+1. **QA visual da etapa 2** (roteiro em `QA_CHECKLIST.md`, seção "S3, notificações etapa 2"). O PR #9 já foi mergeado sem esse QA; se achar bug, corrigir em PR novo.
    A 1ª execução real do gerador já foi conferida em 2026-11-19: `succeeded`, 3 avisos `tuition_overdue` na Colegio Teste (717 mensalidades vencidas; ainda não confirmado se são reais ou seed).
 2. **Outras pendências** (listadas também no fim da spec do gerador):
    - Monitorar falhas do job (uma execução que falha perde os avisos de dia exato daquele dia).
