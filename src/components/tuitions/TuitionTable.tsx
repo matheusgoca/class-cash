@@ -60,11 +60,12 @@ interface TuitionTableProps {
   onRefresh: () => void;
   onRenegotiate?: (tuition: TuitionData) => void;
   initialSearch?: string;
+  initialStatus?: string;
 }
 
 type SortField = 'student_name' | 'class_name' | 'amount' | 'status' | 'due_date' | 'paid_date';
 
-export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, initialSearch = "" }: TuitionTableProps) {
+export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, initialSearch = "", initialStatus = "all" }: TuitionTableProps) {
   const { toast } = useToast();
   const { schoolId } = useSchool();
   const [sortField, setSortField] = useState<SortField>("due_date");
@@ -72,7 +73,7 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(30);
   const [search, setSearch] = useState(initialSearch);
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [monthFilter, setMonthFilter] = useState("all");
   const [classFilter, setClassFilter] = useState("all");
   const [groupByClass, setGroupByClass] = useState(false);
