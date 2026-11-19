@@ -1,5 +1,11 @@
 # QA Testing Checklist
 
+## Roteiro de QA — S3, gerador de notificações, etapa 1 (2026-11-18)
+
+- [x] Matriz `supabase/tests/notifications_matrix.sql` toda `ok = true` contra o schema aplicado (2026-11-18: 38/38)
+- [x] `cron.job` com `generate-daily-notifications` (`0 8 * * *`, ativo) (2026-11-18: ativo, `0 8 * * *`)
+- [ ] Na manhã seguinte ao deploy: `cron.job_run_details` com a execução `succeeded` e linhas em `notifications` para owner/admin/financeiro das escolas com dados
+
 ## Roteiro de QA manual — S3, preferências de notificação (2026-11-18)
 
 Matriz SQL: `supabase/tests/notification_prefs_matrix.sql` (30 verificações em `BEGIN ... ROLLBACK`).

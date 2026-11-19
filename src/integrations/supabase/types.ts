@@ -647,6 +647,59 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          created_at: string
+          details: Json
+          event: string
+          id: string
+          item_count: number
+          offset_days: number
+          read_at: string | null
+          reference_date: string
+          school_id: string
+          total_amount: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          details?: Json
+          event: string
+          id?: string
+          item_count: number
+          offset_days: number
+          read_at?: string | null
+          reference_date: string
+          school_id: string
+          total_amount?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          details?: Json
+          event?: string
+          id?: string
+          item_count?: number
+          offset_days?: number
+          read_at?: string | null
+          reference_date?: string
+          school_id?: string
+          total_amount?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -1288,6 +1341,10 @@ export type Database = {
         }[]
       }
       ensure_notification_preferences: { Args: never; Returns: Json }
+      generate_daily_notifications: {
+        Args: { p_now?: string }
+        Returns: number
+      }
       get_active_teachers_salary_sum: {
         Args: { p_school_id: string }
         Returns: number
@@ -1334,6 +1391,16 @@ export type Database = {
         Returns: number
       }
       is_master_admin: { Args: never; Returns: boolean }
+      list_notifications: {
+        Args: {
+          p_category?: string
+          p_limit?: number
+          p_offset?: number
+          p_unread_only?: boolean
+        }
+        Returns: Json
+      }
+      mark_notifications_read: { Args: { p_ids?: string[] }; Returns: number }
       mfa_gate_ok: { Args: never; Returns: boolean }
       mfa_is_admin_or_owner: {
         Args: { p_school: string; p_user: string }
