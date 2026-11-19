@@ -55,7 +55,7 @@ declare
   u_fin    uuid := 'b7ba4eb2-c7a2-4129-83a8-de8e7175c446'; -- financeiro, Colegio Teste (movido para a escola X)
   c_now    timestamptz := '2031-03-10 08:00:00+00';       -- 05:00 em São Paulo → "hoje" = 2031-03-10
   d        date := date '2031-03-10';
-  s_x uuid; s_y uuid; cly uuid; sty uuid; ky uuid; caty uuid; rny uuid; cl1 uuid; cl2 uuid; st uuid; k1 uuid; k2 uuid; k3 uuid; cat uuid; rn uuid;
+  s_x uuid; s_y uuid; cly uuid; sty uuid; ky uuid; caty uuid; rny uuid; cl1 uuid; cl2 uuid; st uuid; k1 uuid; k2 uuid; k3 uuid; k5 uuid; cat uuid; rn uuid;
   v text; v_id uuid;
 begin
   perform set_config('request.jwt.claims', '', true);
@@ -138,7 +138,7 @@ begin
   perform pg_temp.rec('1b admin tuition_overdue', pg_temp.notif(u_admin, 'tuition_overdue'), '2|120.00|{"class_count": 1}');
   perform pg_temp.rec('1c admin renegotiation',   pg_temp.notif(u_admin, 'renegotiation_installment'), '1|80.00|{}');
   perform pg_temp.rec('1d admin expense_due',     pg_temp.notif(u_admin, 'expense_due'),     '1|4200.00|{"description": "Aluguel"}');
-  perform pg_temp.rec('1e admin reenrollment (renovação cancelada de k1 não conta)',   pg_temp.notif(u_admin, 'reenrollment'),    '2|-|{"renewed_count": 1}');
+  perform pg_temp.rec('1e admin reenrollment (renovação cancelada de k1 não conta)',   pg_temp.notif(u_admin, 'reenrollment'),    '2|-|{"renewed_count": 1, "declined_count": 0}');
   perform pg_temp.rec('1f reference_date = hoje SP',
     (select string_agg(distinct reference_date::text, ',') from public.notifications where user_id = u_admin), '2031-03-10');
   perform pg_temp.rec('1g offset_days do padrão gravado',
@@ -248,6 +248,24 @@ begin
       where user_id = u_admin and event = 'tuition_overdue' and read_at is null), '2031-03-12');
   perform pg_temp.rec('12d outros eventos não são substituídos (tuition_due lido de 03-10 continua)',
     (select count(*)::text from public.notifications where id = v_id), '1');
+
+  -- 13. S4c: "não vai renovar" sai dos pendentes; sem pendentes não há aviso de rematrícula
+  insert into public.contracts (student_id, class_id, school_id, start_date, end_date, status, monthly_amount)
+    values (st, cl1, s_x, date '2031-01-01', d + 45, 'active', 100) returning id into k5;   -- terceiro contrato do conjunto (d+45)
+  insert into public.renewal_decisions (school_id, contract_id, status, reason) values (s_x, k1, 'will_not_renew', 'price');
+  perform public.generate_daily_notifications(c_now);
+  perform pg_temp.rec('13a pendentes > 0: aviso com declined_count (3 contratos, 1 renovado, 1 recusou, 1 pendente)',
+    pg_temp.notif(u_admin, 'reenrollment'), '3|-|{"renewed_count": 1, "declined_count": 1}');
+  insert into public.renewal_decisions (school_id, contract_id, status, reason) values (s_x, k5, 'will_not_renew', 'other');
+  perform public.generate_daily_notifications(c_now);
+  perform pg_temp.rec('13b sem pendentes: o aviso não nasce (e o não lido do dia é apagado)',
+    pg_temp.notif(u_admin, 'reenrollment'), 'none');
+  -- decisão "não vai renovar" em contrato que JÁ foi renovado conta como renovado, não como recusa
+  insert into public.renewal_decisions (school_id, contract_id, status, reason) values (s_x, k2, 'will_not_renew', 'price');
+  update public.renewal_decisions set status = 'contacted', reason = null where contract_id = k5;
+  perform public.generate_daily_notifications(c_now);
+  perform pg_temp.rec('13c decisão em contrato já renovado conta como renovado (k2 tem sucessor k3)',
+    pg_temp.notif(u_admin, 'reenrollment'), '3|-|{"renewed_count": 1, "declined_count": 1}');
 
   -- 11. Job agendado
   perform pg_temp.rec('11a job às 08:00 UTC',
