@@ -91,7 +91,7 @@ begin
     ) x
    where x.item_count > 0
      -- MUDANÇA (S4c): rematrícula só avisa quando ainda há pendentes
-     and not (x.event = 'reenrollment'
+     and not (t.event = 'reenrollment'
               and x.item_count - (x.details->>'renewed_count')::integer - (x.details->>'declined_count')::integer <= 0);
 
   insert into public.notifications (school_id, user_id, event, reference_date, offset_days, item_count, total_amount, details)

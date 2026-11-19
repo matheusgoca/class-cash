@@ -776,7 +776,7 @@ new1 = """      select count(*)::integer, null::numeric,
 old2 = "   where x.item_count > 0;"
 new2 = """   where x.item_count > 0
      -- MUDANÇA (S4c): rematrícula só avisa quando ainda há pendentes
-     and not (x.event = 'reenrollment'
+     and not (t.event = 'reenrollment'
               and x.item_count - (x.details->>'renewed_count')::integer - (x.details->>'declined_count')::integer <= 0);"""
 assert body.count(old1) == 1 and body.count(old2) == 1, (body.count(old1), body.count(old2))
 body = body.replace(old1, new1).replace(old2, new2)
