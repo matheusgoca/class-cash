@@ -148,6 +148,10 @@ Consultas prontas no `docs/STATUS.md`: contagem de `email_outbox` por `status` e
 - **Cobertura da Edge Function:** só o teste manual cobre a integração real com o Resend; a lógica de decisão está toda no SQL (testada pela matriz) e no montador do e-mail (testado no Vitest).
 - **Dependência manual:** o segredo no Vault e os secrets da função são passos do usuário; sem eles o envio simplesmente não liga (falha segura).
 
+## Limitação conhecida
+
+O e-mail é montado a partir de linhas em `notifications`, e o gerador só cria a linha quando o canal "no sistema" daquele evento está ligado. Logo, quem desliga "no sistema" e liga e-mail para um evento não recebe e-mail nenhum. Decisão pendente com o dono do produto antes de ligar o envio: (a) gerar a linha quando in_app OU e-mail (o sino passaria a mostrá-la também), ou (b) amarrar o interruptor de e-mail ao de sistema na tela de preferências. Não corrigido na S4a; com o envio desligado, não há impacto hoje.
+
 ## Notas para a S4b
 
 - O resumo reaproveita `email_outbox` (novo tipo de linha ou tabela irmã) e o mesmo transporte, a mesma função de envio e o mesmo interruptor.

@@ -31,15 +31,19 @@ Documentos de referência:
 3. **QA pendente:** S2 Fase 3 (troca de senha, carência do admin, financeiro sem 2FA); S3 preferências (login como financeiro e professor; tela a 375 px). Ver `QA_CHECKLIST.md`.
 4. **Lançar a S4a** (só com autorização; plano em `docs/superpowers/plans/2026-11-19-s4a-email-notificacoes.md`, Tasks 6 e 7). Passos do usuário:
    - Criar conta no Resend.
-   - Gravar a chave de serviço no Vault, segredo `service_role_key` (sem ele o job recebe 401 e nada acontece).
    - Registrar o domínio de envio (DNS) e, depois de verificado, trocar `EMAIL_FROM`.
-   - Ordem: implantar a Edge Function, depois aplicar as migrations, depois ligar o interruptor (testar antes com `EMAIL_ALLOWLIST`).
+   - Secrets da Edge Function: `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_SENDING_ENABLED` (interruptor), `EMAIL_ALLOWLIST` (opcional, para a fase de teste) e `APP_URL` (opcional; padrão `https://class-cash-tan.vercel.app`).
+   - Gravar no Vault o segredo `service_role_key` com o **JWT legado service_role** (Supabase → Settings → API), **idêntico** ao `SUPABASE_SERVICE_ROLE_KEY` que a função recebe. A função compara o Bearer com essa variável; um valor diferente (por exemplo uma chave nova `sb_secret_…`) faz a função responder 401 em toda chamada.
+   - Ordem: implantar a Edge Function, depois criar o segredo no Vault, depois aplicar a migration do cron (o job pode ser aplicado antes do segredo existir, e a função só responde 401, mas é mais claro o segredo existir antes), depois ligar o interruptor (testar antes com `EMAIL_ALLOWLIST`).
    Consultas de monitoramento depois do lançamento:
    ```bash
    npx supabase@2.117.0 db query --linked "select status, count(*), max(updated_at) from public.email_outbox where reference_date >= current_date - 1 group by 1"
    npx supabase@2.117.0 db query --linked "select event, last_error, updated_at from public.email_outbox where status = 'failed' order by updated_at desc limit 10"
    npx supabase@2.117.0 db query --linked "select status, start_time from cron.job_run_details where jobid = (select jobid from cron.job where jobname='send-notification-emails') order by start_time desc limit 3"
+   npx supabase@2.117.0 db query --linked "select status_code, content, created from net._http_response order by created desc limit 3"
    ```
+   Atenção: `cron.job_run_details` só prova que a chamada HTTP foi disparada (`net.http_post` é assíncrono). Um 401 (chave errada) ou 404 (função não implantada) só aparece em `net._http_response`, a quarta consulta.
+   - **Limitação conhecida (não corrigida na S4a):** o e-mail nasce de linhas em `notifications`, e o gerador só cria a linha quando o canal "no sistema" do evento está ligado. Quem desliga "no sistema" e liga e-mail não recebe e-mail. Decisão pendente com o dono do produto antes de ligar o envio: (a) gerar a linha quando in_app OU e-mail (o sino passaria a mostrá-la), ou (b) amarrar o interruptor de e-mail ao de sistema na tela de preferências. Com o envio desligado, não há impacto hoje.
 
 ## Setup em outra máquina
 

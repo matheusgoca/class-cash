@@ -10,6 +10,8 @@ Estado: pronto no código, ainda não aplicado em produção. Os itens abaixo de
 - [ ] Teste de ponta a ponta com `EMAIL_ALLOWLIST` = e-mail do dono: um e-mail chega com assunto, botão e rodapé certos; reexecução não duplica
 - [ ] E-mail aparece corretamente no Gmail e no Outlook (celular e desktop)
 - [ ] Domínio verificado e `EMAIL_FROM` trocado; remetente correto
+- [ ] Forçar uma falha (ex.: remetente não verificado) e confirmar que a nova tentativa na hora seguinte realmente envia (a `Idempotency-Key` do Resend pode manter a resposta de erro por 24 h); se não enviar, trocar a chave por uma nova a cada tentativa
+- [ ] Decidir a limitação sino desligado + e-mail ligado antes de ligar o envio
 
 ## Roteiro de QA manual — S3, notificações etapa 2 (interface) (2026-11-19)
 

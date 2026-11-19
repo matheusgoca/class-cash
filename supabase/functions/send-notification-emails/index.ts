@@ -89,7 +89,11 @@ serve(async (req) => {
       p_error: error,
     });
     if (markError) console.error("mark_email_result falhou:", markError.message);
-    status === "sent" ? sent++ : failed++;
+    if (status === "sent") {
+      sent++;
+    } else {
+      failed++;
+    }
   }
 
   // Só contagens no log: nunca endereços de e-mail.
