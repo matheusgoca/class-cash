@@ -11,7 +11,7 @@
 | S3: preferências de notificação (tela + dados) | ✅ concluída (PR #6) | ✅ migration `20261118120000` |
 | S3, etapa 1: gerador diário de notificações | ✅ concluída (PR #7) | ✅ migrations `20261118150000` e `20261118160000`; job `generate-daily-notifications` ativo às 08:00 UTC (05:00 Brasília) |
 | S3, etapa 2: sino, central preenchida, card "Precisa da sua atenção" | ✅ mergeada (PR #9, 2026-11-19); **QA visual no navegador pendente**; migration `20261119120000` (`renewed_count`) | ✅ |
-| S4a: e-mail por evento (Resend, fila, job horário) | ✅ código pronto na branch `feature/s4a-email-notificacoes`, **apagado**; depende de conta no Resend e domínio | ⬜ migrations `20261119130000`–`130300` não aplicadas; Edge Function não implantada |
+| S4a: e-mail por evento (Resend, fila, job horário) | ✅ mergeada (PR #11); **envio desligado**; falta conta no Resend, segredo no Vault e domínio (Task 7) | ✅ migrations `20261119130000`–`130300` aplicadas; Edge Function `send-notification-emails` implantada; job horário ativo (sem o segredo do Vault a função responde 401: inofensivo) |
 | S4b: resumo diário, ciclo de rematrícula | ⬜ não iniciada | — |
 
 Documentos de referência:
@@ -29,12 +29,12 @@ Documentos de referência:
    - Monitorar falhas do job (uma execução que falha perde os avisos de dia exato daquele dia).
    - Revogar `TRUNCATE` (e demais grants de escrita) de `anon`/`authenticated` nas tabelas — padrão do Supabase, não explorável via REST, endurecimento barato.
 3. **QA pendente:** S2 Fase 3 (troca de senha, carência do admin, financeiro sem 2FA); S3 preferências (login como financeiro e professor; tela a 375 px). Ver `QA_CHECKLIST.md`.
-4. **Lançar a S4a** (só com autorização; plano em `docs/superpowers/plans/2026-11-19-s4a-email-notificacoes.md`, Tasks 6 e 7). Passos do usuário:
+4. **Ligar a S4a** (Task 7 do plano `docs/superpowers/plans/2026-11-19-s4a-email-notificacoes.md`; o banco, a função e o job já estão em produção, falta só configuração). Passos do usuário:
    - Criar conta no Resend.
    - Registrar o domínio de envio (DNS) e, depois de verificado, trocar `EMAIL_FROM`.
    - Secrets da Edge Function: `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_SENDING_ENABLED` (interruptor), `EMAIL_ALLOWLIST` (opcional, para a fase de teste) e `APP_URL` (opcional; padrão `https://class-cash-tan.vercel.app`).
    - Gravar no Vault o segredo `service_role_key` com o **JWT legado service_role** (Supabase → Settings → API), **idêntico** ao `SUPABASE_SERVICE_ROLE_KEY` que a função recebe. A função compara o Bearer com essa variável; um valor diferente (por exemplo uma chave nova `sb_secret_…`) faz a função responder 401 em toda chamada.
-   - Ordem: implantar a Edge Function, depois criar o segredo no Vault, depois aplicar a migration do cron (o job pode ser aplicado antes do segredo existir, e a função só responde 401, mas é mais claro o segredo existir antes), depois ligar o interruptor (testar antes com `EMAIL_ALLOWLIST`).
+   - Situação atual: a função e o job **já estão em produção**; falta o segredo do Vault (`service_role_key`) e os secrets da função. Ordem que resta: criar o segredo no Vault (a partir da próxima hora cheia o `net._http_response` deve mostrar a função respondendo `skipped: disabled` em vez de 401), definir `RESEND_API_KEY` e `EMAIL_FROM`, e só então ligar o interruptor (testar antes com `EMAIL_ALLOWLIST`).
    Consultas de monitoramento depois do lançamento:
    ```bash
    npx supabase@2.117.0 db query --linked "select status, count(*), max(updated_at) from public.email_outbox where reference_date >= current_date - 1 group by 1"
