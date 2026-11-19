@@ -3,6 +3,7 @@
 -- Tudo dentro de BEGIN ... ROLLBACK: nada persiste.
 -- ATENÇÃO: roda contra PRODUÇÃO, cria uma escola de teste, move dois usuários de teste para ela,
 -- muda papéis e roda o gerador para TODAS as escolas dentro da transação — NUNCA remova o "rollback;" do final.
+-- Não rodar perto das 08:00 UTC: o gerador roda aqui para todas as escolas e, enquanto a transação estiver aberta, travaria o job real generate-daily-notifications.
 --
 -- Como rodar:
 --   Migration já aplicada:  npx supabase@2.117.0 db query --linked -f supabase/tests/notifications_matrix.sql

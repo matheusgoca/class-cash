@@ -68,7 +68,7 @@ A etapa 1 pode ir a produção sozinha (os avisos começam a se acumular; ningu�
 | `tuition_due` | `tuitions.status = 'pending'`, `renegotiation_id is null`, `due_date = hoje + N` | `{ "class_count": int }` |
 | `tuition_overdue` | `tuitions.status = 'overdue'`, `due_date < hoje - N` (acumulado) | `{ "class_count": int }` |
 | `renegotiation_installment` | `tuitions.status = 'pending'`, `renegotiation_id is not null`, `due_date = hoje + N` | `{}` |
-| `expense_due` | `expenses.status <> 'paid'` (confirmar os valores reais de `status` em produção no diagnóstico), `due_date = hoje + N` | `{ "description": text }` só quando `item_count = 1` |
+| `expense_due` | `expenses.status in ('pending','overdue')` (exclui `paid` e `cancelled`; confirmado em produção), `due_date = hoje + N` | `{ "description": text }` só quando `item_count = 1` |
 | `reenrollment` | `contracts.status = 'active'` (confirmar valores), `end_date = hoje + N` | `{ "renewed_count": int }` = quantos desses contratos já têm um contrato com `renewed_from_id` apontando para eles |
 
 Turmas de uma mensalidade: via `contracts.class_id` (`tuitions.contract_id`); mensalidade sem contrato não conta turma. Contagem zero → nenhuma linha. Toda consulta filtra por `school_id` explicitamente.
@@ -83,7 +83,7 @@ Turmas de uma mensalidade: via `contracts.class_id` (`tuitions.contract_id`); me
 
 ### RPCs para o front
 
-- `list_notifications(p_before timestamptz default null, p_limit int default 20, p_category text default null, p_unread_only boolean default false) → jsonb` — `{ items: [...], total: int, unread: int }` do usuário na escola de `get_user_school_id()`; `p_category ∈ {cobranca, renegociacao, despesas, rematricula}` (cobranca = `tuition_due` + `tuition_overdue`). Ordenação `created_at desc, id desc`; paginação por cursor `p_before`.
+- `list_notifications(p_offset integer default 0, p_limit integer default 20, p_category text default null, p_unread_only boolean default false) → jsonb` — `{ items: [{ id, event, reference_date, offset_days, item_count, total_amount, details, read_at, created_at }], filtered_total, total, unread }` do usuário na escola de `get_user_school_id()`. `total` e `unread` ignoram os filtros; `filtered_total` respeita categoria e `p_unread_only`. `p_category ∈ {cobranca, renegociacao, despesas, rematricula}` (cobranca = `tuition_due` + `tuition_overdue`). `p_limit` entre 1 e 100. Ordenação `reference_date desc`, ordem do evento (`sort_order` de `notification_event_defaults()`), `id`. **Paginação por offset**, não por cursor: todas as linhas de uma geração têm o mesmo `created_at` (mesma transação), então um cursor por tempo pularia itens. Erros: `MFA_REQUIRED`/`NOT_ALLOWED` (42501), `NO_SCHOOL` (P0001), `INVALID_CATEGORY`/`INVALID_LIMIT` (22023).
 - `mark_notifications_read(p_ids uuid[] default null) → integer` — `null` = todas do usuário na escola; só as do próprio usuário; devolve quantas marcou.
 - Ambas com `perform public.assert_mfa_gate();` primeiro; `school_id` sempre de `get_user_school_id()`.
 
@@ -129,7 +129,7 @@ Cliente dos RPCs (`listNotifications`, `markNotificationsRead`), sem `school_id`
 
 - Visível só quando `showNotificationsItem(...)` é verdadeiro.
 - Botão com `aria-label="Notificações, N não lidas"` e selo com N (oculto quando 0; "9+" acima de 9).
-- Popover: "Notificações" + "Marcar todas como lidas"; até **4** avisos não lidos mais recentes (título + "subtítulo curto · hoje 05:00"); "Ver todas as notificações" → `/notificacoes`. Sem não lidos: "Tudo em dia."
+- Popover: "Notificações" + "Marcar todas como lidas"; até **4** avisos não lidos mais recentes (`list_notifications(0, 4, null, true)`) (título + "subtítulo curto · hoje 05:00"); "Ver todas as notificações" → `/notificacoes`. Sem não lidos: "Tudo em dia."
 - Busca ao montar e ao voltar o foco da janela; falha → só o ícone, sem selo, sem quebrar o cabeçalho.
 - Clicar num aviso: marca como lido e navega para `actionPath`.
 
@@ -138,13 +138,14 @@ Cliente dos RPCs (`listNotifications`, `markNotificationsRead`), sem `school_id`
 - Cabeçalho existente + "Marcar todas como lidas".
 - Abas: **Todas · total**, **Não lidas · unread**, Cobrança, Renegociação, Despesas, Rematrícula.
 - Lista agrupada por dia; cada item: título, etiqueta de categoria, subtítulo, horário, botão de ação (marca como lido e navega). Não lido com destaque visual (não só cor: ponto + peso da fonte).
-- Rodapé "Mostrando X de Y notificações" + "Carregar mais" (cursor, 20 por página).
+- Rodapé "Mostrando X de Y notificações" (Y = `filtered_total`) + "Carregar mais" (offset, 20 por página; deduplicar por `id`, porque uma geração no meio da paginação desloca o offset).
 - Estado vazio existente mantido quando não há nenhuma; vazio por filtro: "Nenhuma notificação nesta categoria."
 
 ### Card (`src/components/dashboard/AttentionCard.tsx`, em `Index.tsx` logo depois do bloco de saldo, antes dos indicadores menores)
 
 - Título "Precisa da sua atenção hoje" + etiqueta "N itens".
 - Itens = avisos com `reference_date = hoje` (lidos ou não); primeiro botão `default`, demais `outline`.
+- "Hoje" do card = o `reference_date` mais recente devolvido pelo RPC (o "hoje" do servidor está no fuso salvo do usuário, que pode diferir do navegador).
 - Rodapé discreto: "Gerado hoje às 05:00" (do `created_at`, no fuso do navegador).
 - Sem itens: "Nada pendente para hoje."
 - Mesma regra de visibilidade do sino.
@@ -156,6 +157,12 @@ Cliente dos RPCs (`listNotifications`, `markNotificationsRead`), sem `school_id`
 ### Testes (etapa 2)
 
 Vitest: `describeNotification` (5 eventos × singular/plural/0/1), `groupByDay`, `formatRelativeTime`. QA no navegador numa escola de teste após rodar `generate_daily_notifications()` manualmente (com autorização): sino com contador, popover, marcar como lido, central com abas e paginação, card no Dashboard, botões levando às telas filtradas.
+
+## Pendências levantadas na revisão final da etapa 1 (decidir antes da etapa 2)
+
+- **Acúmulo do lembrete de atraso:** `tuition_overdue` grava um aviso não lido novo por usuário por dia e nunca substitui o de ontem; o sino abriria com vários quase-duplicados. Opções: o gerador marcar/apagar o aviso de atraso não lido anterior ao gravar o de hoje (migration pequena); a UI mostrar só o mais recente; ou marcar como lidos os anteriores ao lançamento.
+- **Execução que falha perde o dia:** o gerador roda numa transação só; se falhar, os eventos de dia exato daquele dia não são recuperados no dia seguinte, e o `cron.job_run_details` não mostra a contagem. Hoje não há monitoramento.
+- **`renewed_count` conta renovações canceladas:** decidir se "já rematriculado" exclui contratos `cancelled`.
 
 ## Ordem de entrega
 
