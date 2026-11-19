@@ -2,12 +2,12 @@
 
 ## Roteiro de QA — S4c, rematrícula (etapa 1: banco) (2026-11-19)
 
-Estado: código pronto, **não aplicado em produção** (migrations `20261119135900` e `20261119140000`–`140300`). Os itens abertos dependem de aplicar.
+Estado: **aplicado em produção em 2026-11-19** (migrations `20261119135900` e `20261119140000`–`140300`). Itens de interface ficam para a Etapa 2.
 
 - [x] Matrizes rodadas em `BEGIN ... ROLLBACK` com as migrations embutidas (2026-11-19): `renewal_matrix.sql` 68/68 e `notifications_matrix.sql` 45/45; nada persistiu
-- [ ] Matrizes (`renewal_matrix.sql` e `notifications_matrix.sql`) todas `ok` contra o schema aplicado
-- [ ] Depois de aplicar, uma escrita manual logo após um lote de renovação não falha (`source` da auditoria)
-- [ ] Grants: `anon` sem execute em `set_renewal_decision` e `renew_contracts`; `authenticated` com execute
+- [x] Matrizes (`renewal_matrix.sql` e `notifications_matrix.sql`) todas `ok` contra o schema aplicado (2026-11-19: 68/68 e 45/45, em `BEGIN … ROLLBACK`)
+- [x] Depois de aplicar, uma escrita manual logo após uma transação que usa `set_config('app.audit_source', …, true)` não falha (2026-11-19: o teste que dava `23514` roda sem erro; 0 logs com `source` vazio)
+- [x] Grants: `anon` sem execute em `set_renewal_decision` e `renew_contracts`; `authenticated` com execute (2026-11-19, conferido em produção)
 - [ ] Aviso de rematrícula não nasce quando tudo está resolvido (renovado ou "não vai renovar")
 - [ ] Usuário sem papel em `user_roles` recebe `NOT_ALLOWED` nos dois RPCs
 

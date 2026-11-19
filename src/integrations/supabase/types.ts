@@ -918,6 +918,57 @@ export type Database = {
           },
         ]
       }
+      renewal_decisions: {
+        Row: {
+          contract_id: string
+          created_at: string
+          decided_by: string | null
+          id: string
+          note: string | null
+          reason: string | null
+          school_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          contract_id: string
+          created_at?: string
+          decided_by?: string | null
+          id?: string
+          note?: string | null
+          reason?: string | null
+          school_id: string
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          contract_id?: string
+          created_at?: string
+          decided_by?: string | null
+          id?: string
+          note?: string | null
+          reason?: string | null
+          school_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "renewal_decisions_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: true
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "renewal_decisions_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       school_services: {
         Row: {
           active: boolean
@@ -1505,6 +1556,10 @@ export type Database = {
         }
         Returns: string
       }
+      renew_contracts: {
+        Args: { p_fee_service_id?: string; p_items: Json; p_school_id: string }
+        Returns: Json
+      }
       save_class_with_teachers: {
         Args: {
           p_class_id: string
@@ -1530,6 +1585,15 @@ export type Database = {
           p_timezone: string
         }
         Returns: Json
+      }
+      set_renewal_decision: {
+        Args: {
+          p_contract_id: string
+          p_note?: string
+          p_reason?: string
+          p_status: string
+        }
+        Returns: undefined
       }
       start_mfa_grace: { Args: never; Returns: string }
     }
