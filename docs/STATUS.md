@@ -1,6 +1,6 @@
 # Status do projeto — passagem de bastão
 
-**Atualizado em:** 2026-11-19 (madrugada). Atualize este arquivo ao final de cada sessão: ele é o que permite continuar em outra máquina, porque a memória local do Claude não vai junto com o git.
+**Atualizado em:** 2026-11-19. Atualize este arquivo ao final de cada sessão: ele é o que permite continuar em outra máquina, porque a memória local do Claude não vai junto com o git.
 
 ## Onde estamos
 
@@ -10,7 +10,7 @@
 | S2: histórico, segmentos, segurança (senha + 2FA) | ✅ concluída (PRs #1–#5); QA da Fase 3 parcial | ✅ |
 | S3: preferências de notificação (tela + dados) | ✅ concluída (PR #6) | ✅ migration `20261118120000` |
 | S3, etapa 1: gerador diário de notificações | ✅ concluída (PR #7) | ✅ migrations `20261118150000` e `20261118160000`; job `generate-daily-notifications` ativo às 08:00 UTC (05:00 Brasília) |
-| S3, etapa 2: sino, central preenchida, card "Precisa da sua atenção" | ⬜ **próximo passo** | — |
+| S3, etapa 2: sino, central preenchida, card "Precisa da sua atenção" | ✅ código pronto, PR aberto; **QA visual no navegador pendente** (só front, sem migration) | após merge |
 | S4: e-mail, resumo diário, ciclo de rematrícula | ⬜ não iniciada | — |
 
 Documentos de referência:
@@ -22,18 +22,12 @@ Documentos de referência:
 
 ## O que fazer em seguida (em ordem)
 
-1. **Conferir a 1ª execução real do gerador** (2026-11-19, 08:00 UTC):
-   ```bash
-   npx supabase@2.117.0 db query --linked "select status, start_time, return_message from cron.job_run_details where jobid = (select jobid from cron.job where jobname='generate-daily-notifications') order by start_time desc limit 3"
-   npx supabase@2.117.0 db query --linked "select school_id, event, count(*), sum(item_count) from public.notifications group by 1,2"
-   ```
-   Esperado: `succeeded` e 3 avisos `tuition_overdue` na Colegio Teste (`aaaf9993-…`, 717 mensalidades). Confirmar se essas 717 mensalidades vencidas são reais ou dados de seed.
-2. **Etapa 2 da S3:** escrever o plano a partir da spec do gerador (seção "Etapa 2") e executar. Usar `list_notifications(p_offset, p_limit, p_category, p_unread_only)` — paginação por **offset**, não cursor.
-3. **Pendências a decidir** (listadas também no fim da spec do gerador):
+1. **QA visual da etapa 2** (roteiro em `QA_CHECKLIST.md`, seção "S3, notificações etapa 2") e merge do PR.
+   A 1ª execução real do gerador já foi conferida em 2026-11-19: `succeeded`, 3 avisos `tuition_overdue` na Colegio Teste (717 mensalidades vencidas; ainda não confirmado se são reais ou seed).
+2. **Outras pendências** (listadas também no fim da spec do gerador):
    - Monitorar falhas do job (uma execução que falha perde os avisos de dia exato daquele dia).
-   - `renewed_count` conta renovações canceladas como "já rematriculado".
    - Revogar `TRUNCATE` (e demais grants de escrita) de `anon`/`authenticated` nas tabelas — padrão do Supabase, não explorável via REST, endurecimento barato.
-4. **QA pendente:** S2 Fase 3 (troca de senha, carência do admin, financeiro sem 2FA); S3 preferências (login como financeiro e professor; tela a 375 px). Ver `QA_CHECKLIST.md`.
+3. **QA pendente:** S2 Fase 3 (troca de senha, carência do admin, financeiro sem 2FA); S3 preferências (login como financeiro e professor; tela a 375 px). Ver `QA_CHECKLIST.md`.
 
 ## Setup em outra máquina
 

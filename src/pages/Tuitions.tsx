@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
+import { parseStatusParam } from "@/lib/tuitionStatusParam";
 import { supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/contexts/SchoolContext";
 import { Button } from "@/components/ui/button";
@@ -62,6 +63,7 @@ const Tuitions = () => {
   const { schoolId } = useSchool();
   const [searchParams] = useSearchParams();
   const initialSearch = searchParams.get("search") ?? "";
+  const initialStatus = parseStatusParam(searchParams.get("status"));
   const [tuitions, setTuitions] = useState<TuitionData[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -289,6 +291,7 @@ const Tuitions = () => {
         onRefresh={fetchTuitions}
         onRenegotiate={(t) => setRenegotiatingTuition(t)}
         initialSearch={initialSearch}
+        initialStatus={initialStatus}
       />
 
       {renegotiatingTuition && schoolId && (

@@ -1,10 +1,26 @@
 # QA Testing Checklist
 
+## Roteiro de QA manual — S3, notificações etapa 2 (interface) (2026-11-19)
+
+Pré-requisito: avisos em `notifications` (job das 08:00 UTC já gerou 3 `tuition_overdue` na Colegio Teste). Não gerar dados em produção sem autorização.
+
+- [ ] Sino aparece para owner, admin e financeiro; não aparece para professor nem para master sem escola
+- [ ] Selo mostra o total de não lidas; "9+" acima de 9; some quando 0
+- [ ] Popover: até 4 avisos, "Marcar todas como lidas", "Ver todas as notificações", "Tudo em dia." sem não lidos
+- [ ] Clicar num aviso marca como lido e abre `/mensalidades?status=overdue` já filtrado
+- [ ] Central: abas com contagens corretas; aba sem itens mostra "Nenhuma notificação nesta categoria."
+- [ ] Central: não lido tem ponto + negrito; "Mostrando X de Y" e "Carregar mais" (precisa de mais de 20 avisos)
+- [ ] Card no Dashboard: título, "N itens", primeiro botão primário, rodapé "Gerado hoje às HH:MM"; "Nada pendente para hoje." quando não há
+- [ ] Falha de rede nos RPCs: sino só com o ícone, sem quebrar o cabeçalho
+- [ ] 375 px sem rolagem horizontal; tema escuro legível
+- [x] Suíte automatizada: 152/152 e `npm run build` ok (2026-11-19). Inclui testes de renderização (jsdom + Testing Library, RPCs simulados) de `NotificationBell`, `AttentionCard` e `Notifications`: visibilidade (sem render e sem consulta para quem não vê), selo e "9+", "Tudo em dia.", falha de rede, marcar como lido (item e todas), navegação, abas e filtros, "Carregar mais" com dedupe, vazio por categoria, "Nada pendente para hoje.".
+- [ ] **Não coberto pelos testes (exige navegador):** aparência/layout, 375 px, tema escuro, foco do teclado, e o fluxo real com o Supabase e 2FA. Itens do roteiro acima continuam abertos até alguém rodar `npm run dev`.
+
 ## Roteiro de QA — S3, gerador de notificações, etapa 1 (2026-11-18)
 
 - [x] Matriz `supabase/tests/notifications_matrix.sql` toda `ok = true` contra o schema aplicado (2026-11-18: 38/38)
 - [x] `cron.job` com `generate-daily-notifications` (`0 8 * * *`, ativo) (2026-11-18: ativo, `0 8 * * *`)
-- [ ] Na manhã seguinte ao deploy: `cron.job_run_details` com a execução `succeeded` e linhas em `notifications` para owner/admin/financeiro das escolas com dados
+- [x] Na manhã seguinte ao deploy: `cron.job_run_details` com a execução `succeeded` e linhas em `notifications` para owner/admin/financeiro das escolas com dados (2026-11-19: `succeeded` às 08:00 UTC; 3 avisos `tuition_overdue` na Colegio Teste)
 
 ## Roteiro de QA manual — S3, preferências de notificação (2026-11-18)
 

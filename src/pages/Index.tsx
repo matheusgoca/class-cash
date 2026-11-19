@@ -1,4 +1,5 @@
 import { FinancialMetrics } from "@/components/dashboard/FinancialMetrics";
+import { AttentionCard } from "@/components/dashboard/AttentionCard";
 import { ClassHealthCards } from "@/components/dashboard/ClassHealthCards";
 import { DashboardCharts } from "@/components/dashboard/DashboardCharts";
 
@@ -13,6 +14,8 @@ const Index = () => {
       </div>
 
       <FinancialMetrics />
+
+      <AttentionCard />
 
       <div>
         <h2 className="text-xl font-semibold mb-4">Análise de Dados</h2>

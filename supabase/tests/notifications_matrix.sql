@@ -78,6 +78,10 @@ begin
     values (st, cl2, s_x, date '2031-01-01', d + 45, 'active', 200) returning id into k2;
   insert into public.contracts (student_id, class_id, school_id, start_date, end_date, status, monthly_amount, renewed_from_id)
     values (st, cl2, s_x, d + 46, d + 400, 'active', 200, k2) returning id into k3;   -- renova k2
+  -- Renovação CANCELADA de k1: não conta como "já rematriculado" (migration 20261119120000).
+  -- Com a função antiga o caso 1e daria renewed_count = 2.
+  insert into public.contracts (student_id, class_id, school_id, start_date, end_date, status, monthly_amount, renewed_from_id)
+    values (st, cl1, s_x, d + 46, d + 400, 'cancelled', 100, k1);
 
   -- tuition_due (N=3): 2 itens, R$ 300, 2 turmas. Pago e cancelado não contam.
   insert into public.tuitions (student_id, contract_id, school_id, description, amount, due_date, status) values
@@ -134,7 +138,7 @@ begin
   perform pg_temp.rec('1b admin tuition_overdue', pg_temp.notif(u_admin, 'tuition_overdue'), '2|120.00|{"class_count": 1}');
   perform pg_temp.rec('1c admin renegotiation',   pg_temp.notif(u_admin, 'renegotiation_installment'), '1|80.00|{}');
   perform pg_temp.rec('1d admin expense_due',     pg_temp.notif(u_admin, 'expense_due'),     '1|4200.00|{"description": "Aluguel"}');
-  perform pg_temp.rec('1e admin reenrollment',    pg_temp.notif(u_admin, 'reenrollment'),    '2|-|{"renewed_count": 1}');
+  perform pg_temp.rec('1e admin reenrollment (renovação cancelada de k1 não conta)',   pg_temp.notif(u_admin, 'reenrollment'),    '2|-|{"renewed_count": 1}');
   perform pg_temp.rec('1f reference_date = hoje SP',
     (select string_agg(distinct reference_date::text, ',') from public.notifications where user_id = u_admin), '2031-03-10');
   perform pg_temp.rec('1g offset_days do padrão gravado',
