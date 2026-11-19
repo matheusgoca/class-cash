@@ -208,9 +208,11 @@ begin
   r := (pg_temp.renew(u_admin, s_x, jsonb_build_array(pg_temp.item(k1, cl2, 110, 99), pg_temp.item(k3, cl1, 300, 300, 10)), null))::jsonb;
   perform pg_temp.rec('2h lote misto: 1 renovado, 1 pulado',
     (r->>'renewed') || '|' || jsonb_array_length(r->'skipped'), '1|1');
-  perform pg_temp.rec('2i duplicata no mesmo lote: a segunda é pulada',
-    (((pg_temp.renew(u_admin, s_x, jsonb_build_array(pg_temp.item(k4, cl1, 400, 400, 10), pg_temp.item(k4, cl1, 400, 400, 10)), null))::jsonb)->>'renewed')
-    || '|' || (select count(*)::text from public.contracts where renewed_from_id = k4), '1|1');
+  r := (pg_temp.renew(u_admin, s_x, jsonb_build_array(pg_temp.item(k4, cl1, 400, 400, 10), pg_temp.item(k4, cl1, 400, 400, 10)), null))::jsonb;
+  perform pg_temp.rec('2i duplicata no mesmo lote: 1 renovado, 1 pulado',
+    (r->>'renewed') || '|' || jsonb_array_length(r->'skipped'), '1|1');
+  perform pg_temp.rec('2i2 ...e só um contrato novo foi criado',
+    (select count(*)::text from public.contracts where renewed_from_id = k4), '1');
 
   -- 2j. atomicidade: um item inválido aborta o lote inteiro (k5 válido não pode ser renovado)
   perform pg_temp.rec('2j item inválido aborta o lote inteiro',
