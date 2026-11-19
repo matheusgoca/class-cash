@@ -906,7 +906,7 @@ Esta tarefa **grava em produção**. Peça autorização por passo e mostre o `-
 - [ ] **Step 1: Dry-run**
 
 Run: `npx supabase@2.117.0 db push --linked --dry-run 2>&1 | tail -10`
-Expected: lista **as quatro** migrations (`…140000`, `…140100`, `…140200`, `…140300`) e nenhuma outra.
+Expected: lista **as cinco** migrations (`…135900`, `…140000`, `…140100`, `…140200`, `…140300`) e nenhuma outra.
 
 - [ ] **Step 2: Aplicar (após autorização)**
 
@@ -936,6 +936,6 @@ Commit: `git add src/integrations/supabase/types.ts CHANGELOG.md QA_CHECKLIST.md
 
 **Placeholders:** nenhum "TBD". O corpo do PR no fim da Task 4 é escrito no momento, a partir do CHANGELOG.
 
-**Consistência de nomes e tipos:** `set_renewal_decision(p_contract_id, p_status, p_reason, p_note)` e `renew_contracts(p_school_id, p_items, p_fee_service_id)` têm as mesmas assinaturas nas migrations, nas matrizes (`pg_temp.decide`, `pg_temp.renew`), nos `revoke/grant` e na verificação de produção. Os códigos de erro (`NOT_ALLOWED`, `INVALID_STATUS`, `INVALID_CONTRACT`, `REASON_REQUIRED`, `INVALID_ITEMS`, `INVALID_ITEM`, `INVALID_SERVICE`) são os mesmos nos RPCs e nos casos. O formato do item de `p_items` bate com `pg_temp.item`/`rows12` e com o `jsonb_to_recordset` do RPC. As migrations `…140000` a `…140300` aparecem na mesma ordem em todo o plano.
+**Consistência de nomes e tipos:** `set_renewal_decision(p_contract_id, p_status, p_reason, p_note)` e `renew_contracts(p_school_id, p_items, p_fee_service_id)` têm as mesmas assinaturas nas migrations, nas matrizes (`pg_temp.decide`, `pg_temp.renew`), nos `revoke/grant` e na verificação de produção. Os códigos de erro (`NOT_ALLOWED`, `INVALID_STATUS`, `INVALID_CONTRACT`, `REASON_REQUIRED`, `INVALID_ITEMS`, `INVALID_ITEM`, `INVALID_SERVICE`) são os mesmos nos RPCs e nos casos. O formato do item de `p_items` bate com `pg_temp.item`/`rows12` e com o `jsonb_to_recordset` do RPC. As migrations `…135900` e `…140000` a `…140300` aparecem na mesma ordem em todo o plano.
 
 **Riscos conhecidos:** (1) as matrizes não puderam ser executadas ao escrever o plano (só serão rodadas na execução); o caso `2q` (vencimentos repetidos) e o `2i` (duplicata no mesmo lote) são os mais sutis. (2) O ordenamento de chaves de `jsonb::text` (`renewed_count` antes de `declined_count`) foi deduzido da regra "por tamanho, depois bytes"; se a matriz mostrar a ordem inversa, ajustar a **expectativa**, não a função. (3) O caso `1c` assume que, antes de qualquer `renew_contracts`, a `audit_logs.source` da decisão é `manual`; por isso a parte 1 da matriz roda antes da parte 2 (o `set_config('app.audit_source')` do lote persiste até o fim da transação).

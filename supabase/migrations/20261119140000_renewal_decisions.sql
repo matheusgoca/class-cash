@@ -29,7 +29,8 @@ alter table public.renewal_decisions enable row level security;
 drop policy if exists renewal_decisions_select on public.renewal_decisions;
 create policy renewal_decisions_select on public.renewal_decisions
   for select to authenticated
-  using (school_id = public.get_user_school_id() or public.is_master_admin());
+  using ((school_id = public.get_user_school_id() and coalesce(public.get_current_user_role() in ('admin', 'financial'), false))
+         or coalesce(public.is_master_admin(), false));
 
 drop policy if exists mfa_gate on public.renewal_decisions;
 create policy mfa_gate on public.renewal_decisions as restrictive for all to authenticated

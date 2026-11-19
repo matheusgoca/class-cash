@@ -6,8 +6,9 @@
 -- Não rodar perto das 08:00 UTC.
 --
 -- Como rodar (migrations ainda NÃO aplicadas): gerar um arquivo que troca a linha marcadora MIGRATION
--- (sozinha na linha) pelo conteúdo, em ordem, de 20261119140000_renewal_decisions.sql,
--- 20261119140100_set_renewal_decision.sql e (depois da Task 2) 20261119140200_renew_contracts.sql.
+-- (sozinha na linha) pelo conteúdo, em ordem, de 20261119135900_audit_source_nullif.sql,
+-- 20261119140000_renewal_decisions.sql, 20261119140100_set_renewal_decision.sql e
+-- 20261119140200_renew_contracts.sql.
 -- Migrations já aplicadas: npx supabase@2.117.0 db query --linked -f supabase/tests/renewal_matrix.sql
 -- Saída: uma linha por verificação; "ok" deve ser true em TODAS.
 
@@ -119,6 +120,10 @@ begin
   insert into public.school_services (school_id, name, price, type, active) values (s_x, 'Taxa antiga', 90, 'avulso', false) returning id into svc_off;
   insert into public.school_services (school_id, name, price, type, active) values (s_y, 'Taxa Y', 70, 'avulso', true) returning id into svcy;
 
+  -- Simula o '' que sobra na conexão do pool depois de uma transação que usou set_config(..., true).
+  -- Com o audit_trigger_fn antigo, a primeira escrita auditada abaixo falharia com 23514.
+  perform set_config('app.audit_source', '', true);
+
   -- 1. set_renewal_decision ---------------------------------------------------------------
   perform pg_temp.rec('1a admin marca "contatado"', pg_temp.decide(u_admin, k1, 'contacted'), '1');
   perform pg_temp.rec('1b linha gravada com autor e sem motivo',
@@ -149,7 +154,16 @@ begin
   perform pg_temp.rec('1s contrato cancelado', pg_temp.decide(u_admin, kdead, 'contacted'), 'ERR:22023:INVALID_CONTRACT');
 
   -- Leitura e escrita direta
+  -- Uma decisão na escola Y (como dono da transação) para o isolamento de 1t não ser vácuo.
+  insert into public.renewal_decisions (school_id, contract_id, status) values (s_y, ky, 'contacted');
   perform pg_temp.rec('1t admin lê só as decisões da própria escola', pg_temp.run_as(u_admin, 'aal1',
+    'select count(*)::text from public.renewal_decisions'),
+    (select count(*)::text from public.renewal_decisions where school_id = s_x));
+  update public.user_roles set role = 'teacher' where user_id = u_fin;
+  perform pg_temp.rec('1t2 professor não lê decisões', pg_temp.run_as(u_fin, 'aal1',
+    'select count(*)::text from public.renewal_decisions'), '0');
+  update public.user_roles set role = 'financial' where user_id = u_fin;
+  perform pg_temp.rec('1t3 financeiro lê as da escola', pg_temp.run_as(u_fin, 'aal1',
     'select count(*)::text from public.renewal_decisions'),
     (select count(*)::text from public.renewal_decisions where school_id = s_x));
   perform pg_temp.rec('1u INSERT direto falha', pg_temp.run_as(u_admin, 'aal1', format(
@@ -169,6 +183,14 @@ begin
   delete from public.user_roles where user_id = u_fin;
   perform pg_temp.rec('1x2 usuário sem papel é negado', pg_temp.decide(u_fin, k4, 'contacted'), 'ERR:42501:NOT_ALLOWED');
   insert into public.user_roles (user_id, role) values (u_fin, v_role::public.app_role);
+
+  -- Escola: admin sem escola (profiles.school_id NULL) não decide em contrato de outra escola nem da antiga
+  update public.profiles set school_id = null where user_id = u_admin;
+  perform pg_temp.rec('1x3 admin sem escola não decide em contrato de outra escola',
+    pg_temp.decide(u_admin, ky, 'will_not_renew', 'price'), 'ERR:22023:INVALID_CONTRACT');
+  perform pg_temp.rec('1x3b ...nem em contrato da escola anterior',
+    pg_temp.decide(u_admin, k4, 'contacted'), 'ERR:22023:INVALID_CONTRACT');
+  update public.profiles set school_id = s_x where user_id = u_admin;
 
   -- Gate de 2FA
   perform set_config('request.jwt.claims', '', true);

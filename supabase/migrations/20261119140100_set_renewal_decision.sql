@@ -32,7 +32,9 @@ begin
     from public.contracts c where c.id = p_contract_id;
 
   -- Contrato inexistente ou de outra escola respondem igual (sem revelar existência).
-  if v_school is null or not (v_school = public.get_user_school_id() or public.is_master_admin()) then
+  -- coalesce: usuário sem escola (get_user_school_id() NULL) não passa (fail closed).
+  if v_school is null or not (coalesce(v_school = public.get_user_school_id(), false)
+                              or coalesce(public.is_master_admin(), false)) then
     raise exception 'INVALID_CONTRACT' using errcode = '22023';
   end if;
   if v_status <> 'active' then

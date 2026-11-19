@@ -54,7 +54,7 @@ Dois PRs, como na S3:
 
 CHECK composto: `(status = 'will_not_renew') = (reason is not null)`.
 
-**RLS (padrão do projeto):** SELECT de `school_id = get_user_school_id()` ou `is_master_admin()`; policy RESTRICTIVE `mfa_gate`; **sem** policies de escrita (escrita só pelos RPCs). Trigger de auditoria: `create trigger audit_trigger after insert or update or delete … execute function public.audit_trigger_fn()` (`audit_logs.table_name` é texto livre, sem CHECK). `gen_random_uuid()` e `set_updated_at()` (nunca `uuid_generate_v4()` nem `update_updated_at_column()`).
+**RLS (padrão do projeto):** SELECT só para quem é da escola (`school_id = get_user_school_id()`) **e** tem papel admin ou financeiro (o dono conta como admin), ou para `is_master_admin()`; professor não lê (R6); policy RESTRICTIVE `mfa_gate`; **sem** policies de escrita (escrita só pelos RPCs). Trigger de auditoria: `create trigger audit_trigger after insert or update or delete … execute function public.audit_trigger_fn()` (`audit_logs.table_name` é texto livre, sem CHECK). `gen_random_uuid()` e `set_updated_at()` (nunca `uuid_generate_v4()` nem `update_updated_at_column()`).
 
 **Drift de schema:** a RLS de `contracts` não está nas migrations do repositório. O plano deve **confirmar em produção** (`pg_policies`, `pg_constraint`) como `contracts`, `tuitions`, `service_charges` e `school_services` são protegidos e quais colunas/constraints existem, antes de escrever as migrations.
 
@@ -65,6 +65,7 @@ CHECK composto: `(status = 'will_not_renew') = (reason is not null)`.
 - Permitido ao papel admin ou financeiro da escola do contrato, ou ao master admin; demais → `NOT_ALLOWED` (42501). A checagem é à prova de nulo: usuário sem linha em `user_roles` (`get_current_user_role()` nulo) também recebe `NOT_ALLOWED`, nunca passa.
 - O contrato precisa ser da escola, estar `active` e **não ter sucessor** (`renewed_from_id` apontando para ele, ignorando sucessores `cancelled`); senão `INVALID_CONTRACT` (22023).
 - `p_status` ∈ {`contacted`, `will_renew`, `will_not_renew`, `none`}. `none` apaga o registro. `will_not_renew` sem `p_reason` válido → `REASON_REQUIRED` (22023). Upsert por `contract_id`; grava `decided_by = auth.uid()`.
+- Códigos de erro: `NOT_ALLOWED` (42501); `INVALID_STATUS`, `INVALID_CONTRACT` e `REASON_REQUIRED` (22023). A checagem da escola também é à prova de nulo: usuário sem escola (`get_user_school_id()` nulo, ex.: dono convidado ainda sem onboarding) recebe `INVALID_CONTRACT` e nunca decide em contrato de outra escola.
 - Concedida a `authenticated`; revogada de `public, anon`.
 
 ### RPC `renew_contracts(p_school_id uuid, p_items jsonb, p_fee_service_id uuid default null) → jsonb`
@@ -85,7 +86,7 @@ Validação no servidor, por item (qualquer falha **aborta o lote inteiro** com 
 - Cada mensalidade: `due_date` dentro de `[start_date, end_date]`, sem duplicar `due_date`, `amount` igual ao `final_amount` do contrato novo (calculado no servidor a partir de `monthly_amount` e do `discount` herdado), `status` ∈ {`pending`, `overdue`}.
 - `monthly_amount` > 0.
 
-`INVALID_ITEM` cobre todas as falhas acima. O servidor grava sempre o valor da mensalidade que ele calcula (`final_amount` do contrato novo) e só **confere** o valor enviado pelo cliente, com tolerância de R$ 0,01.
+Erros: `INVALID_ITEMS` (lote que não é array ou não tem de 1 a 100 itens); `INVALID_ITEM` (qualquer item inválido, com o contrato citado no detalhe); `INVALID_SERVICE` (serviço da taxa não encontrado, não avulso, inativo ou de outra escola). O servidor grava sempre o valor da mensalidade que ele calcula (`final_amount` do contrato novo) e só **confere** o valor enviado pelo cliente, com tolerância de R$ 0,01.
 
 Origem que **já tem sucessor** não aborta: é **pulada** e listada em `skipped` (duas pessoas renovando ao mesmo tempo).
 
@@ -150,6 +151,16 @@ Cada passo que grava em produção só com autorização, mostrando `--dry-run` 
 - **Lote grande:** limite de 100 por chamada; chamadas independentes (a falha de uma não desfaz as anteriores, e o resultado diz o que passou).
 - **Drift de schema** (ver etapa 1): a RLS de `contracts` precisa ser confirmada em produção antes de escrever o plano.
 - **`enrollments` não é atualizada:** só a importação a escreve; promover alunos de turma no lote não a altera (mesmo comportamento da renovação individual). A contagem por turma do Dashboard usa `enrollments`.
+
+## Notas para a Etapa 2
+
+Contrato do cliente com `renew_contracts`:
+- Enviar `class_id: null`, nunca string vazia.
+- Montar datas com o `toDateStr` do projeto (nunca `toISOString`).
+- Herdar `discount`, `due_day` e `period` do contrato de ORIGEM (o lote não usa valores de formulário).
+- Arredondar `monthly_amount` para centavos.
+- Limitar a observação a `maxLength` 500 na interface.
+- O texto da notificação em `_shared/notificationText.ts` precisa passar a usar `declined_count` (hoje o ignora).
 
 ## Notas para depois
 
