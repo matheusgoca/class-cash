@@ -31,3 +31,6 @@ enabled = false
 
 [functions.reset-user-mfa]
 verify_jwt = false
+
+[functions.send-notification-emails]
+verify_jwt = false
