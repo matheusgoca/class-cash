@@ -48,6 +48,29 @@ returns text language sql as $f$
            p_contract, p_status, p_reason, p_note))
 $f$;
 
+-- 12 mensalidades mensais a partir de p_start, vencendo em p_due_day, todas com o valor p_amount
+create function pg_temp.rows12(p_start date, p_due_day int, p_amount numeric) returns jsonb language sql as $f$
+  select jsonb_agg(jsonb_build_object(
+           'due_date', (date_trunc('month', p_start) + make_interval(months => g) + make_interval(days => p_due_day - 1))::date,
+           'amount', p_amount, 'status', 'pending', 'description', 'Mensalidade ' || (g + 1)))
+    from generate_series(0, 11) g
+$f$;
+
+-- um item de lote; o contrato novo vai de p_start a p_end (padrão: 2031-03-01 a 2032-02-29)
+create function pg_temp.item(p_src uuid, p_class uuid, p_monthly numeric, p_amount numeric, p_due int default 5,
+                             p_start date default date '2031-03-01', p_end date default date '2032-02-29')
+returns jsonb language sql as $f$
+  select jsonb_build_object('source_contract_id', p_src, 'class_id', p_class, 'monthly_amount', p_monthly,
+                            'start_date', p_start, 'end_date', p_end, 'tuitions', pg_temp.rows12(p_start, p_due, p_amount))
+$f$;
+
+-- chama renew_contracts como o usuário e devolve o jsonb em texto ou o erro
+create function pg_temp.renew(p_uid uuid, p_school uuid, p_items jsonb, p_fee uuid default null)
+returns text language sql as $f$
+  select pg_temp.run_as(p_uid, 'aal1',
+    format('select public.renew_contracts(%L, %L::jsonb, %L)::text', p_school, p_items::text, p_fee))
+$f$;
+
 do $$
 declare
   u_master uuid := '52d00ab5-567f-4537-b33a-22c2bd44e14d'; -- master + owner + admin, Colegio Teste
@@ -155,7 +178,118 @@ begin
   perform set_config('request.jwt.claims', '', true);
   update public.schools set require_2fa = false where id = s_x;
 
-  -- @@PART2@@
+  -- 2. renew_contracts --------------------------------------------------------------------
+  -- 2a. lote válido: k1 reajustada (100 → 110 com desconto 10% = 99,00) e promovida de turma, k2 igual; com taxa
+  r := (pg_temp.renew(u_admin, s_x, jsonb_build_array(pg_temp.item(k1, cl2, 110, 99), pg_temp.item(k2, cl1, 200, 200, 10)), svc))::jsonb;
+  perform pg_temp.rec('2a lote renova 2 contratos e cria 24 mensalidades, sem pulados',
+    (r->>'renewed') || '|' || (r->>'tuitions') || '|' || jsonb_array_length(r->'skipped'), '2|24|0');
+  perform pg_temp.rec('2b contrato novo de k1: valores, turma, período e herança',
+    (select (monthly_amount = 110 and discount = 10 and due_day = 5 and period = 'integral' and class_id = cl2
+             and start_date = date '2031-03-01' and end_date = date '2032-02-29' and status = 'active' and school_id = s_x
+             and student_id = st)::text
+       from public.contracts where renewed_from_id = k1), 'true');
+  perform pg_temp.rec('2c 12 mensalidades do novo k1 a R$ 99,00, final_amount nulo, na escola certa',
+    (select count(*)::text from public.tuitions t join public.contracts c on c.id = t.contract_id
+      where c.renewed_from_id = k1 and t.amount = 99 and t.final_amount is null and t.school_id = s_x
+        and t.student_id = st and t.status = 'pending'), '12');
+  perform pg_temp.rec('2d 2 cobranças de taxa de R$ 150 pendentes no início do contrato novo',
+    (select count(*)::text from public.service_charges
+      where school_id = s_x and service_id = svc and amount = 150 and status = 'pending' and due_date = date '2031-03-01'), '2');
+  perform pg_temp.rec('2e auditoria do lote marcada como generated',
+    (select string_agg(distinct source, ',') from public.audit_logs
+      where table_name = 'tuitions' and school_id = s_x
+        and (new_data->>'contract_id')::uuid in (select id from public.contracts where renewed_from_id in (k1, k2))), 'generated');
+
+  -- 2f/2g. já renovado: pulado; lote misto
+  r := (pg_temp.renew(u_admin, s_x, jsonb_build_array(pg_temp.item(k1, cl2, 110, 99)), null))::jsonb;
+  perform pg_temp.rec('2f origem já renovada é pulada e listada',
+    (r->>'renewed') || '|' || (r->'skipped'->0->>'reason'), '0|ALREADY_RENEWED');
+  perform pg_temp.rec('2g ...e não criou contrato novo', (select count(*)::text from public.contracts where renewed_from_id = k1), '1');
+  r := (pg_temp.renew(u_admin, s_x, jsonb_build_array(pg_temp.item(k1, cl2, 110, 99), pg_temp.item(k3, cl1, 300, 300, 10)), null))::jsonb;
+  perform pg_temp.rec('2h lote misto: 1 renovado, 1 pulado',
+    (r->>'renewed') || '|' || jsonb_array_length(r->'skipped'), '1|1');
+  perform pg_temp.rec('2i duplicata no mesmo lote: a segunda é pulada',
+    (((pg_temp.renew(u_admin, s_x, jsonb_build_array(pg_temp.item(k4, cl1, 400, 400, 10), pg_temp.item(k4, cl1, 400, 400, 10)), null))::jsonb)->>'renewed')
+    || '|' || (select count(*)::text from public.contracts where renewed_from_id = k4), '1|1');
+
+  -- 2j. atomicidade: um item inválido aborta o lote inteiro (k5 válido não pode ser renovado)
+  perform pg_temp.rec('2j item inválido aborta o lote inteiro',
+    pg_temp.renew(u_admin, s_x, jsonb_build_array(pg_temp.item(k5, cl1, 500, 500, 10), pg_temp.item(k6, cl1, 600, 999, 10)), null),
+    'ERR:22023:INVALID_ITEM');
+  perform pg_temp.rec('2k ...e k5 NÃO foi renovada (nada gravado)',
+    (select count(*)::text from public.contracts where renewed_from_id in (k5, k6)), '0');
+  perform pg_temp.rec('2l ...nem mensalidades órfãs',
+    (select count(*)::text from public.tuitions where school_id = s_x and contract_id in (select id from public.contracts where renewed_from_id in (k5, k6))), '0');
+
+  -- 2m. validações de item
+  perform pg_temp.rec('2m início diferente de fim + 1', pg_temp.renew(u_admin, s_x,
+    jsonb_build_array(pg_temp.item(k5, cl1, 500, 500, 10, date '2031-03-02', date '2032-03-01')), null), 'ERR:22023:INVALID_ITEM');
+  perform pg_temp.rec('2n duração acima de 24 meses', pg_temp.renew(u_admin, s_x,
+    jsonb_build_array(pg_temp.item(k5, cl1, 500, 500, 10, date '2031-03-01', date '2033-03-02')), null), 'ERR:22023:INVALID_ITEM');
+  perform pg_temp.rec('2o mensalidade fora do período', pg_temp.renew(u_admin, s_x,
+    jsonb_build_array(jsonb_set(pg_temp.item(k5, cl1, 500, 500, 10), '{tuitions,0,due_date}', '"2033-01-01"')), null), 'ERR:22023:INVALID_ITEM');
+  perform pg_temp.rec('2p valor da mensalidade não confere', pg_temp.renew(u_admin, s_x,
+    jsonb_build_array(pg_temp.item(k5, cl1, 500, 499)), null), 'ERR:22023:INVALID_ITEM');
+  perform pg_temp.rec('2q vencimentos repetidos', pg_temp.renew(u_admin, s_x,
+    jsonb_build_array(jsonb_set(pg_temp.item(k5, cl1, 500, 500, 10), '{tuitions,1,due_date}', (pg_temp.item(k5, cl1, 500, 500, 10)->'tuitions'->0->'due_date'))), null), 'ERR:22023:INVALID_ITEM');
+  perform pg_temp.rec('2r valor mensal zero', pg_temp.renew(u_admin, s_x,
+    jsonb_build_array(pg_temp.item(k5, cl1, 0, 0)), null), 'ERR:22023:INVALID_ITEM');
+  perform pg_temp.rec('2s sem mensalidades', pg_temp.renew(u_admin, s_x,
+    jsonb_build_array(jsonb_set(pg_temp.item(k5, cl1, 500, 500), '{tuitions}', '[]')), null), 'ERR:22023:INVALID_ITEM');
+  perform pg_temp.rec('2t status de mensalidade inválido', pg_temp.renew(u_admin, s_x,
+    jsonb_build_array(jsonb_set(pg_temp.item(k5, cl1, 500, 500, 10), '{tuitions,0,status}', '"paid"')), null), 'ERR:22023:INVALID_ITEM');
+  perform pg_temp.rec('2u origem de outra escola', pg_temp.renew(u_admin, s_x,
+    jsonb_build_array(pg_temp.item(ky, cl1, 100, 100, 10)), null), 'ERR:22023:INVALID_ITEM');
+  perform pg_temp.rec('2v turma de destino de outra escola', pg_temp.renew(u_admin, s_x,
+    jsonb_build_array(pg_temp.item(k5, cly, 500, 500, 10)), null), 'ERR:22023:INVALID_ITEM');
+  perform pg_temp.rec('2w origem cancelada', pg_temp.renew(u_admin, s_x,
+    jsonb_build_array(pg_temp.item(kdead, cl1, 100, 100, 10)), null), 'ERR:22023:INVALID_ITEM');
+  perform pg_temp.rec('2x lote vazio', pg_temp.renew(u_admin, s_x, '[]'::jsonb, null), 'ERR:22023:INVALID_ITEMS');
+  perform pg_temp.rec('2y lote com 101 itens', pg_temp.renew(u_admin, s_x,
+    (select jsonb_agg(pg_temp.item(k5, cl1, 500, 500, 10)) from generate_series(1, 101)), null), 'ERR:22023:INVALID_ITEMS');
+  perform pg_temp.rec('2z serviço de outra escola', pg_temp.renew(u_admin, s_x,
+    jsonb_build_array(pg_temp.item(k5, cl1, 500, 500, 10)), svcy), 'ERR:22023:INVALID_SERVICE');
+  perform pg_temp.rec('2za serviço mensal (não avulso)', pg_temp.renew(u_admin, s_x,
+    jsonb_build_array(pg_temp.item(k5, cl1, 500, 500, 10)), svc_m), 'ERR:22023:INVALID_SERVICE');
+  perform pg_temp.rec('2zb serviço inativo', pg_temp.renew(u_admin, s_x,
+    jsonb_build_array(pg_temp.item(k5, cl1, 500, 500, 10)), svc_off), 'ERR:22023:INVALID_SERVICE');
+
+  -- 2zc. permissões
+  perform pg_temp.rec('2zc escola Y por quem é da escola X', pg_temp.renew(u_admin, s_y,
+    jsonb_build_array(pg_temp.item(ky, cly, 100, 100, 10)), null), 'ERR:42501:NOT_ALLOWED');
+  update public.user_roles set role = 'teacher' where user_id = u_fin;
+  perform pg_temp.rec('2zd professor é negado', pg_temp.renew(u_fin, s_x,
+    jsonb_build_array(pg_temp.item(k5, cl1, 500, 500, 10)), null), 'ERR:42501:NOT_ALLOWED');
+  update public.user_roles set role = 'financial' where user_id = u_fin;
+  -- 2zd2. usuário sem nenhuma linha em user_roles é negado (fail closed)
+  select role::text into v_role from public.user_roles where user_id = u_fin;
+  delete from public.user_roles where user_id = u_fin;
+  perform pg_temp.rec('2zd2 usuário sem papel é negado', pg_temp.renew(u_fin, s_x,
+    jsonb_build_array(pg_temp.item(k5, cl1, 500, 500, 10)), null), 'ERR:42501:NOT_ALLOWED');
+  insert into public.user_roles (user_id, role) values (u_fin, v_role::public.app_role);
+  perform pg_temp.rec('2ze financeiro renova (R6)',
+    (((pg_temp.renew(u_fin, s_x, jsonb_build_array(pg_temp.item(k5, cl1, 500, 500, 10)), null))::jsonb)->>'renewed'), '1');
+  perform pg_temp.rec('2zf anon não executa o RPC',
+    has_function_privilege('anon', 'public.renew_contracts(uuid,jsonb,uuid)', 'execute')::text, 'false');
+
+  -- 2zg. renovação cancelada libera nova renovação; decisão em contrato já renovado é bloqueada
+  update public.contracts set status = 'cancelled' where renewed_from_id = k1;
+  r := (pg_temp.renew(u_admin, s_x, jsonb_build_array(pg_temp.item(k1, cl2, 110, 99)), null))::jsonb;
+  perform pg_temp.rec('2zg sucessor cancelado não conta: k1 pode ser renovada de novo', (r->>'renewed'), '1');
+  perform pg_temp.rec('2zh decisão em contrato já renovado é bloqueada', pg_temp.decide(u_admin, k2, 'contacted'), 'ERR:22023:INVALID_CONTRACT');
+
+  -- 2zi. gate de 2FA
+  perform set_config('request.jwt.claims', '', true);
+  update public.schools set require_2fa = true where id = s_x;
+  delete from public.mfa_grace where user_id in (u_admin, u_fin);
+  perform pg_temp.rec('2zi admin aal1 sem carência bloqueado', pg_temp.renew(u_admin, s_x,
+    jsonb_build_array(pg_temp.item(k6, cl1, 600, 600, 10)), null), 'ERR:42501:MFA_REQUIRED');
+  perform set_config('request.jwt.claims', '', true);
+  update public.schools set require_2fa = false where id = s_x;
+
+  -- 2zj. isolamento: nada foi criado na escola Y
+  perform pg_temp.rec('2zj escola Y intacta',
+    (select count(*)::text from public.contracts where school_id = s_y and renewed_from_id is not null), '0');
 end $$;
 
 select n, cenario, got, esperado, ok from t_res order by n;
