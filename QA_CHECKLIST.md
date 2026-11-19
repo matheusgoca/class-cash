@@ -1,5 +1,16 @@
 # QA Testing Checklist
 
+## Roteiro de QA — S4a, e-mail por evento (2026-11-19)
+
+Estado: pronto no código, ainda não aplicado em produção. Os itens abaixo dependem do ambiente real e seguem abertos.
+
+- [ ] Matriz `supabase/tests/email_outbox_matrix.sql` toda `ok` contra o schema aplicado (2026-11-19: 34/34 contra o schema embutido em `BEGIN ... ROLLBACK`; falta rodar depois de aplicar as migrations)
+- [ ] `cron.job` com `send-notification-emails` (`0 * * * *`, ativo)
+- [ ] Com o interruptor desligado: a função responde `{"skipped":"disabled"}` e `email_outbox` continua vazia
+- [ ] Teste de ponta a ponta com `EMAIL_ALLOWLIST` = e-mail do dono: um e-mail chega com assunto, botão e rodapé certos; reexecução não duplica
+- [ ] E-mail aparece corretamente no Gmail e no Outlook (celular e desktop)
+- [ ] Domínio verificado e `EMAIL_FROM` trocado; remetente correto
+
 ## Roteiro de QA manual — S3, notificações etapa 2 (interface) (2026-11-19)
 
 Pré-requisito: avisos em `notifications` (job das 08:00 UTC já gerou 3 `tuition_overdue` na Colegio Teste). Não gerar dados em produção sem autorização.

@@ -11,7 +11,8 @@
 | S3: preferências de notificação (tela + dados) | ✅ concluída (PR #6) | ✅ migration `20261118120000` |
 | S3, etapa 1: gerador diário de notificações | ✅ concluída (PR #7) | ✅ migrations `20261118150000` e `20261118160000`; job `generate-daily-notifications` ativo às 08:00 UTC (05:00 Brasília) |
 | S3, etapa 2: sino, central preenchida, card "Precisa da sua atenção" | ✅ mergeada (PR #9, 2026-11-19); **QA visual no navegador pendente**; migration `20261119120000` (`renewed_count`) | ✅ |
-| S4: e-mail, resumo diário, ciclo de rematrícula | ⬜ não iniciada | — |
+| S4a: e-mail por evento (Resend, fila, job horário) | ✅ código pronto na branch `feature/s4a-email-notificacoes`, **apagado**; depende de conta no Resend e domínio | ⬜ migrations `20261119130000`–`130300` não aplicadas; Edge Function não implantada |
+| S4b: resumo diário, ciclo de rematrícula | ⬜ não iniciada | — |
 
 Documentos de referência:
 - Plano das sprints: `docs/PLANO_SPRINTS_NOV2026.md` (§3 tem as regras herdadas para o gerador e a S4).
@@ -28,6 +29,17 @@ Documentos de referência:
    - Monitorar falhas do job (uma execução que falha perde os avisos de dia exato daquele dia).
    - Revogar `TRUNCATE` (e demais grants de escrita) de `anon`/`authenticated` nas tabelas — padrão do Supabase, não explorável via REST, endurecimento barato.
 3. **QA pendente:** S2 Fase 3 (troca de senha, carência do admin, financeiro sem 2FA); S3 preferências (login como financeiro e professor; tela a 375 px). Ver `QA_CHECKLIST.md`.
+4. **Lançar a S4a** (só com autorização; plano em `docs/superpowers/plans/2026-11-19-s4a-email-notificacoes.md`, Tasks 6 e 7). Passos do usuário:
+   - Criar conta no Resend.
+   - Gravar a chave de serviço no Vault, segredo `service_role_key` (sem ele o job recebe 401 e nada acontece).
+   - Registrar o domínio de envio (DNS) e, depois de verificado, trocar `EMAIL_FROM`.
+   - Ordem: implantar a Edge Function, depois aplicar as migrations, depois ligar o interruptor (testar antes com `EMAIL_ALLOWLIST`).
+   Consultas de monitoramento depois do lançamento:
+   ```bash
+   npx supabase@2.117.0 db query --linked "select status, count(*), max(updated_at) from public.email_outbox where reference_date >= current_date - 1 group by 1"
+   npx supabase@2.117.0 db query --linked "select event, last_error, updated_at from public.email_outbox where status = 'failed' order by updated_at desc limit 10"
+   npx supabase@2.117.0 db query --linked "select status, start_time from cron.job_run_details where jobid = (select jobid from cron.job where jobname='send-notification-emails') order by start_time desc limit 3"
+   ```
 
 ## Setup em outra máquina
 

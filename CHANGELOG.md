@@ -1,5 +1,19 @@
 # Application Sync Changelog
 
+## Sprint S4a — E-mail por evento (2026-11-19)
+
+**Estado: pronto no código, ainda não aplicado.** As migrations `20261119130000` a `20261119130300` não foram aplicadas em produção e a Edge Function não foi implantada. O lançamento (aplicar, implantar, ligar) só acontece na Task 6 do plano, que depende de autorização do usuário. Até lá nenhum e-mail é enviado.
+
+Plano: `docs/superpowers/plans/2026-11-19-s4a-email-notificacoes.md`.
+
+- Transporte: Resend, chamado pela Edge Function `send-notification-emails` (desligada por padrão por interruptor; aceita `EMAIL_ALLOWLIST` para teste).
+- Fila `email_outbox` e RPCs de reivindicação/resultado (migrations `20261119130100_email_outbox.sql` e `20261119130200_email_claim_rpcs.sql`); extensão `pg_net` habilitada em `20261119130000_enable_pg_net.sql`.
+- Job horário `send-notification-emails` (`0 * * * *`) via `pg_cron` + `net.http_post`, em `20261119130300_send_notification_emails_cron.sql`. A chave de serviço vem do Vault (segredo `service_role_key`), nunca da migration; sem o segredo a função responde 401 e nada acontece.
+- Texto das notificações movido para `_shared/`, usado tanto pela tela quanto pelo e-mail; montador do e-mail em HTML + texto, com escape e assunto em uma linha.
+- Matriz `supabase/tests/email_outbox_matrix.sql`: 34 casos, todos ok, rodada em 2026-11-19 contra produção em `BEGIN ... ROLLBACK` com as migrations 130100 e 130200 embutidas na transação (a tabela e os RPCs não existem em produção; nada persistiu).
+- 164 testes passando na suíte completa (eram 152 antes da S4a).
+- `src/integrations/supabase/types.ts` ainda não foi regenerado: isso é feito na Task 6, depois de aplicar as migrations.
+
 ## Sprint S3 — Notificações, etapa 2: interface (2026-11-19)
 
 Spec: `docs/superpowers/specs/2026-11-18-gerador-notificacoes-design.md`. Plano: `docs/superpowers/plans/2026-11-19-notificacoes-etapa2-interface.md`. Só front; nenhuma migration.
