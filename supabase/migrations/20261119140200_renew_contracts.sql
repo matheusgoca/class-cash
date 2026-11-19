@@ -14,7 +14,9 @@ as $$
 declare
   it         record;
   src        record;
-  fee        record;
+  v_fee_id    uuid;
+  v_fee_name  text;
+  v_fee_price numeric;
   t          record;
   v_new_id   uuid;
   v_final    numeric;
@@ -42,7 +44,7 @@ begin
   end if;
 
   if p_fee_service_id is not null then
-    select s.id, s.name, s.price into fee
+    select s.id, s.name, s.price into v_fee_id, v_fee_name, v_fee_price
       from public.school_services s
      where s.id = p_fee_service_id and s.school_id = p_school_id and s.type = 'avulso' and s.active;
     if not found then
@@ -146,9 +148,9 @@ begin
     get diagnostics v_cnt = row_count;
     v_tuitions := v_tuitions + v_cnt;
 
-    if fee.id is not null then
+    if v_fee_id is not null then
       insert into public.service_charges (school_id, student_id, service_id, description, amount, due_date, status)
-      values (p_school_id, src.student_id, fee.id, fee.name, fee.price, it.start_date, 'pending');
+      values (p_school_id, src.student_id, v_fee_id, v_fee_name, v_fee_price, it.start_date, 'pending');
     end if;
 
     v_renewed := v_renewed + 1;
