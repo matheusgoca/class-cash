@@ -10,7 +10,7 @@ Spec: `docs/superpowers/specs/2026-11-18-gerador-notificacoes-design.md`. Plano:
 - Mensalidades passa a ler `?status=` (`pending`/`overdue`/`paid`) como filtro inicial.
 - Textos e agrupamentos em `src/lib/notificationText.ts` (puro, testado); cliente dos RPCs em `src/lib/notifications.ts`.
 - **Desvio da spec (G11):** botões "Ver parcelas" e "Ver contratos" no lugar de "Abrir renegociações"/"Abrir rematrícula" (as telas não existem).
-- 125 testes passando (13 novos).
+- 152 testes passando (40 novos), incluindo testes de renderização dos três componentes (jsdom + Testing Library, só nos arquivos `.test.tsx`; o ambiente global segue `node`).
 - **`renewed_count` exclui renovações canceladas:** "já rematriculado" só conta se a renovação não está `cancelled`. Migration `20261119120000_notifications_renewed_count_exclude_cancelled.sql` (só redefine `generate_daily_notifications`; única mudança é o filtro). Aplicada em produção em 2026-11-19; matriz 42/42 com a migration e 41/42 sem ela (o caso 1e, com uma renovação cancelada, detecta o defeito). Vale a partir da próxima geração.
 
 ## Sprint S3 — Gerador de notificações, etapa 1 (2026-11-18)

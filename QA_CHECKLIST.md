@@ -13,7 +13,8 @@ Pré-requisito: avisos em `notifications` (job das 08:00 UTC já gerou 3 `tuitio
 - [ ] Card no Dashboard: título, "N itens", primeiro botão primário, rodapé "Gerado hoje às HH:MM"; "Nada pendente para hoje." quando não há
 - [ ] Falha de rede nos RPCs: sino só com o ícone, sem quebrar o cabeçalho
 - [ ] 375 px sem rolagem horizontal; tema escuro legível
-- [x] Suíte automatizada: 125/125 e `npm run build` ok (2026-11-19). QA visual no navegador ainda não executado.
+- [x] Suíte automatizada: 152/152 e `npm run build` ok (2026-11-19). Inclui testes de renderização (jsdom + Testing Library, RPCs simulados) de `NotificationBell`, `AttentionCard` e `Notifications`: visibilidade (sem render e sem consulta para quem não vê), selo e "9+", "Tudo em dia.", falha de rede, marcar como lido (item e todas), navegação, abas e filtros, "Carregar mais" com dedupe, vazio por categoria, "Nada pendente para hoje.".
+- [ ] **Não coberto pelos testes (exige navegador):** aparência/layout, 375 px, tema escuro, foco do teclado, e o fluxo real com o Supabase e 2FA. Itens do roteiro acima continuam abertos até alguém rodar `npm run dev`.
 
 ## Roteiro de QA — S3, gerador de notificações, etapa 1 (2026-11-18)
 
