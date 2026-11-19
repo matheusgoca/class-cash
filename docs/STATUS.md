@@ -12,6 +12,7 @@
 | S3, etapa 1: gerador diário de notificações | ✅ concluída (PR #7) | ✅ migrations `20261118150000` e `20261118160000`; job `generate-daily-notifications` ativo às 08:00 UTC (05:00 Brasília) |
 | S3, etapa 2: sino, central preenchida, card "Precisa da sua atenção" | ✅ mergeada (PR #9, 2026-11-19); **QA visual no navegador pendente**; migration `20261119120000` (`renewed_count`) | ✅ |
 | S4a: e-mail por evento (Resend, fila, job horário) | ✅ mergeada (PR #11); **envio desligado**; falta conta no Resend, segredo no Vault e domínio (Task 7) | ✅ migrations `20261119130000`–`130300` aplicadas; Edge Function `send-notification-emails` implantada; job horário ativo (sem o segredo do Vault a função responde 401: inofensivo) |
+| S4c, etapa 1 (banco): rematrícula (`renewal_decisions`, `set_renewal_decision`, `renew_contracts`, `declined_count`) | ✅ código pronto na branch `feature/s4c-etapa1-banco`; matrizes 64/64 e 45/45 em `BEGIN … ROLLBACK` (2026-11-19) | ⬜ **não aplicado**: migrations `20261119140000`–`140300` pendentes; `types.ts` não regenerado (Task 5, precisa de autorização) |
 | S4b: resumo diário, ciclo de rematrícula | ⬜ não iniciada | — |
 
 Documentos de referência:
@@ -44,6 +45,20 @@ Documentos de referência:
    ```
    Atenção: `cron.job_run_details` só prova que a chamada HTTP foi disparada (`net.http_post` é assíncrono). Um 401 (chave errada) ou 404 (função não implantada) só aparece em `net._http_response`, a quarta consulta.
    - **Limitação conhecida (não corrigida na S4a):** o e-mail nasce de linhas em `notifications`, e o gerador só cria a linha quando o canal "no sistema" do evento está ligado. Quem desliga "no sistema" e liga e-mail não recebe e-mail. Decisão pendente com o dono do produto antes de ligar o envio: (a) gerar a linha quando in_app OU e-mail (o sino passaria a mostrá-la), ou (b) amarrar o interruptor de e-mail ao de sistema na tela de preferências. Com o envio desligado, não há impacto hoje.
+
+## S4c — rematrícula
+
+**Próximo passo: Etapa 2 (interface)**, depois de aplicar a etapa 1 (Task 5: `db push` com autorização, regenerar `types.ts`, rodar as matrizes contra o schema aplicado). Plano e spec em `docs/superpowers/`.
+
+Endurecimento pendente (achados diferidos da etapa 1):
+- Sem teto para o número de mensalidades por contrato em `renew_contracts` (cliente hostil poderia mandar centenas de linhas; sugestão: limitar a 25).
+- `overdue` é aceito com vencimento futuro.
+- Valores JSON não numéricos dão erro cru 22P02 em vez de `INVALID_ITEM`.
+- Possível deadlock raro com dois lotes em ordem inversa (ordenar itens por `source_contract_id`).
+- `monthly_amount` sem teto.
+- A matriz não cobre: master admin em outra escola, `p_items` não-array, `class_id` nulo, borda da tolerância de R$ 0,01 e arredondamento com desconto.
+
+Achado sobre `enrollments`: a S4c não a toca (só a importação a escreve). Promover aluno de turma no lote não a atualiza, e a contagem por turma do Dashboard usa `enrollments`.
 
 ## Setup em outra máquina
 

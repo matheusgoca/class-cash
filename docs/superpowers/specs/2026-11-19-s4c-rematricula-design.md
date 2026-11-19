@@ -60,16 +60,16 @@ CHECK composto: `(status = 'will_not_renew') = (reason is not null)`.
 
 ### RPC `set_renewal_decision(p_contract_id uuid, p_status text, p_reason text default null, p_note text default null) → void`
 
-`SECURITY DEFINER`, `set search_path = public`, `perform public.assert_mfa_gate()` primeiro. `school_id` sempre de `get_user_school_id()`.
+`SECURITY DEFINER`, `set search_path = public`, `perform public.assert_mfa_gate()` primeiro. A escola é a **do contrato** (não de `get_user_school_id()`), para o master admin poder decidir numa escola que está visualizando.
 
-- Permitido a owner, admin e financeiro da escola (checagem por `mfa_is_admin_or_owner` ou papel `financial`); demais → `NOT_ALLOWED` (42501).
+- Permitido ao papel admin ou financeiro da escola do contrato, ou ao master admin; demais → `NOT_ALLOWED` (42501). A checagem é à prova de nulo: usuário sem linha em `user_roles` (`get_current_user_role()` nulo) também recebe `NOT_ALLOWED`, nunca passa.
 - O contrato precisa ser da escola, estar `active` e **não ter sucessor** (`renewed_from_id` apontando para ele, ignorando sucessores `cancelled`); senão `INVALID_CONTRACT` (22023).
 - `p_status` ∈ {`contacted`, `will_renew`, `will_not_renew`, `none`}. `none` apaga o registro. `will_not_renew` sem `p_reason` válido → `REASON_REQUIRED` (22023). Upsert por `contract_id`; grava `decided_by = auth.uid()`.
 - Concedida a `authenticated`; revogada de `public, anon`.
 
-### RPC `renew_contracts(p_items jsonb, p_fee_service_id uuid default null) → jsonb`
+### RPC `renew_contracts(p_school_id uuid, p_items jsonb, p_fee_service_id uuid default null) → jsonb`
 
-`SECURITY DEFINER`, `set search_path = public`, `assert_mfa_gate()` primeiro, mesmo papel de `set_renewal_decision`. Dentro da transação: `select set_config('app.audit_source', 'generated'::text, true)` **antes** dos inserts (CLAUDE.md).
+`SECURITY DEFINER`, `set search_path = public`, `assert_mfa_gate()` primeiro. Permitido se `p_school_id = get_user_school_id()` e o papel for admin ou financeiro, ou se for master admin (padrão de `insert_generated_tuitions`, para o master poder renovar numa escola que está visualizando). A checagem de papel é à prova de nulo (usuário sem papel → `NOT_ALLOWED`). Dentro da transação: `select set_config('app.audit_source', 'generated'::text, true)` **antes** dos inserts (CLAUDE.md).
 
 `p_items` é um array de até **100** itens:
 
@@ -84,6 +84,8 @@ Validação no servidor, por item (qualquer falha **aborta o lote inteiro** com 
 - `start_date` = `end_date` da origem + 1 dia; `end_date` ≥ `start_date` e a duração ≤ 24 meses.
 - Cada mensalidade: `due_date` dentro de `[start_date, end_date]`, sem duplicar `due_date`, `amount` igual ao `final_amount` do contrato novo (calculado no servidor a partir de `monthly_amount` e do `discount` herdado), `status` ∈ {`pending`, `overdue`}.
 - `monthly_amount` > 0.
+
+`INVALID_ITEM` cobre todas as falhas acima. O servidor grava sempre o valor da mensalidade que ele calcula (`final_amount` do contrato novo) e só **confere** o valor enviado pelo cliente, com tolerância de R$ 0,01.
 
 Origem que **já tem sucessor** não aborta: é **pulada** e listada em `skipped` (duas pessoas renovando ao mesmo tempo).
 
@@ -147,6 +149,7 @@ Cada passo que grava em produção só com autorização, mostrando `--dry-run` 
 - **Financeiro renova em lote** (R6): a auditoria registra o autor.
 - **Lote grande:** limite de 100 por chamada; chamadas independentes (a falha de uma não desfaz as anteriores, e o resultado diz o que passou).
 - **Drift de schema** (ver etapa 1): a RLS de `contracts` precisa ser confirmada em produção antes de escrever o plano.
+- **`enrollments` não é atualizada:** só a importação a escreve; promover alunos de turma no lote não a altera (mesmo comportamento da renovação individual). A contagem por turma do Dashboard usa `enrollments`.
 
 ## Notas para depois
 

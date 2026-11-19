@@ -1,5 +1,20 @@
 # Application Sync Changelog
 
+## Sprint S4c — Rematrícula, etapa 1 (banco) (2026-11-19)
+
+**Estado: código pronto, ainda NÃO aplicado em produção.** As 4 migrations `20261119140000` a `20261119140300` não foram aplicadas e `src/integrations/supabase/types.ts` ainda não foi regenerado (Task 5 do plano, que depende de autorização). Nenhum TypeScript mudou nesta etapa: a suíte segue com 164 testes.
+
+Spec: `docs/superpowers/specs/2026-11-19-s4c-rematricula-design.md`.
+
+- Tabela `renewal_decisions` (decisão de rematrícula por contrato), em `20261119140000_renewal_decisions.sql`.
+- RPC `set_renewal_decision` (`20261119140100`): registra contactado / vai renovar / não vai renovar (com motivo) / nenhuma; escola do contrato; admin, financeiro ou master.
+- RPC `renew_contracts(p_school_id, p_items, p_fee_service_id)` (`20261119140200`): renovação em lote atômica; o servidor calcula e grava o valor das mensalidades e só confere o enviado pelo cliente (tolerância de R$ 0,01); origens que já têm sucessor são puladas; auditoria com `source = 'generated'`.
+- `generate_daily_notifications` passa a descontar quem não vai renovar e a devolver `declined_count` (`20261119140300_notifications_reenrollment_declined.sql`).
+- Matrizes rodadas em 2026-11-19 contra produção em `BEGIN ... ROLLBACK`, com as migrations embutidas na transação (nada persistiu, conferido depois): `supabase/tests/renewal_matrix.sql` com 64 casos, todos ok (papéis incluindo usuário sem papel, escola errada, atomicidade do lote, pulados, taxa, auditoria `generated`, gate de 2FA, grants); `supabase/tests/notifications_matrix.sql` com 45 casos, todos ok (42 anteriores + 3 novos, 13a–13c, do `declined_count`).
+- Defeitos que as matrizes pegaram e já estão corrigidos nas migrations: a checagem de papel falhava "aberta" para usuário sem linha em `user_roles` (`get_current_user_role()` nulo); `renew_contracts` sem taxa quebrava ("record fee is not assigned yet"); e o filtro final do gerador referenciava `x.event` em vez de `t.event`.
+- `enrollments` não é tocada pela S4c (só a importação a escreve); promover aluno de turma no lote não a atualiza, e a contagem por turma do Dashboard usa `enrollments`.
+- Endurecimento pendente: ver `docs/STATUS.md`.
+
 ## Sprint S4a — E-mail por evento (2026-11-19)
 
 **Estado: aplicado em produção, envio desligado.** As migrations `20261119130000` a `20261119130300` foram aplicadas e a Edge Function `send-notification-emails` foi implantada em 2026-11-19. Nenhum secret de e-mail está definido, então o interruptor está desligado e **nenhum e-mail é enviado**. O job horário está ativo, mas o segredo `service_role_key` ainda não existe no Vault: a função responde 401 às chamadas do job (inofensivo). Ligar o envio é a Task 7 (conta no Resend, Vault, domínio).
