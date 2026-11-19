@@ -74,7 +74,7 @@ Reivindica, numa transação, até `p_limit` avisos elegíveis e devolve um arra
 5. `p_only_emails` nulo, ou o e-mail está na lista (rollout controlado).
 6. Sem linha na fila, **ou** linha `failed` com `attempts < 3`, **ou** `sending` com `updated_at` há mais de 30 minutos e `attempts < 3`.
 
-Insere/atualiza a fila para `sending` com `attempts = attempts + 1`, usando `for update skip locked` para duas execuções simultâneas não pegarem o mesmo aviso. Ordena por `created_at` do aviso.
+Insere/atualiza a fila para `sending` com `attempts = attempts + 1`, com `insert … on conflict do update … where` (só reivindica linha `failed` com tentativas sobrando ou `sending` parada há mais de 30 min, comparando com `now()`), de modo que duas execuções simultâneas nunca pegam o mesmo aviso. Ordena por `created_at` do aviso.
 
 ### RPC `mark_email_result(p_outbox_id uuid, p_status text, p_provider_id text default null, p_error text default null) → void`
 
@@ -86,7 +86,7 @@ Mesmas permissões. `p_status` ∈ {`sent`, `failed`}; erro de valor → `INVALI
 
 ## Edge Function `send-notification-emails`
 
-- Só o cron a chama. Sem CORS. Valida o Bearer contra a chave de serviço; senão 401. Confirmar no plano se `verify_jwt` pode ficar ligado com o formato de chave do projeto.
+- Só o cron a chama. Sem CORS. Valida o Bearer contra a chave de serviço; senão 401. `verify_jwt = false` em `supabase/config.toml`, como as demais funções do projeto, com a checagem do Bearer feita no código.
 - `EMAIL_SENDING_ENABLED !== 'true'` → responde `{ skipped: 'disabled' }` sem chamar o RPC.
 - Ligado: chama `claim_notification_emails(now, 40, allowlist)`. Para cada item, monta o e-mail, envia ao Resend (`POST https://api.resend.com/emails`, `Idempotency-Key: <outbox_id>`), registra `mark_email_result`. Um envio por vez com pausa de ~600 ms (limite de 2 req/s). Falha num item não interrompe os demais.
 - Resposta: `{ claimed, sent, failed }`, para o log.
@@ -112,7 +112,7 @@ Módulo puro `supabase/functions/_shared/notificationEmail.ts`: `buildNotificati
 
 ### Texto compartilhado (E8)
 
-`describeNotification`, `groupByDay` e `formatRelativeTime` ficam em `supabase/functions/_shared/notificationText.ts`, **sem imports**, com formatador de moeda próprio (`Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })`). `src/lib/notificationText.ts` reexporta. Os testes existentes em `src/lib/notificationText.test.ts` continuam valendo sem mudança. **Risco a validar no plano:** o Vite e o Deno importarem o mesmo arquivo (extensões `.ts` explícitas no import relativo; `tsconfig` do app incluir a pasta).
+`describeNotification`, `groupByDay` e `formatRelativeTime` ficam em `supabase/functions/_shared/notificationText.ts`, **sem imports**, com formatador de moeda próprio (`Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })`). `src/lib/notificationText.ts` reexporta. Os testes existentes em `src/lib/notificationText.test.ts` continuam valendo sem mudança. Verificado no plano: `tsconfig.app.json` já tem `allowImportingTsExtensions`, então o Vite importa o mesmo arquivo com extensão `.ts` explícita, como o Deno.
 
 ## Tratamento de erros
 
