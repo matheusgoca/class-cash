@@ -1,5 +1,17 @@
 # Application Sync Changelog
 
+## Sprint S3 — Notificações, etapa 2: interface (2026-11-19)
+
+Spec: `docs/superpowers/specs/2026-11-18-gerador-notificacoes-design.md`. Plano: `docs/superpowers/plans/2026-11-19-notificacoes-etapa2-interface.md`. Só front; nenhuma migration.
+
+- Sino no cabeçalho global (`NotificationBell`), com selo de não lidas ("9+" acima de 9), popover com os 4 avisos não lidos mais recentes, "Marcar todas como lidas" e atualização ao voltar o foco da janela. Mesma regra de visibilidade do item Notificações da barra lateral.
+- Central `/notificacoes` preenchida: abas Todas/Não lidas/Cobrança/Renegociação/Despesas/Rematrícula, agrupamento por dia, "Carregar mais" por offset (20 por página, dedupe por `id`) e ação por aviso que marca como lido e navega.
+- Card "Precisa da sua atenção hoje" no Dashboard (avisos gerados hoje; "Nada pendente para hoje." quando não há).
+- Mensalidades passa a ler `?status=` (`pending`/`overdue`/`paid`) como filtro inicial.
+- Textos e agrupamentos em `src/lib/notificationText.ts` (puro, testado); cliente dos RPCs em `src/lib/notifications.ts`.
+- **Desvio da spec (G11):** botões "Ver parcelas" e "Ver contratos" no lugar de "Abrir renegociações"/"Abrir rematrícula" (as telas não existem).
+- 125 testes passando (13 novos).
+
 ## Sprint S3 — Gerador de notificações, etapa 1 (2026-11-18)
 
 Spec: `docs/superpowers/specs/2026-11-18-gerador-notificacoes-design.md`. Plano: `docs/superpowers/plans/2026-11-18-gerador-notificacoes-etapa1.md`.

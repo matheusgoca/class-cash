@@ -107,6 +107,8 @@ Dados de teste criados dentro da transação numa escola de teste (mensalidades,
 
 ## Etapa 2 — interface
 
+> **Entregue em 2026-11-19** (branch `feature/s3-notificacoes-interface`; plano em `docs/superpowers/plans/2026-11-19-notificacoes-etapa2-interface.md`). QA visual pendente.
+
 ### `src/lib/notificationText.ts` (puro, Vitest)
 
 `describeNotification(n) → { title, subtitle, category, categoryLabel, actionLabel, actionPath }`:
