@@ -1,5 +1,16 @@
 # Application Sync Changelog
 
+## Sprint S3 — Gerador de notificações, etapa 1 (2026-11-18)
+
+Spec: `docs/superpowers/specs/2026-11-18-gerador-notificacoes-design.md`. Plano: `docs/superpowers/plans/2026-11-18-gerador-notificacoes-etapa1.md`.
+
+- Tabela `notifications` (uma linha por usuário × escola × evento × dia, dados estruturados; textos montados no front na etapa 2) e função `generate_daily_notifications()`, agendada no `pg_cron` às 08:00 UTC (05:00 em Brasília). Migration `20261118150000_notifications_generator.sql`.
+- Destinatários pelo papel e vínculo atuais e pelas preferências (ou padrões); "hoje" no fuso do usuário; atraso como lembrete diário acumulado; reexecução idempotente preservando o lido.
+- RPCs `list_notifications` (paginação por offset — todas as linhas de uma geração têm o mesmo `created_at`) e `mark_notifications_read`; gate de 2FA e `school_id` de `get_user_school_id()`.
+- Matriz `supabase/tests/notifications_matrix.sql` em `BEGIN ... ROLLBACK`, com uma escola de teste criada dentro da transação.
+- Ainda sem interface (etapa 2): os avisos começam a se acumular a partir da primeira execução do job.
+- Migration aplicada em produção em 2026-11-18; matriz `supabase/tests/notifications_matrix.sql` com 38/38 ok contra o schema aplicado, incluindo uma segunda escola de teste com dados nas mesmas datas para provar o isolamento por `school_id`. Job `generate-daily-notifications` ativo.
+
 ## Sprint S3 — Preferências de notificação (2026-11-18)
 
 Spec: `docs/superpowers/specs/2026-11-18-preferencias-notificacao-design.md`. Plano: `docs/superpowers/plans/2026-11-18-preferencias-notificacao.md`.
