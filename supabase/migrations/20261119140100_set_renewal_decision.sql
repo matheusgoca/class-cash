@@ -18,7 +18,9 @@ begin
   perform public.assert_mfa_gate();
 
   -- Papel primeiro (não depende do contrato): professor nunca chega a consultar nada.
-  if not (public.get_current_user_role() in ('admin', 'financial') or public.is_master_admin()) then
+  -- coalesce: usuário sem linha em user_roles (role NULL) também é negado (fail closed).
+  if not (coalesce(public.get_current_user_role() in ('admin', 'financial'), false)
+          or coalesce(public.is_master_admin(), false)) then
     raise exception 'NOT_ALLOWED' using errcode = '42501';
   end if;
 

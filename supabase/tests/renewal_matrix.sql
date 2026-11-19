@@ -56,7 +56,7 @@ declare
   s_x uuid; s_y uuid; cl1 uuid; cl2 uuid; cly uuid; st uuid; sty uuid;
   k1 uuid; k2 uuid; k3 uuid; k4 uuid; k5 uuid; k6 uuid; kdead uuid; ky uuid;
   svc uuid; svc_m uuid; svc_off uuid; svcy uuid;
-  v text; r jsonb; item jsonb;
+  v text; r jsonb; item jsonb; v_role text;
 begin
   perform set_config('request.jwt.claims', '', true);
 
@@ -140,6 +140,12 @@ begin
   update public.user_roles set role = 'teacher' where user_id = u_fin;
   perform pg_temp.rec('1x professor é negado', pg_temp.decide(u_fin, k4, 'contacted'), 'ERR:42501:NOT_ALLOWED');
   update public.user_roles set role = 'financial' where user_id = u_fin;
+
+  -- Papel: usuário sem nenhuma linha em user_roles é negado (fail closed)
+  select role::text into v_role from public.user_roles where user_id = u_fin;
+  delete from public.user_roles where user_id = u_fin;
+  perform pg_temp.rec('1x2 usuário sem papel é negado', pg_temp.decide(u_fin, k4, 'contacted'), 'ERR:42501:NOT_ALLOWED');
+  insert into public.user_roles (user_id, role) values (u_fin, v_role::public.app_role);
 
   -- Gate de 2FA
   perform set_config('request.jwt.claims', '', true);
