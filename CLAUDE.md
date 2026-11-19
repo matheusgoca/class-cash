@@ -6,6 +6,10 @@ Contexto para qualquer sessão do Claude (Claude Code ou Cowork) trabalhando nes
 
 Class Cash — SaaS multi-tenant de gestão financeira para escolas particulares: turmas, professores, alunos, contratos, mensalidades, despesas e relatórios de rentabilidade por turma.
 
+## Onde paramos
+
+**Leia `docs/STATUS.md` primeiro.** Ele diz o que está em produção, o próximo passo, o setup em outra máquina (`.env`, Supabase CLI) e as armadilhas conhecidas. A memória local do Claude não vai junto com o git — o `STATUS.md` é a passagem de bastão entre máquinas; atualize-o ao final de cada sessão.
+
 ## Documentação viva do projeto
 
 O histórico de decisões, QA e revisões de produto deste projeto é mantido no Claude Project **"Controle financeiro para Escolas"** (acessível via Claude Cowork/claude.ai), não neste repositório. Antes de reinvestigar uma decisão de design ou um bug do zero, vale checar lá — os documentos incluem: revisão completa de UX por tela, proposta e implementação do módulo de Despesas, checklist e validação de QA, e o resumo de sincronização de schema citado abaixo. `CHANGELOG.md`, `QA_CHECKLIST.md` e `SCHEMA_SYNC_SUMMARY.md` na raiz deste repo são cópias desses mesmos documentos.
@@ -29,6 +33,7 @@ O histórico de decisões, QA e revisões de produto deste projeto é mantido no
 O histórico de migrations neste repo **nem sempre reflete o schema real em produção**. Casos já confirmados:
 - `user_roles` tem `UNIQUE(user_id)` em produção, mas uma migration antiga do histórico implica `UNIQUE(user_id, role)`.
 - Colunas como `students.full_name` e `teachers.specialization` existem em produção sem `ADD COLUMN` correspondente no histórico de migrations do repo.
+- `update_updated_at_column()` não existe em produção: triggers de `updated_at` usam `public.set_updated_at()`. `uuid_generate_v4()` não está no search_path do `supabase db push`: usar `gen_random_uuid()` (padrão de todas as tabelas).
 
 Antes de assumir a forma de uma constraint ou coluna a partir do histórico de migrations, confirme com uma query direta (`pg_constraint`, `information_schema.columns`) em produção.
 
