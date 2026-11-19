@@ -337,6 +337,59 @@ export type Database = {
           },
         ]
       }
+      email_outbox: {
+        Row: {
+          attempts: number
+          created_at: string
+          event: string
+          id: string
+          last_error: string | null
+          provider_message_id: string | null
+          reference_date: string
+          school_id: string
+          sent_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          event: string
+          id?: string
+          last_error?: string | null
+          provider_message_id?: string | null
+          reference_date: string
+          school_id: string
+          sent_at?: string | null
+          status: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          event?: string
+          id?: string
+          last_error?: string | null
+          provider_message_id?: string | null
+          reference_date?: string
+          school_id?: string
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_outbox_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       enrollments: {
         Row: {
           class_id: string | null
@@ -1340,6 +1393,10 @@ export type Database = {
           table_name: string
         }[]
       }
+      claim_notification_emails: {
+        Args: { p_limit?: number; p_now?: string; p_only_emails?: string[] }
+        Returns: Json
+      }
       ensure_notification_preferences: { Args: never; Returns: Json }
       generate_daily_notifications: {
         Args: { p_now?: string }
@@ -1399,6 +1456,15 @@ export type Database = {
           p_unread_only?: boolean
         }
         Returns: Json
+      }
+      mark_email_result: {
+        Args: {
+          p_error?: string
+          p_outbox_id: string
+          p_provider_id?: string
+          p_status: string
+        }
+        Returns: undefined
       }
       mark_notifications_read: { Args: { p_ids?: string[] }; Returns: number }
       mfa_gate_ok: { Args: never; Returns: boolean }

@@ -2,7 +2,7 @@
 
 ## Sprint S4a — E-mail por evento (2026-11-19)
 
-**Estado: pronto no código, ainda não aplicado.** As migrations `20261119130000` a `20261119130300` não foram aplicadas em produção e a Edge Function não foi implantada. O lançamento (aplicar, implantar, ligar) só acontece na Task 6 do plano, que depende de autorização do usuário. Até lá nenhum e-mail é enviado.
+**Estado: aplicado em produção, envio desligado.** As migrations `20261119130000` a `20261119130300` foram aplicadas e a Edge Function `send-notification-emails` foi implantada em 2026-11-19. Nenhum secret de e-mail está definido, então o interruptor está desligado e **nenhum e-mail é enviado**. O job horário está ativo, mas o segredo `service_role_key` ainda não existe no Vault: a função responde 401 às chamadas do job (inofensivo). Ligar o envio é a Task 7 (conta no Resend, Vault, domínio).
 
 Plano: `docs/superpowers/plans/2026-11-19-s4a-email-notificacoes.md`.
 
@@ -10,9 +10,10 @@ Plano: `docs/superpowers/plans/2026-11-19-s4a-email-notificacoes.md`.
 - Fila `email_outbox` e RPCs de reivindicação/resultado (migrations `20261119130100_email_outbox.sql` e `20261119130200_email_claim_rpcs.sql`); extensão `pg_net` habilitada em `20261119130000_enable_pg_net.sql`.
 - Job horário `send-notification-emails` (`0 * * * *`) via `pg_cron` + `net.http_post`, em `20261119130300_send_notification_emails_cron.sql`. A chave de serviço vem do Vault (segredo `service_role_key`), nunca da migration; sem o segredo a função responde 401 e nada acontece.
 - Texto das notificações movido para `_shared/`, usado tanto pela tela quanto pelo e-mail; montador do e-mail em HTML + texto, com escape e assunto em uma linha.
-- Matriz `supabase/tests/email_outbox_matrix.sql`: 34 casos, todos ok, rodada em 2026-11-19 contra produção em `BEGIN ... ROLLBACK` com as migrations 130100 e 130200 embutidas na transação (a tabela e os RPCs não existem em produção; nada persistiu).
+- Matriz `supabase/tests/email_outbox_matrix.sql`: 34 casos, todos ok, em `BEGIN ... ROLLBACK`: primeiro com as migrations 130100 e 130200 embutidas (antes de aplicar) e de novo, em 2026-11-19, contra o schema já aplicado. Nada persistiu (a `email_outbox` seguiu com 0 linhas e sem escolas de teste).
+- Aplicação em produção em 2026-11-19, em ordem: `130000`–`130200` (`db push` com a `130300` fora da pasta), implantação da função (`--no-verify-jwt`; sem Bearer e com Bearer errado responde 401) e, por último, a `130300` (job `send-notification-emails`, `0 * * * *`, ativo). A resposta `{"skipped":"disabled"}` com o Bearer certo ainda não foi vista: depende do segredo do Vault.
 - 164 testes passando na suíte completa (eram 152 antes da S4a).
-- `src/integrations/supabase/types.ts` ainda não foi regenerado: isso é feito na Task 6, depois de aplicar as migrations.
+- `src/integrations/supabase/types.ts` regenerado depois de aplicar as migrations (só acréscimos: `email_outbox` e os dois RPCs).
 
 ## Sprint S3 — Notificações, etapa 2: interface (2026-11-19)
 

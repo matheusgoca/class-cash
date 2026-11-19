@@ -2,11 +2,12 @@
 
 ## Roteiro de QA — S4a, e-mail por evento (2026-11-19)
 
-Estado: pronto no código, ainda não aplicado em produção. Os itens abaixo dependem do ambiente real e seguem abertos.
+Estado: aplicado em produção com o envio desligado (2026-11-19). Os itens que dependem de Resend, Vault e domínio seguem abertos.
 
-- [ ] Matriz `supabase/tests/email_outbox_matrix.sql` toda `ok` contra o schema aplicado (2026-11-19: 34/34 contra o schema embutido em `BEGIN ... ROLLBACK`; falta rodar depois de aplicar as migrations)
-- [ ] `cron.job` com `send-notification-emails` (`0 * * * *`, ativo)
-- [ ] Com o interruptor desligado: a função responde `{"skipped":"disabled"}` e `email_outbox` continua vazia
+- [x] Matriz `supabase/tests/email_outbox_matrix.sql` toda `ok` contra o schema aplicado (2026-11-19: 34/34, em `BEGIN ... ROLLBACK`; `email_outbox` seguiu com 0 linhas)
+- [x] `cron.job` com `send-notification-emails` (`0 * * * *`, ativo) (2026-11-19)
+- [x] Função implantada e protegida: sem Bearer e com Bearer errado respondem 401 (2026-11-19)
+- [ ] Com o interruptor desligado e o segredo do Vault criado: `net._http_response` mostra a função respondendo `{"skipped":"disabled"}` e `email_outbox` continua vazia
 - [ ] Teste de ponta a ponta com `EMAIL_ALLOWLIST` = e-mail do dono: um e-mail chega com assunto, botão e rodapé certos; reexecução não duplica
 - [ ] E-mail aparece corretamente no Gmail e no Outlook (celular e desktop)
 - [ ] Domínio verificado e `EMAIL_FROM` trocado; remetente correto
