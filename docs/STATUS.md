@@ -12,7 +12,7 @@
 | S3, etapa 1: gerador diário de notificações | ✅ concluída (PR #7) | ✅ migrations `20261118150000` e `20261118160000`; job `generate-daily-notifications` ativo às 08:00 UTC (05:00 Brasília) |
 | S3, etapa 2: sino, central preenchida, card "Precisa da sua atenção" | ✅ mergeada (PR #9, 2026-11-19); **QA visual no navegador pendente**; migration `20261119120000` (`renewed_count`) | ✅ |
 | S4a: e-mail por evento (Resend, fila, job horário) | ✅ mergeada (PR #11); **envio desligado**; falta conta no Resend, segredo no Vault e domínio (Task 7) | ✅ migrations `20261119130000`–`130300` aplicadas; Edge Function `send-notification-emails` implantada; job horário ativo (sem o segredo do Vault a função responde 401: inofensivo) |
-| S4c, etapa 1 (banco): rematrícula (`renewal_decisions`, `set_renewal_decision`, `renew_contracts`, `declined_count`) | ✅ código pronto na branch `feature/s4c-etapa1-banco`; matrizes em `BEGIN … ROLLBACK`: renovação 68/68 e notificações 45/45 (2026-11-19) | ⬜ **não aplicado**: 5 migrations pendentes (`20261119135900` e `20261119140000`–`140300`); `types.ts` não regenerado (Task 5, precisa de autorização) |
+| S4c, etapa 1 (banco): rematrícula (`renewal_decisions`, `set_renewal_decision`, `renew_contracts`, `declined_count`) | ✅ mergeada (PR #13); matrizes contra o schema aplicado: renovação 68/68 e notificações 45/45 (2026-11-19) | ✅ 5 migrations aplicadas (`20261119135900` e `20261119140000`–`140300`); `types.ts` regenerado; `renewal_decisions` vazia (a interface é a Etapa 2) |
 | S4b: resumo diário, ciclo de rematrícula | ⬜ não iniciada | — |
 
 Documentos de referência:
@@ -48,7 +48,7 @@ Documentos de referência:
 
 ## S4c — rematrícula
 
-**Próximo passo: Etapa 2 (interface)**, depois de aplicar a etapa 1 (Task 5: `db push` com autorização, regenerar `types.ts`, rodar as matrizes contra o schema aplicado). Plano e spec em `docs/superpowers/`. Notas para a Etapa 2 (contrato do cliente com `renew_contracts`, `declined_count` no texto da notificação): seção "Notas para a Etapa 2" da spec.
+**Próximo passo: Etapa 2 (interface)**; a etapa 1 já está aplicada em produção e os tipos regenerados (falta escrever o plano da Etapa 2). Spec em `docs/superpowers/`. Notas para a Etapa 2 (contrato do cliente com `renew_contracts`, `declined_count` no texto da notificação): seção "Notas para a Etapa 2" da spec.
 
 Bug pré-existente achado na revisão final: `audit_trigger_fn` quebrava (23514) a primeira escrita manual numa conexão que antes tinha usado `set_config('app.audit_source', ..., true)`, porque o Postgres deixa `''` na configuração. Vale para TODAS as tabelas auditadas (inclui a falha latente depois de `insert_generated_tuitions` e dos RPCs de importação). Corrigido na migration `20261119135900_audit_source_nullif.sql` (um `nullif`).
 

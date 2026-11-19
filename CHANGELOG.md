@@ -2,7 +2,7 @@
 
 ## Sprint S4c — Rematrícula, etapa 1 (banco) (2026-11-19)
 
-**Estado: código pronto, ainda NÃO aplicado em produção.** As 5 migrations `20261119135900` e `20261119140000` a `20261119140300` não foram aplicadas e `src/integrations/supabase/types.ts` ainda não foi regenerado (Task 5 do plano, que depende de autorização). Nenhum TypeScript mudou nesta etapa: a suíte segue com 164 testes.
+**Estado: aplicado em produção em 2026-11-19.** As 5 migrations `20261119135900` e `20261119140000` a `20261119140300` foram aplicadas (`db push`, depois de `--dry-run`) e `src/integrations/supabase/types.ts` foi regenerado (só acréscimos: `renewal_decisions` e os 2 RPCs). Verificado em produção: tabela criada e vazia, 2 RPCs com `anon` sem execute e `authenticated` com execute, as 2 policies, função de auditoria corrigida, gerador novo e job `generate-daily-notifications` ativo. As matrizes passaram contra o schema aplicado (`renewal_matrix.sql` 68/68 e `notifications_matrix.sql` 45/45, em `BEGIN … ROLLBACK`, sem persistir nada) e o teste que antes dava `23514` na auditoria (`source` vazio herdado da conexão) agora roda sem erro. Nenhuma tela mudou nesta etapa: a suíte segue com 164 testes. Não há decisões gravadas (0 linhas em `renewal_decisions`), então `declined_count` fica 0 até a interface da Etapa 2.
 
 Spec: `docs/superpowers/specs/2026-11-19-s4c-rematricula-design.md`.
 
