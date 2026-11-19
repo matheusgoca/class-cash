@@ -227,6 +227,24 @@ begin
     (select string_agg(distinct reference_date::text, ',') from public.notifications where user_id = u_fin), '2031-03-09');
   perform pg_temp.rec('7b atraso calculado no "hoje" dele', pg_temp.notif(u_fin, 'tuition_overdue'), '1|70.00|{"class_count": 1}');
 
+  -- 12. Atraso é um lembrete acumulado: o de hoje substitui os anteriores ainda não lidos
+  --     (o lido fica; outros eventos não são afetados).
+  perform public.generate_daily_notifications(c_now + interval '1 day');               -- "hoje" = 2031-03-11
+  perform pg_temp.rec('12a atraso: só o de hoje fica não lido',
+    (select string_agg(reference_date::text, ',' order by reference_date) from public.notifications
+      where user_id = u_admin and event = 'tuition_overdue' and read_at is null), '2031-03-11');
+  update public.notifications set read_at = now()
+   where user_id = u_admin and event = 'tuition_overdue' and reference_date = d + 1;   -- lê o de 03-11
+  perform public.generate_daily_notifications(c_now + interval '2 days');              -- "hoje" = 2031-03-12
+  perform pg_temp.rec('12b atraso lido de ontem é mantido',
+    (select count(*)::text from public.notifications
+      where user_id = u_admin and event = 'tuition_overdue' and reference_date = d + 1 and read_at is not null), '1');
+  perform pg_temp.rec('12c atraso: um único não lido (o de hoje)',
+    (select string_agg(reference_date::text, ',') from public.notifications
+      where user_id = u_admin and event = 'tuition_overdue' and read_at is null), '2031-03-12');
+  perform pg_temp.rec('12d outros eventos não são substituídos (tuition_due lido de 03-10 continua)',
+    (select count(*)::text from public.notifications where id = v_id), '1');
+
   -- 11. Job agendado
   perform pg_temp.rec('11a job às 08:00 UTC',
     (select schedule from cron.job where jobname = 'generate-daily-notifications'), '0 8 * * *');

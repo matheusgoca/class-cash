@@ -10,6 +10,7 @@ Spec: `docs/superpowers/specs/2026-11-18-gerador-notificacoes-design.md`. Plano:
 - Matriz `supabase/tests/notifications_matrix.sql` em `BEGIN ... ROLLBACK`, com uma escola de teste criada dentro da transação.
 - Ainda sem interface (etapa 2): os avisos começam a se acumular a partir da primeira execução do job.
 - Migration aplicada em produção em 2026-11-18; matriz `supabase/tests/notifications_matrix.sql` com 38/38 ok contra o schema aplicado, incluindo uma segunda escola de teste com dados nas mesmas datas para provar o isolamento por `school_id`. Job `generate-daily-notifications` ativo.
+- Correção do acúmulo do lembrete de atraso: migration `20261118160000_notifications_supersede_overdue.sql` — o aviso de atraso de hoje substitui os de dias anteriores ainda não lidos. Matriz 42/42 em `BEGIN ... ROLLBACK` com a migration embutida. **Ainda não aplicada em produção.**
 
 ## Sprint S3 — Preferências de notificação (2026-11-18)
 

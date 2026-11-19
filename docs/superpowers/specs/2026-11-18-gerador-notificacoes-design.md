@@ -160,7 +160,7 @@ Vitest: `describeNotification` (5 eventos × singular/plural/0/1), `groupByDay`,
 
 ## Pendências levantadas na revisão final da etapa 1 (decidir antes da etapa 2)
 
-- **Acúmulo do lembrete de atraso:** `tuition_overdue` grava um aviso não lido novo por usuário por dia e nunca substitui o de ontem; o sino abriria com vários quase-duplicados. Opções: o gerador marcar/apagar o aviso de atraso não lido anterior ao gravar o de hoje (migration pequena); a UI mostrar só o mais recente; ou marcar como lidos os anteriores ao lançamento.
+- ~~**Acúmulo do lembrete de atraso**~~ — **resolvido** pela migration `20261118160000_notifications_supersede_overdue.sql`: o aviso de atraso de hoje substitui os de dias anteriores ainda não lidos (lidos ficam). Matriz casos 12a–12d.
 - **Execução que falha perde o dia:** o gerador roda numa transação só; se falhar, os eventos de dia exato daquele dia não são recuperados no dia seguinte, e o `cron.job_run_details` não mostra a contagem. Hoje não há monitoramento.
 - **`renewed_count` conta renovações canceladas:** decidir se "já rematriculado" exclui contratos `cancelled`.
 
