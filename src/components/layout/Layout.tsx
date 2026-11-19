@@ -3,6 +3,7 @@ import { AppSidebar } from "./AppSidebar";
 import { MasterBanner } from "./MasterBanner";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { DebugReportButton } from "@/components/debug/DebugReportButton";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { useSchool } from "@/contexts/SchoolContext";
@@ -52,6 +53,7 @@ export function Layout({ children }: LayoutProps) {
                 </span>
               )}
             </div>
+            <NotificationBell />
             <DebugReportButton />
             <ThemeToggle />
           </header>
