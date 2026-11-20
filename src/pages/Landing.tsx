@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Accordion,
   AccordionContent,
@@ -79,10 +78,6 @@ function Hero() {
     <section className="pt-28 pb-20 px-4 bg-gradient-to-b from-primary/[0.07] via-background to-background">
       <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-10 items-center">
         <div>
-          <Badge variant="secondary" className="mb-6 px-4 py-1.5 text-sm font-medium">
-            Gestão financeira para escolas particulares
-          </Badge>
-
           <h1 className="text-4xl sm:text-5xl font-extrabold text-foreground leading-tight mb-6">
             Saiba quanto sua escola <span className="text-primary">realmente ganha</span>, turma por turma.
           </h1>
@@ -112,7 +107,7 @@ function Hero() {
             (success/warning/danger), não um arco-íris decorativo sem relação com o produto */}
         <div className="bg-card rounded-2xl shadow-2xl border border-border p-6">
           <p className="text-sm text-muted-foreground">Saldo financeiro do mês</p>
-          <p className="text-3xl font-bold text-success mb-4">R$ 18.420,00</p>
+          <p className="text-3xl font-bold text-success mb-4 blur-[7px] select-none" aria-hidden="true">R$ 18.420,00</p>
           <div className="space-y-2.5">
             {[
               { label: "5º Ano A", status: "Excelente", color: "bg-success-light text-success" },
@@ -298,27 +293,6 @@ function HowToStart() {
   );
 }
 
-// ─── Depoimento ────────────────────────────────────────────────────────────────
-// Sem números ou depoimentos inventados: espaço reservado para depoimento real
-// quando houver autorização da escola piloto.
-function Testimonial() {
-  return (
-    <section className="py-16 px-4 bg-muted/40">
-      <div className="max-w-5xl mx-auto bg-card border border-border rounded-2xl p-8 flex flex-col md:flex-row gap-6 items-center justify-between">
-        <div className="flex-1">
-          <h2 className="text-2xl font-bold text-foreground mb-2">Nasceu dentro de uma escola de verdade</h2>
-          <p className="text-muted-foreground text-sm leading-relaxed">
-            O Class Cash foi criado para resolver o financeiro de uma escola particular familiar, que é a primeira usuária em produção. [DEPOIMENTO REAL — adicionar quando houver autorização]
-          </p>
-        </div>
-        <a href={CONTACT_MAILTO}>
-          <Button size="lg" className="whitespace-nowrap">Quero conhecer</Button>
-        </a>
-      </div>
-    </section>
-  );
-}
-
 // ─── FAQ ──────────────────────────────────────────────────────────────────────
 function FAQ() {
   const items = [
@@ -394,7 +368,6 @@ const Landing = () => {
       <Features />
       <Segments />
       <HowToStart />
-      <Testimonial />
       <FAQ />
       <Footer />
     </div>

@@ -13,7 +13,9 @@
 | S3, etapa 2: sino, central preenchida, card "Precisa da sua atenção" | ✅ mergeada (PR #9, 2026-11-19); **QA visual no navegador pendente**; migration `20261119120000` (`renewed_count`) | ✅ |
 | S4a: e-mail por evento (Resend, fila, job horário) | ✅ mergeada (PR #11); **envio desligado**; falta conta no Resend, segredo no Vault e domínio (Task 7) | ✅ migrations `20261119130000`–`130300` aplicadas; Edge Function `send-notification-emails` implantada; job horário ativo (sem o segredo do Vault a função responde 401: inofensivo) |
 | S4c, etapa 1 (banco): rematrícula (`renewal_decisions`, `set_renewal_decision`, `renew_contracts`, `declined_count`) | ✅ mergeada (PR #13); matrizes contra o schema aplicado: renovação 68/68 e notificações 45/45 (2026-11-19) | ✅ 5 migrations aplicadas (`20261119135900` e `20261119140000`–`140300`); `types.ts` regenerado; `renewal_decisions` vazia (a interface é a Etapa 2) |
-| S4b: resumo diário, ciclo de rematrícula | ⬜ não iniciada | — |
+| S4c, etapa 2 (interface): página `/rematricula`, lote com prévia, texto do aviso | 📝 **plano pronto** (`docs/superpowers/plans/2026-11-19-s4c-etapa2-interface.md`, 7 tarefas); **não executada** | — (nenhuma tarefa grava em produção) |
+| LP: blur no saldo do hero, sem selo do topo, sem depoimento | ✅ mergeada na `main` (commit `606257f`, branch `fix/lp-ajustes`) | deploy após o push da `main` |
+| S4b: resumo diário por e-mail | ⬜ não iniciada (depende da S4a funcionando) | — |
 
 Documentos de referência:
 - Plano das sprints: `docs/PLANO_SPRINTS_NOV2026.md` (§3 tem as regras herdadas para o gerador e a S4).
@@ -46,9 +48,22 @@ Documentos de referência:
    Atenção: `cron.job_run_details` só prova que a chamada HTTP foi disparada (`net.http_post` é assíncrono). Um 401 (chave errada) ou 404 (função não implantada) só aparece em `net._http_response`, a quarta consulta.
    - **Limitação conhecida (não corrigida na S4a):** o e-mail nasce de linhas em `notifications`, e o gerador só cria a linha quando o canal "no sistema" do evento está ligado. Quem desliga "no sistema" e liga e-mail não recebe e-mail. Decisão pendente com o dono do produto antes de ligar o envio: (a) gerar a linha quando in_app OU e-mail (o sino passaria a mostrá-la), ou (b) amarrar o interruptor de e-mail ao de sistema na tela de preferências. Com o envio desligado, não há impacto hoje.
 
+## Decisões do PM de 19/11 (ordem de execução; parar entre os blocos para confirmação)
+
+Regras gerais: **não ligar o envio de e-mail** (sem data; o checklist de go-live é o item 4 acima), **não fazer push sem avisar**, nada grava em produção sem autorização (`db push` só depois do `--dry-run`).
+
+| Bloco | O que | Estado |
+|---|---|---|
+| 1. Git | Mergear o plano da etapa 2 e `fix/lp-ajustes` na `main`; listar o conteúdo dos arquivos soltos e propor destino (não decidir sozinho) | **Merges feitos.** Arquivos soltos **aguardando decisão** (abaixo) |
+| 2. Preferências de notificação | O e-mail só liga se "No sistema" estiver ligado no mesmo evento: front desabilita o switch de e-mail e o desliga ao desligar o sistema (texto "o e-mail acompanha o aviso no sistema"); `save_notification_preferences` rejeita `email=true` com `in_app=false` (errcode mapeado em `friendlyError.ts`); caso novo na matriz SQL (`BEGIN…ROLLBACK`); Vitest da regra no catálogo; o gerador não muda; migration em arquivo, `db push` só com autorização | ⬜ não iniciado. Resolve a "limitação conhecida" da S4a |
+| 3. Dívidas | (a) migration revogando `TRUNCATE` de `anon` e `authenticated` nas tabelas do `public`: listar antes os grants existentes e confirmar que nenhuma função `security definer` nem o PostgREST depende deles; (b) queries de `created_at`/`source` em `audit_logs` e do padrão de `due_date` para saber se as 717 mensalidades vencidas da Colegio Teste são seed ou reais | ⬜ não iniciado |
+| 4. S4c etapa 2 | Executar as 7 tarefas do plano (subagentes com revisão por tarefa, se independentes); a Task 4 resolve o texto do aviso com `declined_count`. Ao final: CHANGELOG, resumo da etapa no formato dos anteriores e roteiro de QA manual com renovação em lote **só na Colegio Teste**, incluindo financeiro, professor, master visualizando outra escola e 375 px | ⬜ não iniciado |
+
+**Arquivos soltos no working tree (não commitados; destino proposto, a confirmar):** `RUBRICA_AVALIACAO.md` (commitar em `docs/`), `docs/RESUMO_SPRINT_S1_CLAUDE_PROJECT.md` (commitar), `docs/backups/` (rollback do 2FA e snapshot de segmentos, com "NÃO commitar" no cabeçalho: `.gitignore`), `docs/designs/piloto-validacao-demanda.md` (estratégia e dados comerciais; o repositório é **público**: não commitar, `.gitignore` ou mover para o Claude Project).
+
 ## S4c — rematrícula
 
-**Próximo passo: Etapa 2 (interface)**; a etapa 1 já está aplicada em produção e os tipos regenerados (falta escrever o plano da Etapa 2). Spec em `docs/superpowers/`. Notas para a Etapa 2 (contrato do cliente com `renew_contracts`, `declined_count` no texto da notificação): seção "Notas para a Etapa 2" da spec.
+**Próximo passo: Etapa 2 (interface)**; a etapa 1 já está aplicada em produção e os tipos regenerados, e o plano da Etapa 2 está escrito (falta executá-lo). Spec em `docs/superpowers/`. Notas para a Etapa 2 (contrato do cliente com `renew_contracts`, `declined_count` no texto da notificação): seção "Notas para a Etapa 2" da spec.
 
 Bug pré-existente achado na revisão final: `audit_trigger_fn` quebrava (23514) a primeira escrita manual numa conexão que antes tinha usado `set_config('app.audit_source', ..., true)`, porque o Postgres deixa `''` na configuração. Vale para TODAS as tabelas auditadas (inclui a falha latente depois de `insert_generated_tuitions` e dos RPCs de importação). Corrigido na migration `20261119135900_audit_source_nullif.sql` (um `nullif`).
 
