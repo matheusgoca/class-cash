@@ -27,7 +27,7 @@ Estado: aplicado em produção com o envio desligado (2026-11-19). Os itens que 
 
 ## Roteiro de QA manual — S3, notificações etapa 2 (interface) (2026-11-19)
 
-Pré-requisito: avisos em `notifications` (job das 08:00 UTC já gerou 3 `tuition_overdue` na Colegio Teste). Não gerar dados em produção sem autorização.
+Pré-requisito: avisos em `notifications` (job das 08:00 UTC já gerou 3 `tuition_overdue` na Escola C). Não gerar dados em produção sem autorização.
 
 - [ ] Sino aparece para owner, admin e financeiro; não aparece para professor nem para master sem escola
 - [ ] Selo mostra o total de não lidas; "9+" acima de 9; some quando 0
@@ -45,7 +45,7 @@ Pré-requisito: avisos em `notifications` (job das 08:00 UTC já gerou 3 `tuitio
 
 - [x] Matriz `supabase/tests/notifications_matrix.sql` toda `ok = true` contra o schema aplicado (2026-11-18: 38/38)
 - [x] `cron.job` com `generate-daily-notifications` (`0 8 * * *`, ativo) (2026-11-18: ativo, `0 8 * * *`)
-- [x] Na manhã seguinte ao deploy: `cron.job_run_details` com a execução `succeeded` e linhas em `notifications` para owner/admin/financeiro das escolas com dados (2026-11-19: `succeeded` às 08:00 UTC; 3 avisos `tuition_overdue` na Colegio Teste)
+- [x] Na manhã seguinte ao deploy: `cron.job_run_details` com a execução `succeeded` e linhas em `notifications` para owner/admin/financeiro das escolas com dados (2026-11-19: `succeeded` às 08:00 UTC; 3 avisos `tuition_overdue` na Escola C)
 
 ## Roteiro de QA manual — S3, preferências de notificação (2026-11-18)
 
@@ -88,7 +88,7 @@ Já coberto por SQL (`BEGIN ... ROLLBACK` contra produção): `supabase/tests/mf
 
 ### 4. Exigência por escola (Configurações → Segurança)
 - [ ] Owner sem 2FA tenta ligar o toggle → é levado a ativar o próprio 2FA antes
-- [x] Owner com 2FA (`aal2`) liga o toggle → salva: toast "Exigência de 2FA ligada", `require_2fa = true` no banco, evento em `audit_logs`, persiste ao recarregar; desligado em seguida (também registrado). Feito como master na Colegio Teste, 2026-11-18
+- [x] Owner com 2FA (`aal2`) liga o toggle → salva: toast "Exigência de 2FA ligada", `require_2fa = true` no banco, evento em `audit_logs`, persiste ao recarregar; desligado em seguida (também registrado). Feito como master na Escola C, 2026-11-18
 - [ ] Admin sem 2FA da mesma escola, no próximo acesso: faixa de carência "Ative até {data} (7 dias)" e app funcionando
 - [ ] Carência vencida (forçar `grace_until` no passado numa escola de teste) → tela cheia de ativação forçada, dados não carregam
 - [ ] **Financeiro e professor da escola que exige 2FA continuam entrando sem 2FA**
@@ -109,7 +109,7 @@ Já coberto por SQL (`BEGIN ... ROLLBACK` contra produção): `supabase/tests/mf
 
 Cobre os pontos de maior risco tocados nas Fases 1 e 2 (cálculo de valores, regime de caixa, logs de auditoria). Rodar como owner/admin de uma escola de teste e, no último item, também como master admin.
 
-**Executado em 2026-11-13, em produção (`class-cash-tan.vercel.app`), logado como master admin visualizando Colégio Estrela. Todos os 6 itens passaram.**
+**Executado em 2026-11-13, em produção (`class-cash-tan.vercel.app`), logado como master admin visualizando Escola A. Todos os 6 itens passaram.**
 
 ### 1. Mensalidade com desconto + multa — ✅ passou
 - [x] Exemplar do seed S1: aluno **Jonas Barbosa**, turma **Fund. 1A**, mensalidade com `due_date = 2026-09-05`, `discount_applied = 50`, `penalty_amount = 35`, paga em `2026-10-02`.
@@ -129,16 +129,16 @@ Cobre os pontos de maior risco tocados nas Fases 1 e 2 (cálculo de valores, reg
 - [x] **Verificado no relatório de Rentabilidade:** Fund. 1A mostra salário R$3.200,00 (Fernanda R$1.600 + Ricardo Alves R$1.600, que também leciona em 2 turmas) — não duplicado. Fund. 1B mostra R$3.100,00 (Fernanda R$1.600 + Juliana Matos R$1.500). Marquei a despesa "Conta de luz" (escola toda) de novembro como paga para validar a linha **"Custos gerais da escola (não rateados)": R$650,00**, que fechou exatamente com `Custo Total = soma das turmas (R$39.400) + R$650 = R$40.050`.
 
 ### 7. RLS de `audit_logs` para usuário não-master — ✅ passou (S2, Fase 0, 2026-11-13)
-- [x] Owner/admin não-master (Colégio Pensar) vê seu próprio log recém-gerado (`is_master_action=false`, `school_id` correto).
-- [x] Owner/admin não-master de outra escola (Colegio Teste) não vê esse mesmo log: 0 linhas.
-- [x] Financeiro (Colégio Pensar) não vê nenhuma linha de `audit_logs`, nem da própria escola: 0 linhas.
+- [x] Owner/admin não-master (Escola B) vê seu próprio log recém-gerado (`is_master_action=false`, `school_id` correto).
+- [x] Owner/admin não-master de outra escola (Escola C) não vê esse mesmo log: 0 linhas.
+- [x] Financeiro (Escola B) não vê nenhuma linha de `audit_logs`, nem da própria escola: 0 linhas.
 - [x] UPDATE e DELETE em `audit_logs`, tentados pelo próprio owner, afetam 0 linhas (sem policy para esses comandos).
 - [x] Testado via `BEGIN...ROLLBACK` simulando `request.jwt.claims` + `SET LOCAL ROLE authenticated` — nada foi persistido em produção.
 - Não existe nenhuma conta com role `teacher` em produção hoje; o caso "professor não lê" não foi testado com uma conta real, só coberto pela mesma condição de role que exclui `financial`.
 
 ### 5. Ação de master admin em outra escola gera log — ✅ passou (equivalente)
-- [x] As próprias ações acima (marcar despesa paga, renegociar mensalidade) foram feitas como master admin "visualizando" o Colégio Estrela — não precisei trocar de escola de novo porque o mecanismo é o mesmo (`get_user_school_id()` do master é nulo, então `is_master_action` fica `true` em qualquer escola que ele acesse via Painel Master).
-- [x] **Verificado em `audit_logs`:** todas as linhas acima têm `is_master_action = true` e `school_id` = Colégio Estrela.
+- [x] As próprias ações acima (marcar despesa paga, renegociar mensalidade) foram feitas como master admin "visualizando" o Escola A — não precisei trocar de escola de novo porque o mecanismo é o mesmo (`get_user_school_id()` do master é nulo, então `is_master_action` fica `true` em qualquer escola que ele acesse via Painel Master).
+- [x] **Verificado em `audit_logs`:** todas as linhas acima têm `is_master_action = true` e `school_id` = Escola A.
 - [ ] **RLS (owner/admin vê o log, outro não vê):** não re-testado nesta rodada por falta de credenciais de um usuário não-master — já tinha sido validado na Fase 2 (ver `CHANGELOG.md`).
 
 ### 6. Job diário de `overdue` (Item H) — ✅ passou

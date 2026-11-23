@@ -145,7 +145,7 @@ Cabeçalho "Notificações" / "Lembretes de cobrança, renegociação, despesas 
   7. Gate: escola com `require_2fa=true` + admin aal1 sem carência → `ensure` falha com `MFA_REQUIRED`; financeiro passa.
   8. Usuário rebaixado: admin roda `ensure` (5 linhas) → papel trocado para `financial` dentro da transação → novo `ensure` retorna 4 eventos (sem `reenrollment`), não cria linha nova, e `save` com `reenrollment` é rejeitado.
   9. FKs: apagar (dentro do `ROLLBACK`) um usuário de teste remove as linhas dele nas duas tabelas.
-- **Manual (navegador, produção, Colegio Teste)**: primeiro acesso tudo desligado com selos e aviso → "Ativar e-mails recomendados" liga as três → salvar → recarregar mostra o gravado; financeiro não vê Rematrícula; professor não vê Notificações; master visualizando Colégio Estrela não vê o item.
+- **Manual (navegador, produção, Escola C)**: primeiro acesso tudo desligado com selos e aviso → "Ativar e-mails recomendados" liga as três → salvar → recarregar mostra o gravado; financeiro não vê Rematrícula; professor não vê Notificações; master visualizando Escola A não vê o item.
 
 ## Ordem de entrega
 

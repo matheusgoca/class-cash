@@ -253,7 +253,7 @@ git commit -m "Texto das notificações passa a viver em _shared/ (usado pela te
 import { describe, it, expect } from 'vitest';
 import { buildNotificationEmail, escapeHtml, type EmailItem } from './notificationEmail.ts';
 
-const ctx = { appUrl: 'https://app.exemplo.com.br/', schoolName: 'Colégio Estrela' };
+const ctx = { appUrl: 'https://app.exemplo.com.br/', schoolName: 'Escola Exemplo' };
 const base: EmailItem = {
   event: 'tuition_overdue', reference_date: '2026-11-19', offset_days: 5,
   item_count: 12, total_amount: 6840, details: { class_count: 3 },
@@ -272,7 +272,7 @@ describe('buildNotificationEmail', () => {
     expect(m.subject).toBe('12 mensalidades vencidas há mais de 5 dias');
     expect(m.html).toContain('href="https://app.exemplo.com.br/mensalidades?status=overdue"');
     expect(m.html).toContain('Ver cobranças');
-    expect(m.html).toContain('Colégio Estrela');
+    expect(m.html).toContain('Escola Exemplo');
     expect(m.html).toContain('href="https://app.exemplo.com.br/notificacoes/preferencias"');
     expect(m.html).toContain('Você recebe este e-mail porque ativou avisos por e-mail');
     expect(m.text).toContain('Ver cobranças: https://app.exemplo.com.br/mensalidades?status=overdue');
@@ -652,9 +652,9 @@ $f$;
 
 do $$
 declare
-  u_master uuid := '52d00ab5-567f-4537-b33a-22c2bd44e14d'; -- master + owner + admin, Colegio Teste
-  u_admin  uuid := 'e0185312-eea9-4273-a9a8-ad9d575d4781'; -- admin (movido para a escola X)
-  u_fin    uuid := 'b7ba4eb2-c7a2-4129-83a8-de8e7175c446'; -- financeiro (movido para a escola X)
+  u_master uuid := '<uuid do master>'; -- master + owner + admin, Escola C
+  u_admin  uuid := '<uuid do admin da Escola C>'; -- admin (movido para a escola X)
+  u_fin    uuid := '<uuid do financeiro da Escola C>'; -- financeiro (movido para a escola X)
   d        date := date '2031-03-10';
   t_8sp    timestamptz := '2031-03-10 11:00:00+00';   -- 08:00 em São Paulo (UTC-3)
   t_7sp    timestamptz := '2031-03-10 10:59:00+00';   -- 07:59 em São Paulo

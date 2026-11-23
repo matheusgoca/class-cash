@@ -10,7 +10,7 @@
 --
 -- Verificado: invitations.pending_school_segments não tem nenhuma linha com
 -- status='pending' e segments preenchido (só uma linha 'accepted', já
--- materializada como a escola "Colégio Pensar", cujo schools.segments já é
+-- materializada como a escola "Escola B", cujo schools.segments já é
 -- coberto pelo backfill abaixo) -- não há convite pendente de verdade pra
 -- remapear aqui. O front (Onboarding.tsx) ganhou normalizeSegments() como
 -- rede de segurança caso um user_metadata antigo apareça no futuro.

@@ -1,6 +1,6 @@
 -- Limpeza de dados de teste gerados durante a validação manual da Fase 2
 -- (audit_logs) nesta sprint — não é mudança de schema. Remove as despesas
--- de teste criadas em "Colégio Estrela" (description começa com
+-- de teste criadas em "Escola A" (description começa com
 -- '[TESTE audit_logs'), e desativa a despesa recorrente que as gerou para
 -- não continuar lançando novos meses.
 

@@ -157,12 +157,12 @@ $f$;
 
 do $$
 declare
-  u_master  uuid := '52d00ab5-567f-4537-b33a-22c2bd44e14d'; -- master + owner + admin, Colegio Teste
-  u_admin_t uuid := 'e0185312-eea9-4273-a9a8-ad9d575d4781'; -- admin, Colegio Teste
-  u_fin_t   uuid := 'b7ba4eb2-c7a2-4129-83a8-de8e7175c446'; -- financeiro, Colegio Teste
-  u_owner_p uuid := '03065019-c9b4-4163-a4c9-b89a6cd12986'; -- owner + admin, Colégio Pensar
-  s_teste   uuid := 'aaaf9993-908f-43f2-9d3d-dc12357d7468';
-  s_pensar  uuid := '2b1e5eba-6cf9-4cb1-a742-eecca53ab5d5';
+  u_master  uuid := '<uuid do master>'; -- master + owner + admin, Escola C
+  u_admin_t uuid := '<uuid do admin da Escola C>'; -- admin, Escola C
+  u_fin_t   uuid := '<uuid do financeiro da Escola C>'; -- financeiro, Escola C
+  u_owner_p uuid := '<uuid do owner da Escola B>'; -- owner + admin, Escola B
+  s_teste   uuid := '<uuid da Escola C>';
+  s_b  uuid := '<uuid da Escola B>';
 
   q_ensure     text := 'select jsonb_array_length(public.ensure_notification_preferences()->''preferences'')::text';
   q_count_mine text := 'select count(*)::text from public.notification_preferences where user_id = auth.uid()';
@@ -183,7 +183,7 @@ declare
   q_direct_ins  text := format($q$with x as (insert into public.notification_preferences (school_id, user_id, event, in_app, email, offset_days)
        values (%L, auth.uid(), 'tuition_due', true, true, 3) returning 1) select count(*)::text from x$q$, s_teste);
   q_direct_upd  text := 'with x as (update public.notification_preferences set email = true where user_id = auth.uid() returning 1) select count(*)::text from x';
-  q_read_admin_t text := format('select count(*)::text from public.notification_preferences where user_id = %L', 'e0185312-eea9-4273-a9a8-ad9d575d4781');
+  q_read_admin_t text := format('select count(*)::text from public.notification_preferences where user_id = %L', '<uuid do admin da Escola C>');
   v_before text;
   v_n int;
 begin
@@ -191,13 +191,13 @@ begin
   perform set_config('request.jwt.claims', '', true);
   delete from auth.mfa_factors where user_id in (u_master, u_admin_t, u_fin_t, u_owner_p);
   delete from public.mfa_grace  where user_id in (u_master, u_admin_t, u_fin_t, u_owner_p);
-  update public.schools set require_2fa = false where id in (s_teste, s_pensar);
+  update public.schools set require_2fa = false where id in (s_teste, s_b);
   delete from public.notification_preferences where user_id in (u_master, u_admin_t, u_fin_t, u_owner_p);
   delete from public.notification_settings    where user_id in (u_master, u_admin_t, u_fin_t, u_owner_p);
 
   -- 1. ensure: 5 para admin/owner, 4 para financeiro; e-mail desligado; confirmed_at nulo
   perform pg_temp.rec('1a ensure admin → 5 eventos',        pg_temp.run_as(u_admin_t, 'aal1', q_ensure), '5');
-  perform pg_temp.rec('1b ensure owner Pensar → 5 eventos',  pg_temp.run_as(u_owner_p, 'aal1', q_ensure), '5');
+  perform pg_temp.rec('1b ensure owner Escola B → 5 eventos',  pg_temp.run_as(u_owner_p, 'aal1', q_ensure), '5');
   perform pg_temp.rec('1c ensure financeiro → 4 eventos',    pg_temp.run_as(u_fin_t,   'aal1', q_ensure), '4');
   perform pg_temp.rec('1d financeiro sem linha reenrollment', pg_temp.run_as(u_fin_t,  'aal1', q_count_mine), '4');
   perform pg_temp.rec('1e e-mail desligado em tudo (admin)', pg_temp.run_as(u_admin_t, 'aal1', q_email_on), '0');
@@ -267,7 +267,7 @@ select n, cenario, got, esperado, ok from t_res order by n;
 rollback;
 ```
 
-Notas para quem executa: (a) `9` apaga um usuário de teste **dentro** da transação — o `ROLLBACK` devolve; se o `delete from auth.users` falhar por outra FK (ex.: `profiles` sem cascade), trocar o caso 9 para apagar a **escola** de teste numa cópia controlada não é aceitável — em vez disso, registrar o erro e usar `delete from public.schools where id = s_pensar` só se `schools` não tiver dependentes sem cascade; se nenhum dos dois for possível, marcar o caso 9 como "não executável" e reportar ao usuário. (b) Se `user_roles` tiver CHECK/trigger que impeça o `update` do caso 8, reportar antes de contornar.
+Notas para quem executa: (a) `9` apaga um usuário de teste **dentro** da transação — o `ROLLBACK` devolve; se o `delete from auth.users` falhar por outra FK (ex.: `profiles` sem cascade), trocar o caso 9 para apagar a **escola** de teste numa cópia controlada não é aceitável — em vez disso, registrar o erro e usar `delete from public.schools where id = s_b` só se `schools` não tiver dependentes sem cascade; se nenhum dos dois for possível, marcar o caso 9 como "não executável" e reportar ao usuário. (b) Se `user_roles` tiver CHECK/trigger que impeça o `update` do caso 8, reportar antes de contornar.
 
 - [ ] **Step 2: Rodar a matriz sem a migration → deve falhar**
 
@@ -1614,12 +1614,12 @@ Expected: todos verdes; build ok.
 - [ ] **Step 2: QA manual local** (`npm run dev`, logado pelo usuário — nunca digitar a senha dele)
 
 Roteiro, anotando o observado em cada item:
-1. Master na Colegio Teste (via "Acessar escola"): grupo **Conta** com Notificações + Segurança da conta; rodapé só com Sair.
+1. Master na Escola C (via "Acessar escola"): grupo **Conta** com Notificações + Segurança da conta; rodapé só com Sair.
 2. `/notificacoes`: cabeçalho, botão Preferências, estado vazio.
 3. Preferências, 1º acesso: e-mails desligados, selo "Recomendado" em atraso, renegociação e rematrícula, aviso "Os e-mails estão desligados…", Salvar habilitado.
 4. "Ativar e-mails recomendados" liga as três chaves; Salvar → toast "Preferências salvas"; recarregar mostra o gravado; aviso de 1º acesso some.
 5. Mudar antecedência e horário do resumo (horário desabilitado com a chave desligada); salvar; recarregar.
-6. Master acessando Colégio Estrela: item Notificações some; abrir `/notificacoes/preferencias` direto mostra o aviso de "outra escola" e não carrega nada.
+6. Master acessando Escola A: item Notificações some; abrir `/notificacoes/preferencias` direto mostra o aviso de "outra escola" e não carrega nada.
 7. Largura 375 px: matriz vira cartões empilhados, sem rolagem horizontal.
 8. (Se o usuário logar com as contas de teste) financeiro não vê Rematrícula; professor não vê Notificações.
 

@@ -124,9 +124,9 @@ $f$;
 
 do $$
 declare
-  u_master uuid := '52d00ab5-567f-4537-b33a-22c2bd44e14d'; -- master + owner + admin, Colegio Teste
-  u_admin  uuid := 'e0185312-eea9-4273-a9a8-ad9d575d4781'; -- admin, Colegio Teste (movido para a escola X)
-  u_fin    uuid := 'b7ba4eb2-c7a2-4129-83a8-de8e7175c446'; -- financeiro, Colegio Teste (movido para a escola X)
+  u_master uuid := '<uuid do master>'; -- master + owner + admin, Escola C
+  u_admin  uuid := '<uuid do admin da Escola C>'; -- admin, Escola C (movido para a escola X)
+  u_fin    uuid := '<uuid do financeiro da Escola C>'; -- financeiro, Escola C (movido para a escola X)
   c_now    timestamptz := '2031-03-10 08:00:00+00';       -- 05:00 em São Paulo → "hoje" = 2031-03-10
   d        date := date '2031-03-10';
   s_x uuid; cl1 uuid; cl2 uuid; st uuid; k1 uuid; k2 uuid; k3 uuid; cat uuid; rn uuid;

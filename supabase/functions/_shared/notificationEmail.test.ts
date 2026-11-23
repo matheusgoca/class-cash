@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildNotificationEmail, escapeHtml, type EmailItem } from './notificationEmail.ts';
 
-const ctx = { appUrl: 'https://app.exemplo.com.br/', schoolName: 'Colégio Estrela' };
+const ctx = { appUrl: 'https://app.exemplo.com.br/', schoolName: 'Escola Exemplo' };
 const base: EmailItem = {
   event: 'tuition_overdue', reference_date: '2026-11-19', offset_days: 5,
   item_count: 12, total_amount: 6840, details: { class_count: 3 },
@@ -21,7 +21,7 @@ describe('buildNotificationEmail', () => {
     expect(m.subject).toBe('12 mensalidades vencidas há mais de 5 dias');
     expect(m.html).toContain('href="https://app.exemplo.com.br/mensalidades?status=overdue"');
     expect(m.html).toContain('Ver cobranças');
-    expect(m.html).toContain('Colégio Estrela');
+    expect(m.html).toContain('Escola Exemplo');
     expect(m.html).toContain('href="https://app.exemplo.com.br/notificacoes/preferencias"');
     expect(m.html).toContain('Você recebe este e-mail porque ativou avisos por e-mail');
     expect(m.text).toContain('Ver cobranças: https://app.exemplo.com.br/mensalidades?status=overdue');
