@@ -46,6 +46,7 @@ export function getFriendlyErrorMessage(error: any, fallback?: string): string {
     INVALID_OFFSET: 'Uma das antecedências escolhidas não é permitida.',
     INVALID_TIMEZONE: 'Não foi possível identificar o fuso horário do seu navegador.',
     INVALID_DIGEST_TIME: 'Escolha um horário de resumo entre 06:00 e 20:00.',
+    EMAIL_REQUIRES_IN_APP: 'O e-mail acompanha o aviso no sistema: ligue "No sistema" no evento para receber por e-mail.',
     INVALID_EVENT: 'Um dos avisos enviados não existe. Recarregue a página e tente de novo.',
     INVALID_PREFERENCES: 'Não foi possível ler as preferências enviadas. Recarregue a página e tente de novo.',
   };

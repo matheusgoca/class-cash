@@ -10,6 +10,7 @@ describe('getFriendlyErrorMessage — preferências de notificação', () => {
     ['INVALID_OFFSET', 'Uma das antecedências escolhidas não é permitida.'],
     ['INVALID_TIMEZONE', 'Não foi possível identificar o fuso horário do seu navegador.'],
     ['INVALID_DIGEST_TIME', 'Escolha um horário de resumo entre 06:00 e 20:00.'],
+    ['EMAIL_REQUIRES_IN_APP', 'O e-mail acompanha o aviso no sistema: ligue "No sistema" no evento para receber por e-mail.'],
   ])('%s', (code, expected) => {
     expect(getFriendlyErrorMessage({ code: 'P0001', message: code })).toBe(expected);
   });

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  DIGEST_HOURS, EVENT_LABELS, applyRecommendedEmails, canSave, formatOffset, isDirty,
+  DIGEST_HOURS, EVENT_LABELS, applyRecommendedEmails, canSave, formatOffset, isDirty, updatePreference,
   type PreferencesState,
 } from './notificationEvents';
 
@@ -56,6 +56,38 @@ describe('applyRecommendedEmails', () => {
     expect(out.preferences.map((p) => p.email)).toEqual([false, true, true]);
     expect(draft.preferences.map((p) => p.email)).toEqual([false, false, false]);
     expect(out.digest).toEqual(draft.digest);
+  });
+
+  it('não liga e-mail em evento recomendado com "No sistema" desligado', () => {
+    const draft = base();
+    draft.preferences[1].inApp = false;
+    const out = applyRecommendedEmails(draft);
+    expect(out.preferences.map((p) => p.email)).toEqual([false, false, true]);
+  });
+});
+
+describe('updatePreference (o e-mail acompanha o aviso no sistema)', () => {
+  const pref = () => ({ ...base().preferences[1], inApp: true, email: true });
+
+  it('desligar "No sistema" desliga o e-mail junto', () => {
+    expect(updatePreference(pref(), { inApp: false })).toMatchObject({ inApp: false, email: false });
+  });
+
+  it('ligar e-mail com "No sistema" desligado não tem efeito', () => {
+    const p = { ...pref(), inApp: false, email: false };
+    expect(updatePreference(p, { email: true })).toMatchObject({ inApp: false, email: false });
+  });
+
+  it('religar "No sistema" não religa o e-mail sozinho', () => {
+    const p = { ...pref(), inApp: false, email: false };
+    expect(updatePreference(p, { inApp: true })).toMatchObject({ inApp: true, email: false });
+  });
+
+  it('com "No sistema" ligado, e-mail e antecedência mudam normalmente, sem mutar o original', () => {
+    const p = pref();
+    expect(updatePreference(p, { email: false })).toMatchObject({ inApp: true, email: false });
+    expect(updatePreference(p, { offsetDays: 10 })).toMatchObject({ inApp: true, email: true, offsetDays: 10 });
+    expect(p).toMatchObject({ inApp: true, email: true, offsetDays: 5 });
   });
 });
 

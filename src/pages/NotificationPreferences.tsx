@@ -135,7 +135,7 @@ const NotificationPreferences = () => {
   }
 
   const firstAccess = confirmedAt === null;
-  const hasRecommended = draft.preferences.some((p) => p.emailRecommended && !p.email);
+  const hasRecommended = draft.preferences.some((p) => p.emailRecommended && p.inApp && !p.email);
 
   return (
     <div className="space-y-6">
