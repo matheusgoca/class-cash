@@ -74,15 +74,27 @@ $f$;
 
 do $$
 declare
-  u_master uuid := '52d00ab5-567f-4537-b33a-22c2bd44e14d'; -- master + owner + admin, Colegio Teste
-  u_admin  uuid := 'e0185312-eea9-4273-a9a8-ad9d575d4781'; -- admin (movido para a escola X)
-  u_fin    uuid := 'b7ba4eb2-c7a2-4129-83a8-de8e7175c446'; -- financeiro (movido para a escola X)
+  -- personagens: escolhidos por consulta no início do bloco (nenhum id fixo no arquivo)
+  u_master uuid; -- master (profiles.is_master_admin); só é dono das escolas de teste
+  u_admin  uuid; -- admin, não-master, de uma escola existente (movido para a escola X)
+  u_fin    uuid; -- financeiro, não-master, da mesma escola (movido para a escola X)
+  s_orig   uuid; -- escola do perfil do master (de onde se escolhem admin e financeiro)
   s_x uuid; s_y uuid; cl1 uuid; cl2 uuid; cly uuid; st uuid; sty uuid;
   k1 uuid; k2 uuid; k3 uuid; k4 uuid; k5 uuid; k6 uuid; kdead uuid; ky uuid;
   svc uuid; svc_m uuid; svc_off uuid; svcy uuid;
   v text; r jsonb; item jsonb; v_role text;
 begin
   perform set_config('request.jwt.claims', '', true);
+
+  select p.user_id, p.school_id into u_master, s_orig
+    from public.profiles p where p.is_master_admin and p.school_id is not null order by p.user_id limit 1;
+  select p.user_id into u_admin from public.profiles p join public.user_roles r on r.user_id = p.user_id
+   where p.school_id = s_orig and not p.is_master_admin and r.role = 'admin' order by p.user_id limit 1;
+  select p.user_id into u_fin from public.profiles p join public.user_roles r on r.user_id = p.user_id
+   where p.school_id = s_orig and not p.is_master_admin and r.role = 'financial' order by p.user_id limit 1;
+  if u_master is null or u_admin is null or u_fin is null then
+    raise exception 'personagens não encontrados em produção (master, admin e financeiro não-master de uma escola)';
+  end if;
 
   -- Escolas de teste isoladas.
   insert into public.schools (name, owner_user_id) values ('Escola Teste Rematrícula X', u_master) returning id into s_x;

@@ -46,86 +46,113 @@ $f$;
 
 do $$
 declare
-  u_owner_p uuid := '03065019-c9b4-4163-a4c9-b89a6cd12986'; -- owner+admin, Colégio Pensar
-  u_fin_p   uuid := '77acd93b-6112-4373-b748-9800c0080a04'; -- financeiro, Colégio Pensar
-  u_master  uuid := '52d00ab5-567f-4537-b33a-22c2bd44e14d'; -- master (+owner do Colegio Teste)
-  u_admin_t uuid := 'e0185312-eea9-4273-a9a8-ad9d575d4781'; -- admin, Colegio Teste
-  s_pensar  uuid := '2b1e5eba-6cf9-4cb1-a742-eecca53ab5d5';
-  s_teste   uuid := 'aaaf9993-908f-43f2-9d3d-dc12357d7468';
+  -- personagens: escolhidos por consulta no início do bloco (nenhum id fixo no arquivo)
+  u_owner_b uuid; -- owner da escola B + role admin, não-master (escola com alunos e professores)
+  u_fin_b   uuid; -- financeiro da escola B
+  u_master  uuid; -- master (profiles.is_master_admin); a escola A é a escola do perfil dele
+  u_admin_a uuid; -- admin, não-master, da escola A (OUTRA escola em relação à B)
+  s_b       uuid;
+  s_a       uuid;
 
-  q_stu_p   text := format('select count(*)::text from public.students where school_id = %L', s_pensar);
-  q_stu_t   text := format('select count(*)::text from public.students where school_id = %L', s_teste);
+  q_stu_b   text;
+  q_stu_a   text;
   q_stu_all text := 'select count(*)::text from public.students';
   q_tui_all text := 'select count(*)::text from public.tuitions';
-  q_tui_p   text := format('select count(*)::text from public.tuitions where school_id = %L', s_pensar);
-  q_aud_p   text := format('select count(*)::text from public.audit_logs where school_id = %L', s_pensar);
-  q_dir_p   text := format('select count(*)::text from public.teachers_directory where school_id = %L', s_pensar);
-  q_upd_stu text := format('with x as (update public.students set full_name = full_name where school_id = %L returning 1) select count(*)::text from x', s_pensar);
-  q_sal     text := format('select public.get_active_teachers_salary_sum(%L)::text', s_pensar);
-  q_imp     text := format($q$select public.import_teacher('{"full_name":"Teste MFA","email":"mfa-test@example.invalid","phone":"1","salary":1,"status":"active"}'::jsonb, %L)::text$q$, s_pensar);
+  q_tui_b   text;
+  q_aud_b   text;
+  q_dir_b   text;
+  q_upd_stu text;
+  q_sal     text;
+  q_imp     text;
 
-  b_stu_p int; b_stu_t int; b_stu_all int; b_tui_p int; b_tui_all int; b_aud_p int; b_tch_p int;
+  b_stu_b int; b_stu_a int; b_stu_all int; b_tui_b int; b_tui_all int; b_aud_b int; b_tch_b int;
   v text;
 begin
+  select p.user_id, p.school_id into u_master, s_a
+    from public.profiles p where p.is_master_admin and p.school_id is not null order by p.user_id limit 1;
+  select p.user_id into u_admin_a from public.profiles p join public.user_roles r on r.user_id = p.user_id
+   where p.school_id = s_a and not p.is_master_admin and r.role = 'admin' order by p.user_id limit 1;
+  select s.id, s.owner_user_id into s_b, u_owner_b from public.schools s
+    join public.profiles p on p.user_id = s.owner_user_id and p.school_id = s.id
+    join public.user_roles r on r.user_id = p.user_id and r.role = 'admin'
+   where s.id <> s_a and not p.is_master_admin
+     and exists (select 1 from public.students x where x.school_id = s.id)
+     and exists (select 1 from public.teachers x where x.school_id = s.id)
+   order by s.id limit 1;
+  select p.user_id into u_fin_b from public.profiles p join public.user_roles r on r.user_id = p.user_id
+   where p.school_id = s_b and not p.is_master_admin and r.role = 'financial' order by p.user_id limit 1;
+  q_stu_b := format('select count(*)::text from public.students where school_id = %L', s_b);
+  q_stu_a := format('select count(*)::text from public.students where school_id = %L', s_a);
+  q_tui_b := format('select count(*)::text from public.tuitions where school_id = %L', s_b);
+  q_aud_b := format('select count(*)::text from public.audit_logs where school_id = %L', s_b);
+  q_dir_b := format('select count(*)::text from public.teachers_directory where school_id = %L', s_b);
+  q_upd_stu := format('with x as (update public.students set full_name = full_name where school_id = %L returning 1) select count(*)::text from x', s_b);
+  q_sal := format('select public.get_active_teachers_salary_sum(%L)::text', s_b);
+  q_imp := format($q$select public.import_teacher('{"full_name":"Teste MFA","email":"mfa-test@example.invalid","phone":"1","salary":1,"status":"active"}'::jsonb, %L)::text$q$, s_b);
+
+  if u_master is null or u_admin_a is null or u_owner_b is null or u_fin_b is null then
+    raise exception 'personagens não encontrados em produção (master/admin da escola A, owner/financeiro da escola B)';
+  end if;
+
   -- O teste não pode depender do estado real: o master e outros usuários podem
   -- ter fator verificado ou carência em produção. Dentro da transação, limpa os
   -- dos usuários de teste (o ROLLBACK devolve tudo).
-  delete from auth.mfa_factors where user_id in (u_owner_p, u_fin_p, u_master, u_admin_t);
-  delete from public.mfa_grace  where user_id in (u_owner_p, u_fin_p, u_master, u_admin_t);
+  delete from auth.mfa_factors where user_id in (u_owner_b, u_fin_b, u_master, u_admin_a);
+  delete from public.mfa_grace  where user_id in (u_owner_b, u_fin_b, u_master, u_admin_a);
 
   -- linha de base (como postgres, sem RLS)
-  select count(*) into b_stu_p   from public.students where school_id = s_pensar;
-  select count(*) into b_stu_t   from public.students where school_id = s_teste;
+  select count(*) into b_stu_b   from public.students where school_id = s_b;
+  select count(*) into b_stu_a   from public.students where school_id = s_a;
   select count(*) into b_stu_all from public.students;
-  select count(*) into b_tui_p   from public.tuitions where school_id = s_pensar;
-  select count(*) into b_aud_p   from public.audit_logs where school_id = s_pensar;
-  select count(*) into b_tch_p   from public.teachers where school_id = s_pensar;
+  select count(*) into b_tui_b   from public.tuitions where school_id = s_b;
+  select count(*) into b_aud_b   from public.audit_logs where school_id = s_b;
+  select count(*) into b_tch_b   from public.teachers where school_id = s_b;
   select count(*) into b_tui_all from public.tuitions;
   perform pg_temp.rec('base: há alunos, professores e mensalidades para o teste fazer sentido',
-    (b_stu_p > 0 and b_tch_p > 0 and b_tui_all > 0)::text, 'true');
+    (b_stu_b > 0 and b_tch_b > 0 and b_tui_all > 0)::text, 'true');
 
-  -- Pensar passa a exigir 2FA (como service role; o trigger deixa passar)
+  -- A escola B passa a exigir 2FA (como service role; o trigger deixa passar)
   perform set_config('request.jwt.claims', '', true);
-  update public.schools set require_2fa = true where id = s_pensar;
+  update public.schools set require_2fa = true where id = s_b;
 
   -- ===== G1: owner exigido, sem fator e sem carência → BLOQUEADO =====
-  perform pg_temp.rec('G1a owner bloqueado: students',          pg_temp.run_as(u_owner_p, 'aal1', q_stu_p), '0');
-  perform pg_temp.rec('G1b owner bloqueado: tuitions',          pg_temp.run_as(u_owner_p, 'aal1', q_tui_p), '0');
-  perform pg_temp.rec('G1c owner bloqueado: audit_logs',        pg_temp.run_as(u_owner_p, 'aal1', q_aud_p), '0');
-  perform pg_temp.rec('G1d owner bloqueado: teachers_directory', pg_temp.run_as(u_owner_p, 'aal1', q_dir_p), '0');
-  perform pg_temp.rec('G1e owner bloqueado: UPDATE em students não afeta nada', pg_temp.run_as(u_owner_p, 'aal1', q_upd_stu), '0');
+  perform pg_temp.rec('G1a owner bloqueado: students',          pg_temp.run_as(u_owner_b, 'aal1', q_stu_b), '0');
+  perform pg_temp.rec('G1b owner bloqueado: tuitions',          pg_temp.run_as(u_owner_b, 'aal1', q_tui_b), '0');
+  perform pg_temp.rec('G1c owner bloqueado: audit_logs',        pg_temp.run_as(u_owner_b, 'aal1', q_aud_b), '0');
+  perform pg_temp.rec('G1d owner bloqueado: teachers_directory', pg_temp.run_as(u_owner_b, 'aal1', q_dir_b), '0');
+  perform pg_temp.rec('G1e owner bloqueado: UPDATE em students não afeta nada', pg_temp.run_as(u_owner_b, 'aal1', q_upd_stu), '0');
 
   -- ===== G2: owner na carência → LIBERADO =====
-  insert into public.mfa_grace (user_id, grace_until) values (u_owner_p, now() + interval '3 days');
-  perform pg_temp.rec('G2a owner na carência: students',  pg_temp.run_as(u_owner_p, 'aal1', q_stu_p), b_stu_p::text);
-  perform pg_temp.rec('G2b owner na carência: tuitions',  pg_temp.run_as(u_owner_p, 'aal1', q_tui_p), b_tui_p::text);
-  perform pg_temp.rec('G2c owner na carência: teachers_directory', pg_temp.run_as(u_owner_p, 'aal1', q_dir_p), b_tch_p::text);
+  insert into public.mfa_grace (user_id, grace_until) values (u_owner_b, now() + interval '3 days');
+  perform pg_temp.rec('G2a owner na carência: students',  pg_temp.run_as(u_owner_b, 'aal1', q_stu_b), b_stu_b::text);
+  perform pg_temp.rec('G2b owner na carência: tuitions',  pg_temp.run_as(u_owner_b, 'aal1', q_tui_b), b_tui_b::text);
+  perform pg_temp.rec('G2c owner na carência: teachers_directory', pg_temp.run_as(u_owner_b, 'aal1', q_dir_b), b_tch_b::text);
   perform pg_temp.rec('G2d owner lê a própria linha de mfa_grace',
-    pg_temp.run_as(u_owner_p, 'aal1', 'select count(*)::text from public.mfa_grace'), '1');
-  perform pg_temp.rec('G2e UPDATE em students funciona dentro da carência', pg_temp.run_as(u_owner_p, 'aal1', q_upd_stu), b_stu_p::text);
+    pg_temp.run_as(u_owner_b, 'aal1', 'select count(*)::text from public.mfa_grace'), '1');
+  perform pg_temp.rec('G2e UPDATE em students funciona dentro da carência', pg_temp.run_as(u_owner_b, 'aal1', q_upd_stu), b_stu_b::text);
 
   -- ===== G3: carência vencida → bloqueia de novo =====
-  update public.mfa_grace set grace_until = now() - interval '1 day' where user_id = u_owner_p;
-  perform pg_temp.rec('G3  carência vencida: students', pg_temp.run_as(u_owner_p, 'aal1', q_stu_p), '0');
+  update public.mfa_grace set grace_until = now() - interval '1 day' where user_id = u_owner_b;
+  perform pg_temp.rec('G3  carência vencida: students', pg_temp.run_as(u_owner_b, 'aal1', q_stu_b), '0');
 
   -- ===== G4: fator verificado → aal1 bloqueia, aal2 libera =====
   insert into auth.mfa_factors (id, user_id, factor_type, status, created_at, updated_at, friendly_name)
-  values (gen_random_uuid(), u_owner_p, 'totp', 'verified', now(), now(), 'teste');
-  perform pg_temp.rec('G4a com fator, sessão aal1: students', pg_temp.run_as(u_owner_p, 'aal1', q_stu_p), '0');
-  perform pg_temp.rec('G4b com fator, sessão aal2: students', pg_temp.run_as(u_owner_p, 'aal2', q_stu_p), b_stu_p::text);
+  values (gen_random_uuid(), u_owner_b, 'totp', 'verified', now(), now(), 'teste');
+  perform pg_temp.rec('G4a com fator, sessão aal1: students', pg_temp.run_as(u_owner_b, 'aal1', q_stu_b), '0');
+  perform pg_temp.rec('G4b com fator, sessão aal2: students', pg_temp.run_as(u_owner_b, 'aal2', q_stu_b), b_stu_b::text);
   -- audit_logs cresceu durante o teste (o UPDATE do G2e dispara o trigger em
   -- todas as linhas): recalcula a linha de base logo antes de comparar.
-  select count(*) into b_aud_p from public.audit_logs where school_id = s_pensar;
-  perform pg_temp.rec('G4c com fator, sessão aal2: audit_logs', pg_temp.run_as(u_owner_p, 'aal2', q_aud_p), b_aud_p::text);
+  select count(*) into b_aud_b from public.audit_logs where school_id = s_b;
+  perform pg_temp.rec('G4c com fator, sessão aal2: audit_logs', pg_temp.run_as(u_owner_b, 'aal2', q_aud_b), b_aud_b::text);
 
   -- ===== G5: REGRESSÃO — quem NÃO é exigido continua exatamente como antes =====
-  perform pg_temp.rec('G5a financeiro de escola que exige: students (não é exigido)', pg_temp.run_as(u_fin_p, 'aal1', q_stu_p), b_stu_p::text);
-  perform pg_temp.rec('G5b financeiro: teachers_directory',                            pg_temp.run_as(u_fin_p, 'aal1', q_dir_p), b_tch_p::text);
-  perform pg_temp.rec('G5c admin de OUTRA escola (que não exige): vê a sua', pg_temp.run_as(u_admin_t, 'aal1', q_stu_t), b_stu_t::text);
-  perform pg_temp.rec('G5d admin de OUTRA escola: continua sem ver Pensar',  pg_temp.run_as(u_admin_t, 'aal1', q_stu_p), '0');
+  perform pg_temp.rec('G5a financeiro de escola que exige: students (não é exigido)', pg_temp.run_as(u_fin_b, 'aal1', q_stu_b), b_stu_b::text);
+  perform pg_temp.rec('G5b financeiro: teachers_directory',                            pg_temp.run_as(u_fin_b, 'aal1', q_dir_b), b_tch_b::text);
+  perform pg_temp.rec('G5c admin de OUTRA escola (que não exige): vê a sua', pg_temp.run_as(u_admin_a, 'aal1', q_stu_a), b_stu_a::text);
+  perform pg_temp.rec('G5d admin de OUTRA escola: continua sem ver a escola B',  pg_temp.run_as(u_admin_a, 'aal1', q_stu_b), '0');
 
   -- ===== G6: master é SEMPRE exigido =====
-  -- O master real já tem uma carência em produção (criada pelo app ao logar);
+  -- O master já pode ter uma carência em produção (criada pelo app ao logar);
   -- parte de "sem carência" dentro da transação (o ROLLBACK devolve a linha).
   delete from public.mfa_grace where user_id = u_master;
   perform pg_temp.rec('G6a master sem fator/carência: students (todas as escolas)', pg_temp.run_as(u_master, 'aal1', q_stu_all), '0');
@@ -140,29 +167,29 @@ begin
 
   -- ===== G7: view teachers_directory — bypass de RLS fechado =====
   perform pg_temp.rec('G7a UPDATE via view teachers_directory agora é negado (era possível)',
-    pg_temp.run_as(u_fin_p, 'aal1',
-      format('with x as (update public.teachers_directory set full_name = full_name where school_id = %L returning 1) select count(*)::text from x', s_pensar)),
+    pg_temp.run_as(u_fin_b, 'aal1',
+      format('with x as (update public.teachers_directory set full_name = full_name where school_id = %L returning 1) select count(*)::text from x', s_b)),
     'ERR:42501');
   perform pg_temp.rec('G7b DELETE via view teachers_directory agora é negado (era possível)',
-    pg_temp.run_as(u_fin_p, 'aal1',
-      format('with x as (delete from public.teachers_directory where school_id = %L returning 1) select count(*)::text from x', s_pensar)),
+    pg_temp.run_as(u_fin_b, 'aal1',
+      format('with x as (delete from public.teachers_directory where school_id = %L returning 1) select count(*)::text from x', s_b)),
     'ERR:42501');
   perform pg_temp.rec('G7c anon não lê teachers_directory',
-    pg_temp.run_as(null, null, q_dir_p, 'anon'), 'ERR:42501');
+    pg_temp.run_as(null, null, q_dir_b, 'anon'), 'ERR:42501');
 
   -- ===== R: RPCs SECURITY DEFINER =====
   -- bloqueado: o gate dispara ANTES de qualquer outra coisa
   perform pg_temp.rec('R1a owner bloqueado: get_active_teachers_salary_sum',
-    pg_temp.run_as(u_owner_p, 'aal1', q_sal), 'ERR:42501');
-  -- (o owner de Pensar tem fator verificado desde G4, então aal1 = bloqueado)
-  perform pg_temp.rec('R1b owner bloqueado: import_teacher', pg_temp.run_as(u_owner_p, 'aal1', q_imp), 'ERR:42501');
+    pg_temp.run_as(u_owner_b, 'aal1', q_sal), 'ERR:42501');
+  -- (o owner da escola B tem fator verificado desde G4, então aal1 = bloqueado)
+  perform pg_temp.rec('R1b owner bloqueado: import_teacher', pg_temp.run_as(u_owner_b, 'aal1', q_imp), 'ERR:42501');
   -- liberado (aal2) e não exigido (financeiro): a função ainda funciona
   perform pg_temp.rec('R2a owner aal2: get_active_teachers_salary_sum funciona',
-    (pg_temp.run_as(u_owner_p, 'aal2', q_sal) not like 'ERR:%')::text, 'true');
+    (pg_temp.run_as(u_owner_b, 'aal2', q_sal) not like 'ERR:%')::text, 'true');
   perform pg_temp.rec('R2b owner aal2: import_teacher funciona',
-    (pg_temp.run_as(u_owner_p, 'aal2', q_imp) not like 'ERR:%')::text, 'true');
+    (pg_temp.run_as(u_owner_b, 'aal2', q_imp) not like 'ERR:%')::text, 'true');
   perform pg_temp.rec('R2c financeiro (não exigido): get_active_teachers_salary_sum funciona',
-    (pg_temp.run_as(u_fin_p, 'aal1', q_sal) not like 'ERR:%')::text, 'true');
+    (pg_temp.run_as(u_fin_b, 'aal1', q_sal) not like 'ERR:%')::text, 'true');
 
   -- catálogo: as 9 funções têm o gate; promote_overdue_tuitions não
   select count(*)::text into v from pg_proc
@@ -176,8 +203,14 @@ begin
    where pronamespace = 'public'::regnamespace and proname = 'promote_overdue_tuitions' and prosrc like '%assert_mfa_gate%';
   perform pg_temp.rec('C2  promote_overdue_tuitions (só cron) fica sem o gate', v, '0');
 
-  -- catálogo: 15 policies mfa_gate, todas RESTRICTIVE
-  select count(*)::text into v from pg_policy where polname = 'mfa_gate' and not polpermissive;
+  -- catálogo: as 15 tabelas ORIGINAIS têm a policy mfa_gate RESTRICTIVE (tabelas
+  -- novas também ganham a policy por convenção; por isso não se conta o total)
+  select count(distinct c.relname)::text into v
+    from pg_policy pol join pg_class c on c.oid = pol.polrelid
+   where pol.polname = 'mfa_gate' and not pol.polpermissive and c.relnamespace = 'public'::regnamespace
+     and c.relname in ('students', 'teachers', 'classes', 'class_teachers', 'contracts', 'enrollments',
+                       'tuitions', 'expenses', 'expense_categories', 'recurring_expenses', 'service_charges',
+                       'school_services', 'student_services', 'renegotiations', 'audit_logs');
   perform pg_temp.rec('C3  15 policies mfa_gate RESTRICTIVE', v, '15');
 end $$;
 
