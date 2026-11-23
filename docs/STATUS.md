@@ -27,7 +27,7 @@ Documentos de referência:
 ## O que fazer em seguida (em ordem)
 
 1. **QA visual da etapa 2** (roteiro em `QA_CHECKLIST.md`, seção "S3, notificações etapa 2"). O PR #9 já foi mergeado sem esse QA; se achar bug, corrigir em PR novo.
-   A 1ª execução real do gerador já foi conferida em 2026-11-19: `succeeded`, 3 avisos `tuition_overdue` na Escola C (717 mensalidades vencidas; ainda não confirmado se são reais ou seed).
+   A 1ª execução real do gerador já foi conferida em 2026-11-19: `succeeded`, avisos `tuition_overdue` gerados na escola de teste (origem das mensalidades vencidas, seed ou reais, a confirmar no Bloco 3).
 2. **Outras pendências** (listadas também no fim da spec do gerador):
    - Monitorar falhas do job (uma execução que falha perde os avisos de dia exato daquele dia).
    - Revogar `TRUNCATE` (e demais grants de escrita) de `anon`/`authenticated` nas tabelas — padrão do Supabase, não explorável via REST, endurecimento barato.
@@ -56,10 +56,10 @@ Regras gerais: **não ligar o envio de e-mail** (sem data; o checklist de go-liv
 |---|---|---|
 | 1. Git | Mergear o plano da etapa 2 e `fix/lp-ajustes` na `main`; listar o conteúdo dos arquivos soltos e propor destino (não decidir sozinho) | **Merges feitos.** Arquivos soltos **aguardando decisão** (abaixo) |
 | 2. Preferências de notificação | O e-mail só liga se "No sistema" estiver ligado no mesmo evento: front desabilita o switch de e-mail e o desliga ao desligar o sistema (texto "o e-mail acompanha o aviso no sistema"); `save_notification_preferences` rejeita `email=true` com `in_app=false` (errcode mapeado em `friendlyError.ts`); caso novo na matriz SQL (`BEGIN…ROLLBACK`); Vitest da regra no catálogo; o gerador não muda; migration em arquivo, `db push` só com autorização | ⬜ não iniciado. Resolve a "limitação conhecida" da S4a |
-| 3. Dívidas | (a) migration revogando `TRUNCATE` de `anon` e `authenticated` nas tabelas do `public`: listar antes os grants existentes e confirmar que nenhuma função `security definer` nem o PostgREST depende deles; (b) queries de `created_at`/`source` em `audit_logs` e do padrão de `due_date` para saber se as 717 mensalidades vencidas da Escola C são seed ou reais | ⬜ não iniciado |
+| 3. Dívidas | (a) migration revogando `TRUNCATE` de `anon` e `authenticated` nas tabelas do `public`: listar antes os grants existentes e confirmar que nenhuma função `security definer` nem o PostgREST depende deles; (b) queries de `created_at`/`source` em `audit_logs` e do padrão de `due_date` para saber se as mensalidades vencidas da escola de teste são seed ou reais | ⬜ não iniciado |
 | 4. S4c etapa 2 | Executar as 7 tarefas do plano (subagentes com revisão por tarefa, se independentes); a Task 4 resolve o texto do aviso com `declined_count`. Ao final: CHANGELOG, resumo da etapa no formato dos anteriores e roteiro de QA manual com renovação em lote **só na Escola C**, incluindo financeiro, professor, master visualizando outra escola e 375 px | ⬜ não iniciado |
 
-**Arquivos soltos no working tree (não commitados; destino proposto, a confirmar):** `RUBRICA_AVALIACAO.md` (commitar em `docs/`), `docs/RESUMO_SPRINT_S1_CLAUDE_PROJECT.md` (commitar), `docs/backups/` (rollback do 2FA e snapshot de segmentos, com "NÃO commitar" no cabeçalho: `.gitignore`), `docs/designs/piloto-validacao-demanda.md` (estratégia e dados comerciais; o repositório é **público**: não commitar, `.gitignore` ou mover para o Claude Project).
+**Arquivos soltos da outra máquina (decidido em 23/11):** `docs/backups/` e `docs/designs/` estão no `.gitignore`; `RUBRICA_AVALIACAO.md` e `docs/RESUMO_SPRINT_S1_CLAUDE_PROJECT.md` não são commitados; os documentos de `docs/designs/` não entram no repositório (público).
 
 ## S4c — rematrícula
 

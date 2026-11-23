@@ -130,12 +130,12 @@ Escopo definido em `docs/PLANO_SPRINTS_NOV2026.md` e `docs/PROMPT_S1_CLAUDE_CODE
 - `supabase gen types typescript` rodado após as migrations; `as any` removido das chamadas às RPCs novas.
 
 ### Fase 3 — Novo copy da LP
-- `src/pages/Landing.tsx` reescrita conforme `docs/mockups/LP.dc.html`: copy por problema ("Quem está inadimplente?", "Essa turma dá lucro?", "Quanto sobrou este mês?"), público principal escolas do infantil ao ensino médio (técnico e idiomas como "também atende"), sem números ou depoimentos inventados (espaço reservado para depoimento real da escola piloto).
-- Mudança estrutural: a seção de Preços saiu do ar e os CTAs principais passaram de "Começar grátis" (self-signup) para "Conversar com a gente" / "Quero conhecer" (contato direto) — consistente com a fase de piloto do produto, sem venda self-service ativa ainda.
+- `src/pages/Landing.tsx` reescrita conforme `docs/mockups/LP.dc.html`: copy por problema ("Quem está inadimplente?", "Essa turma dá lucro?", "Quanto sobrou este mês?"), público principal escolas do infantil ao ensino médio (técnico e idiomas como "também atende"), sem números ou depoimentos inventados.
+- Mudança estrutural: a seção de Preços saiu do ar e os CTAs principais passaram de "Começar grátis" (self-signup) para "Conversar com a gente" / "Quero conhecer" (contato direto).
 - Mantidos componentes e tokens do projeto (`ui/`, `success`/`warning`/`danger`, `brand-accent`); nenhum hex do mockup foi copiado.
 
 ### Seed de dados de teste (Escola A)
-Escola de teste usada na validação da Fase 2 estava com 100% das 2.105 mensalidades vencidas desde março/2026 sem nenhum pagamento, e zero despesas cadastradas — não dava pra testar nada além do "tudo zerado". Aplicado direto em produção via `supabase db query --linked` (autorizado pelo usuário nesta sessão):
+Escola de teste usada na validação da Fase 2 estava com todas as mensalidades vencidas desde março/2026, sem nenhum pagamento, e zero despesas cadastradas — não dava pra testar nada além do "tudo zerado". Aplicado direto em produção via `supabase db query --linked` (autorizado pelo usuário nesta sessão):
 - Mensalidades: histórico de pagamento plausível (~90% pagas em dia, ~6% pagas com atraso e multa, ~4% seguem vencidas). Um registro foi fixado deterministicamente como exemplar do roteiro de QA (itens 1 e 2): aluno Jonas Barbosa, turma Fund. 1A, vencimento 05/09, desconto R$ 50 + multa R$ 35, pago em 02/10 (mês diferente do vencimento).
 - Despesas: 5 `recurring_expenses` (Água, Luz, Internet/Telefone, IPTU, Coordenação) com lançamentos gerados para set/out (pagos) e nov/2026 (vencido, ainda não pago) via `set_config('app.audit_source', 'generated', ...)` — mesmo mecanismo das RPCs de geração em lote. Mais 3 despesas pontuais (`source='manual'`): manutenção, marketing e material didático (essa última com rateio `per_student` na turma Fund. 1A, pra exercitar os dois métodos de rateio no relatório).
 - Validado: `audit_logs` registrou as despesas geradas com `source='generated'` e as manuais com `source='manual'`, como esperado.
