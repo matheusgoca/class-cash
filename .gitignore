@@ -38,3 +38,9 @@ supabase/.temp/
 
 # Dados reais de aluno/financeiro da escola parceira (PEC) — nunca versionar
 PEC/
+
+# Backups de rollback e snapshots de produção — nunca versionar (repositório público)
+docs/backups/
+
+# Estratégia e dados comerciais (ex.: piloto-validacao-demanda.md) — ficam fora do repositório público
+docs/designs/
