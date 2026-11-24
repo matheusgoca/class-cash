@@ -1,6 +1,6 @@
 # Status do projeto — passagem de bastão
 
-**Atualizado em:** 2026-11-19. Atualize este arquivo ao final de cada sessão: ele é o que permite continuar em outra máquina, porque a memória local do Claude não vai junto com o git.
+**Atualizado em:** 2026-11-24. Atualize este arquivo ao final de cada sessão: ele é o que permite continuar em outra máquina, porque a memória local do Claude não vai junto com o git.
 
 ## Onde estamos
 
@@ -13,7 +13,8 @@
 | S3, etapa 2: sino, central preenchida, card "Precisa da sua atenção" | ✅ mergeada (PR #9, 2026-11-19); **QA visual no navegador pendente**; migration `20261119120000` (`renewed_count`) | ✅ |
 | S4a: e-mail por evento (Resend, fila, job horário) | ✅ mergeada (PR #11); **envio desligado**; falta conta no Resend, segredo no Vault e domínio (Task 7) | ✅ migrations `20261119130000`–`130300` aplicadas; Edge Function `send-notification-emails` implantada; job horário ativo (sem o segredo do Vault a função responde 401: inofensivo) |
 | S4c, etapa 1 (banco): rematrícula (`renewal_decisions`, `set_renewal_decision`, `renew_contracts`, `declined_count`) | ✅ mergeada (PR #13); matrizes contra o schema aplicado: renovação 68/68 e notificações 45/45 (2026-11-19) | ✅ 5 migrations aplicadas (`20261119135900` e `20261119140000`–`140300`); `types.ts` regenerado; `renewal_decisions` vazia (a interface é a Etapa 2) |
-| S4c, etapa 2 (interface): página `/rematricula`, lote com prévia, texto do aviso | 📝 **plano pronto** (`docs/superpowers/plans/2026-11-19-s4c-etapa2-interface.md`, 7 tarefas); **não executada** | — (nenhuma tarefa grava em produção) |
+| S4c, etapa 2 (interface): página `/rematricula`, lote com prévia, texto do aviso | 🟡 **PR #17 aberto** (branch `feature/s4c-etapa2-interface`, 224 testes, build verde; não mergear antes de fechar o QA); **QA no navegador feito em 24/11** na escola de teste (resultados em `QA_CHECKLIST.md`; dados do QA removidos, contagens de volta a 87/965/197/0). Transbordo a 375 px (página e prévia do lote) **corrigido** com `min-w-0` no layout e no diálogo e reverificado pelo usuário em claro e escuro (24/11). Financeiro testado pelo usuário (OK). Não testados na UI: aviso no sino, erro parcial do lote e renovar como master em outra escola (lacuna de matriz abaixo); professor não tem acesso ao produto; `supabase functions deploy send-notification-emails` pendente (texto do e-mail) | — (nada grava em produção por conta própria) |
+| Dívida: revogar `TRUNCATE` de `anon`/`authenticated` | 🟡 **PR #18 aberto** (branch `chore/revoke-truncate`); migration `20261123130000` **não aplicada**: `db push` e merge só com aval do usuário, depois do fim do QA da S4c etapa 2 (dry-run já mostrado, só essa migration) | ⬜ não aplicada |
 | LP: blur no saldo do hero, sem selo do topo, sem depoimento | ✅ mergeada na `main` (commit `606257f`, branch `fix/lp-ajustes`) | deploy após o push da `main` |
 | S4b: resumo diário por e-mail | ⬜ não iniciada (depende da S4a funcionando) | — |
 
@@ -36,6 +37,7 @@ Documentos de referência:
    - Criar conta no Resend.
    - Registrar o domínio de envio (DNS) e, depois de verificado, trocar `EMAIL_FROM`.
    - Secrets da Edge Function: `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_SENDING_ENABLED` (interruptor), `EMAIL_ALLOWLIST` (opcional, para a fase de teste) e `APP_URL` (opcional; padrão `https://class-cash-tan.vercel.app`).
+   - **Obrigatório antes do primeiro envio:** `npx supabase@2.117.0 functions deploy send-notification-emails`. A função implantada ainda tem o texto antigo do aviso de rematrícula (botão "Ver contratos" e sem "não vão renovar"); o texto novo da S4c etapa 2 vive em `supabase/functions/_shared/notificationText.ts` e só chega ao e-mail com esse deploy (escrita em produção: só com autorização).
    - Gravar no Vault o segredo `service_role_key` com o **JWT legado service_role** (Supabase → Settings → API), **idêntico** ao `SUPABASE_SERVICE_ROLE_KEY` que a função recebe. A função compara o Bearer com essa variável; um valor diferente (por exemplo uma chave nova `sb_secret_…`) faz a função responder 401 em toda chamada.
    - Situação atual: a função e o job **já estão em produção**; falta o segredo do Vault (`service_role_key`) e os secrets da função. Ordem que resta: criar o segredo no Vault (a partir da próxima hora cheia o `net._http_response` deve mostrar a função respondendo `skipped: disabled` em vez de 401), definir `RESEND_API_KEY` e `EMAIL_FROM`, e só então ligar o interruptor (testar antes com `EMAIL_ALLOWLIST`).
    Consultas de monitoramento depois do lançamento:
@@ -56,14 +58,14 @@ Regras gerais: **não ligar o envio de e-mail** (sem data; o checklist de go-liv
 |---|---|---|
 | 1. Git | Mergear o plano da etapa 2 e `fix/lp-ajustes` na `main`; listar o conteúdo dos arquivos soltos e propor destino (não decidir sozinho) | **Merges feitos.** Arquivos soltos **aguardando decisão** (abaixo) |
 | 2. Preferências de notificação | O e-mail só liga se "No sistema" estiver ligado no mesmo evento: front desabilita o switch de e-mail e o desliga ao desligar o sistema (texto "o e-mail acompanha o aviso no sistema"); `save_notification_preferences` rejeita `email=true` com `in_app=false` (errcode mapeado em `friendlyError.ts`); caso novo na matriz SQL (`BEGIN…ROLLBACK`); Vitest da regra no catálogo; o gerador não muda; migration em arquivo, `db push` só com autorização | ⬜ não iniciado. Resolve a "limitação conhecida" da S4a |
-| 3. Dívidas | (a) migration revogando `TRUNCATE` de `anon` e `authenticated` nas tabelas do `public`: listar antes os grants existentes e confirmar que nenhuma função `security definer` nem o PostgREST depende deles; (b) queries de `created_at`/`source` em `audit_logs` e do padrão de `due_date` para saber se as mensalidades vencidas da escola de teste são seed ou reais | ⬜ não iniciado |
-| 4. S4c etapa 2 | Executar as 7 tarefas do plano (subagentes com revisão por tarefa, se independentes); a Task 4 resolve o texto do aviso com `declined_count`. Ao final: CHANGELOG, resumo da etapa no formato dos anteriores e roteiro de QA manual com renovação em lote **só na Escola C**, incluindo financeiro, professor, master visualizando outra escola e 375 px | ⬜ não iniciado |
+| 3. Dívidas | (a) migration revogando `TRUNCATE` de `anon` e `authenticated` nas tabelas do `public`: listar antes os grants existentes e confirmar que nenhuma função `security definer` nem o PostgREST depende deles; (b) queries de `created_at`/`source` em `audit_logs` e do padrão de `due_date` para saber se as mensalidades vencidas da escola de teste são seed ou reais | 🟡 (a) em PR #18, não aplicada; (b) não iniciado |
+| 4. S4c etapa 2 | Executar as 7 tarefas do plano (subagentes com revisão por tarefa, se independentes); a Task 4 resolve o texto do aviso com `declined_count`. Ao final: CHANGELOG, resumo da etapa no formato dos anteriores e roteiro de QA manual com renovação em lote **só na Escola C**, incluindo financeiro, professor, master visualizando outra escola e 375 px | 🟡 código pronto (2026-11-24); próximo passo: avisar o usuário, QA no navegador na escola de teste (com autorização), depois push, PR e `functions deploy send-notification-emails` |
 
 **Arquivos soltos da outra máquina (decidido em 23/11):** `docs/backups/` e `docs/designs/` estão no `.gitignore`; `RUBRICA_AVALIACAO.md` e `docs/RESUMO_SPRINT_S1_CLAUDE_PROJECT.md` não são commitados; os documentos de `docs/designs/` não entram no repositório (público).
 
 ## S4c — rematrícula
 
-**Próximo passo: Etapa 2 (interface)**; a etapa 1 já está aplicada em produção e os tipos regenerados, e o plano da Etapa 2 está escrito (falta executá-lo). Spec em `docs/superpowers/`. Notas para a Etapa 2 (contrato do cliente com `renew_contracts`, `declined_count` no texto da notificação): seção "Notas para a Etapa 2" da spec.
+**Próximo passo: fechar a Etapa 2 (interface)**; a etapa 1 já está aplicada em produção e os tipos regenerados, e a etapa 2 está feita no código (branch `feature/s4c-etapa2-interface`); faltam o QA no navegador e o `functions deploy`. Spec em `docs/superpowers/`. Notas para a Etapa 2 (contrato do cliente com `renew_contracts`, `declined_count` no texto da notificação): seção "Notas para a Etapa 2" da spec.
 
 Bug pré-existente achado na revisão final: `audit_trigger_fn` quebrava (23514) a primeira escrita manual numa conexão que antes tinha usado `set_config('app.audit_source', ..., true)`, porque o Postgres deixa `''` na configuração. Vale para TODAS as tabelas auditadas (inclui a falha latente depois de `insert_generated_tuitions` e dos RPCs de importação). Corrigido na migration `20261119135900_audit_source_nullif.sql` (um `nullif`).
 
@@ -74,6 +76,8 @@ Endurecimento pendente (achados diferidos da etapa 1):
 - Possível deadlock raro com dois lotes em ordem inversa (ordenar itens por `source_contract_id`).
 - `monthly_amount` sem teto.
 - A matriz não cobre: master admin em outra escola, `p_items` não-array, `class_id` nulo, borda da tolerância de R$ 0,01 e arredondamento com desconto.
+- **Lacuna: master renovando em escola alheia.** A `renewal_matrix.sql` não tem caso com `p_school_id` de uma escola que não é do master (o master só cria as escolas X/Y da própria matriz), e o QA da etapa 2 não testou isso na UI (sem autorização de escrita fora da escola de teste). Hoje nada prova que `renew_contracts` e `set_renewal_decision` aceitam o master na escola visualizada nem que não vazam para a escola do perfil dele. Próximo passo: caso novo na matriz, em `BEGIN … ROLLBACK`, com uma escola criada na própria transação e de outro dono.
+- **Dívida (não fazer agora): papel `teacher`.** Professor não tem acesso ao produto, e nenhum usuário tem esse papel em produção (`user_roles`, 24/11). Numa limpeza futura, avaliar remover o valor `teacher` do enum `app_role` (exige recriar o enum ou trocar o tipo da coluna; conferir antes funções, policies e o `types.ts` que o referenciam) e os ramos de rota e menu de professor: `allowedRoles` em `src/App.tsx`, `roles` em `src/components/layout/AppSidebar.tsx` e `AppRole`/`isTeacher` em `src/hooks/use-role.ts`.
 
 Achado sobre `enrollments`: a S4c não a toca (só a importação a escreve). Promover aluno de turma no lote não a atualiza, e a contagem por turma do Dashboard usa `enrollments`.
 

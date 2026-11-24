@@ -100,8 +100,8 @@ describe('Central de notificações', () => {
     await waitFor(() => expect(mocks.navigate).toHaveBeenCalledWith('/mensalidades?status=overdue'));
     expect(mocks.mark).toHaveBeenCalledWith(['a']);
     mocks.mark.mockClear();
-    await userEvent.click(screen.getByRole('button', { name: 'Ver contratos' }));
-    await waitFor(() => expect(mocks.navigate).toHaveBeenCalledWith('/contratos'));
+    await userEvent.click(screen.getByRole('button', { name: 'Abrir rematrícula' }));
+    await waitFor(() => expect(mocks.navigate).toHaveBeenCalledWith('/rematricula'));
     expect(mocks.mark).not.toHaveBeenCalled();
   });
 

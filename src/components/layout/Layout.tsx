@@ -14,6 +14,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/professores": "Gestão de Professores",
   "/turmas": "Gestão de Turmas",
   "/contratos": "Gestão de Contratos",
+  "/rematricula": "Rematrícula",
   "/mensalidades": "Mensalidades",
   "/despesas": "Despesas",
   "/servicos": "Serviços",
@@ -41,7 +42,8 @@ export function Layout({ children }: LayoutProps) {
       <div className="flex min-h-screen w-full">
         <AppSidebar />
 
-        <div className="flex flex-1 flex-col">
+        {/* min-w-0: sem isso, tabelas largas alargam a coluna inteira em telas estreitas (375 px) em vez de rolar no container */}
+        <div className="flex min-w-0 flex-1 flex-col">
           <MasterBanner />
           <header className="flex h-14 items-center gap-4 border-b bg-background px-4 lg:px-6">
             <SidebarTrigger className="md:hidden" />

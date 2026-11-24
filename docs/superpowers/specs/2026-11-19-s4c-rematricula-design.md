@@ -116,7 +116,7 @@ Nova migration (só redefine a função, com `create or replace`, preservando gr
 
 ### Página `/rematricula`
 
-Rota protegida com `allowedRoles={['admin', 'financial']}` (o owner conta como admin); item "Rematrícula" no grupo *Gestão* da barra lateral, depois de Contratos, com os mesmos papéis.
+Rota protegida com `allowedRoles={['admin', 'financial']}` (o owner conta como admin); item "Rematrícula" no grupo *Financeiro* da barra lateral, logo depois de Contratos (que mora nesse grupo), com os mesmos papéis.
 
 - **Filtros:** janela (30 / 60 / 90 / 180 dias, padrão 90), turma, estado, busca por aluno.
 - **Resumo:** na janela, renovados, vão renovar, contatados, não vão renovar, sem resposta.

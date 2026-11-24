@@ -10,6 +10,7 @@ import { SchoolProvider } from "./contexts/SchoolContext";
 import { MfaGateProvider } from "./contexts/MfaGateContext";
 import { ThemeProvider } from "./contexts/ThemeProvider";
 import ProtectedRoute from "./components/ProtectedRoute";
+import Renewal from "./pages/Renewal";
 import { Layout } from "@/components/layout/Layout";
 import { useAuth } from "./contexts/AuthContext";
 import Index from "./pages/Index";
@@ -117,6 +118,16 @@ const App = () => (
                     <ProtectedRoute requireSchool allowedRoles={['admin', 'financial']}>
                       <Layout>
                         <Contracts />
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/rematricula"
+                  element={
+                    <ProtectedRoute requireSchool allowedRoles={['admin', 'financial']}>
+                      <Layout>
+                        <Renewal />
                       </Layout>
                     </ProtectedRoute>
                   }

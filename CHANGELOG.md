@@ -1,5 +1,24 @@
 # Application Sync Changelog
 
+## Sprint S4c — Rematrícula, etapa 2 (interface) (2026-11-24)
+
+**Estado: pronta no código (branch `feature/s4c-etapa2-interface`), sem push nem PR.** Nada foi gravado em produção por esta etapa. Suíte: 221 testes passando (eram 164 antes da etapa); `npm run build` verde.
+
+Spec: `docs/superpowers/specs/2026-11-19-s4c-rematricula-design.md`. Plano: `docs/superpowers/plans/2026-11-19-s4c-etapa2-interface.md`.
+
+- Página `/rematricula` (admin, financeiro e owner; item "Rematrícula" no grupo Financeiro, logo depois de Contratos): lista da janela de rematrícula, filtros, resumo por estado e decisão da família (Contatado / vai renovar / não vai renovar, este com motivo obrigatório e observação de até 500 caracteres), via RPC `set_renewal_decision`.
+- Renovação em lote: reajuste em %, taxa de rematrícula opcional, mapa de turmas (turma de origem para a nova), prévia editável (valor por linha, datas e mensalidades), aviso de capacidade da turma (conta contratos ativos por turma) e envio em lotes de 100 via RPC `renew_contracts`, com resultado final (renovados, mensalidades, pulados por "já renovado") e tratamento de falha parcial ("Renovação interrompida", com contagens) e trava de reentrada.
+- Regra de mensalidades extraída para `tuitionRows.ts` (`buildTuitionRows`, uma única vez) e `nextTerm` compartilhado com o "Renovar" individual do formulário de contratos.
+- Texto do aviso de rematrícula: botão "Abrir rematrícula" e contagem dos que não vão renovar (`declined_count`), em `supabase/functions/_shared/notificationText.ts`.
+- Painel de Contratos vira resumo (quantos já renovados, quantos faltam) com link para `/rematricula`; o "Renovar" individual fica no diálogo de edição do contrato (menu de ações da linha → Editar → Renovar).
+- Menu: a spec foi alinhada (grupo Financeiro, não Gestão).
+
+**Não feito / pendente**
+- QA no navegador não executado (roteiro em `QA_CHECKLIST.md`; a renovação em lote renova contratos de verdade, só na escola de teste e com autorização).
+- A mudança de texto do e-mail vive em `supabase/functions/_shared/notificationText.ts` e só chega aos e-mails depois de `supabase functions deploy send-notification-emails` (não feito; o envio de e-mail está desligado de qualquer forma).
+- Limites conhecidos: 1000 linhas por consulta (limite do Supabase), documentado em `renewalData.ts`.
+- `enrollments` continua intocada: promover aluno de turma no lote não a atualiza.
+
 ## Sprint S4c — Rematrícula, etapa 1 (banco) (2026-11-19)
 
 **Estado: aplicado em produção em 2026-11-19.** As 5 migrations `20261119135900` e `20261119140000` a `20261119140300` foram aplicadas (`db push`, depois de `--dry-run`) e `src/integrations/supabase/types.ts` foi regenerado (só acréscimos: `renewal_decisions` e os 2 RPCs). Verificado em produção: tabela criada e vazia, 2 RPCs com `anon` sem execute e `authenticated` com execute, as 2 policies, função de auditoria corrigida, gerador novo e job `generate-daily-notifications` ativo. As matrizes passaram contra o schema aplicado (`renewal_matrix.sql` 68/68 e `notifications_matrix.sql` 45/45, em `BEGIN … ROLLBACK`, sem persistir nada) e o teste que antes dava `23514` na auditoria (`source` vazio herdado da conexão) agora roda sem erro. Nenhuma tela mudou nesta etapa: a suíte segue com 164 testes. Não há decisões gravadas (0 linhas em `renewal_decisions`), então `declined_count` fica 0 até a interface da Etapa 2.

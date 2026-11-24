@@ -9,7 +9,8 @@ import { ContractForm } from "@/components/contracts/ContractForm";
 import { ContractTable } from "@/components/contracts/ContractTable";
 import { useToast } from "@/hooks/use-toast";
 import { getFriendlyErrorMessage } from "@/lib/friendlyError";
-import { format, parseISO } from "date-fns";
+import { parseISO } from "date-fns";
+import { Link } from "react-router-dom";
 
 // Janela de "pendente de rematrícula": contratos ativos vencendo dentro
 // desse número de dias que ainda não têm um contrato sucessor.
@@ -164,7 +165,7 @@ const Contracts = () => {
   // renewed_from_id, não uma suposição por data.
   const renewalCutoff = new Date();
   renewalCutoff.setDate(renewalCutoff.getDate() + RENEWAL_WINDOW_DAYS);
-  const renewedFromIds = new Set(contracts.map(c => c.renewed_from_id).filter(Boolean));
+  const renewedFromIds = new Set(contracts.filter(c => c.status !== "cancelled").map(c => c.renewed_from_id).filter(Boolean));
   const inRenewalWindow = contracts.filter(
     c => c.status === "active" && parseISO(c.end_date) <= renewalCutoff
   );
@@ -247,26 +248,15 @@ const Contracts = () => {
               </span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
-            {pendingRenewal.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Todos os contratos que vencem nesse período já foram renovados.</p>
-            ) : (
-              pendingRenewal
-                .sort((a, b) => a.end_date.localeCompare(b.end_date))
-                .map((c) => (
-                  <div key={c.id} className="flex items-center justify-between gap-3 rounded-lg border p-3 flex-wrap">
-                    <div>
-                      <p className="text-sm font-medium">{c.students?.full_name || "N/A"}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {c.classes?.name || "Sem turma"} · vence em {format(parseISO(c.end_date), "dd/MM/yyyy")}
-                      </p>
-                    </div>
-                    <Button size="sm" variant="outline" onClick={() => handleEdit(c)}>
-                      Renovar
-                    </Button>
-                  </div>
-                ))
-            )}
+          <CardContent className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">
+              {pendingRenewal.length === 0
+                ? "Todos os contratos que vencem nesse período já foram renovados."
+                : `${pendingRenewal.length} contrato${pendingRenewal.length !== 1 ? "s" : ""} ainda sem renovação.`}
+            </p>
+            <Button asChild>
+              <Link to="/rematricula">Abrir rematrícula</Link>
+            </Button>
           </CardContent>
         </Card>
       )}

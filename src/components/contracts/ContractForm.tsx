@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { generateTuitions } from "@/lib/generateTuitions";
 import { getFriendlyErrorMessage } from "@/lib/friendlyError";
 import { toDateStr } from "@/lib/dateUtils";
+import { nextTerm } from "@/lib/renewal";
 
 const contractSchema = z.object({
   student_id:     z.string().min(1, "Aluno é obrigatório"),
@@ -271,11 +272,7 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
       // Encadeia a partir do término real do contrato atual — não de "hoje" —
       // pra rematrícula processada com antecedência (ex: em novembro para um
       // contrato que só termina em fevereiro) não abrir um contrato torto.
-      const [ey, em, ed] = contract.end_date.split('-').map(Number);
-      const oldEnd  = new Date(ey, em - 1, ed);
-      const newStart = new Date(oldEnd);
-      newStart.setDate(newStart.getDate() + 1);
-      const newEnd = new Date(newStart.getFullYear(), newStart.getMonth() + 12, 0);
+      const { start: newStartStr, end: newEndStr } = nextTerm(contract.end_date);
 
       // Usa os valores atuais do formulário (não os originais do contrato) —
       // assim reajuste de valor e troca de turma na tela antes de clicar em
@@ -286,8 +283,8 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
         student_id:      contract.student_id,
         class_id:        formValues.class_id || null,
         period:          formValues.period,
-        start_date:      toDateStr(newStart),
-        end_date:        toDateStr(newEnd),
+        start_date:      newStartStr,
+        end_date:        newEndStr,
         monthly_amount:  formValues.monthly_amount,
         discount:        formValues.discount,
         due_day:         formValues.due_day,
@@ -316,7 +313,7 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
             service_id:  service.id,
             description: service.name,
             amount:      service.price,
-            due_date:    toDateStr(newStart),
+            due_date:    newStartStr,
             status:      'pending',
           });
           feeMessage = feeError

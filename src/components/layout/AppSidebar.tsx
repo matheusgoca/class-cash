@@ -23,6 +23,7 @@ import {
   KeyRound,
   Bell,
   UserCircle,
+  RefreshCw,
 } from "lucide-react";
 import { showNotificationsItem } from "@/lib/accountMenu";
 import { useAuth } from "@/contexts/AuthContext";
@@ -85,6 +86,7 @@ const menuItems: MenuItem[] = [
     roles: ['admin', 'financial'],
     items: [
       { title: "Contratos",   url: "/contratos",   icon: FileText,  roles: ['admin', 'financial'] },
+      { title: "Rematrícula", url: "/rematricula", icon: RefreshCw, roles: ['admin', 'financial'] },
       { title: "Mensalidades",url: "/mensalidades", icon: Receipt,   roles: ['admin', 'financial'] },
       { title: "Despesas",    url: "/despesas",    icon: Wallet,    roles: ['admin', 'financial'] },
       { title: "Serviços",    url: "/servicos",    icon: Sparkles,  roles: ['admin', 'financial'] },
