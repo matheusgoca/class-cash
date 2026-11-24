@@ -90,7 +90,8 @@ export function BatchRenewalDialog({ open, onOpenChange, sources, classes, activ
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o && stage !== 'running') close(); }}>
-      <DialogContent className="max-h-[85vh] max-w-4xl overflow-y-auto">
+      {/* [&>*]:min-w-0: o DialogContent é um grid; sem isso a tabela da prévia alarga o diálogo a 375 px em vez de rolar */}
+      <DialogContent className="max-h-[85vh] max-w-4xl overflow-y-auto [&>*]:min-w-0">
         <DialogHeader>
           <DialogTitle>Renovar em lote</DialogTitle>
           <DialogDescription>

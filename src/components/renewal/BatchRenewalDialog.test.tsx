@@ -34,6 +34,12 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe('BatchRenewalDialog', () => {
+  it('375 px: os filhos do conteúdo (grid) podem encolher, para a tabela da prévia rolar dentro do diálogo', async () => {
+    render(<BatchRenewalDialog {...props()} />);
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog.className).toContain('[&>*]:min-w-0');
+  });
+
   it('configuração: reajuste, taxa e uma linha de mapa por turma de origem presente', async () => {
     render(<BatchRenewalDialog {...props()} />);
     expect(await screen.findByLabelText('Reajuste (%)')).toBeTruthy();
