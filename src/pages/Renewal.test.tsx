@@ -6,7 +6,8 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import type { RenewalData } from '@/lib/renewalData';
 
-const mocks = vi.hoisted(() => ({ fetch: vi.fn(), setDecision: vi.fn() }));
+const mocks = vi.hoisted(() => ({ fetch: vi.fn(), setDecision: vi.fn(), toast: vi.fn() }));
+vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: mocks.toast }) }));
 vi.mock('@/lib/renewalData', () => ({ fetchRenewalData: mocks.fetch }));
 vi.mock('@/lib/renewalApi', async () => ({
   ...(await vi.importActual<typeof import('@/lib/renewalApi')>('@/lib/renewalApi')),
@@ -16,6 +17,7 @@ vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: vi.fn() } })
 vi.mock('@/contexts/SchoolContext', () => ({ useSchool: () => ({ schoolId: 's1', school: { id: 's1' } }) }));
 
 import Renewal from './Renewal';
+import { STATE_LABELS, REASON_LABELS } from '@/lib/renewal';
 
 const contract = (id: string, name: string, o: Record<string, unknown> = {}) => ({
   id, student_id: `st-${id}`, student_name: name, class_id: 'c1', class_name: '5º A', start_date: '2030-03-01', end_date: '2031-02-28',
@@ -56,10 +58,10 @@ describe('Página de rematrícula', () => {
     expect(screen.getByText('Davi')).toBeTruthy();
     expect(mocks.fetch).toHaveBeenCalledWith('s1', 90);
     // resumo: 1 sem resposta (Ana), 1 vai renovar, 1 não vai, 1 renovado
-    expect(screen.getByTestId('summary-none').textContent).toContain('1');
-    expect(screen.getByTestId('summary-will_renew').textContent).toContain('1');
-    expect(screen.getByTestId('summary-will_not_renew').textContent).toContain('1');
-    expect(screen.getByTestId('summary-renewed').textContent).toContain('1');
+    expect(screen.getByTestId('summary-none').textContent).toBe('1'+STATE_LABELS.none);
+    expect(screen.getByTestId('summary-will_renew').textContent).toBe('1'+STATE_LABELS.will_renew);
+    expect(screen.getByTestId('summary-will_not_renew').textContent).toBe('1'+STATE_LABELS.will_not_renew);
+    expect(screen.getByTestId('summary-renewed').textContent).toBe('1'+STATE_LABELS.renewed);
   });
 
   it('"Renovado" é um selo de texto e a linha não é selecionável; "não vai renovar" também não', async () => {
@@ -125,5 +127,63 @@ describe('Página de rematrícula', () => {
     expect(within(dialog).getByRole('combobox', { name: 'Motivo' })).toBeTruthy();
     expect((within(dialog).getByRole('button', { name: 'Salvar' }) as HTMLButtonElement).disabled).toBe(true);
     expect(mocks.setDecision).not.toHaveBeenCalled();
+  });
+
+  const openDecline = async () => {
+    renderPage();
+    await screen.findByText('Ana');
+    const row = screen.getByText('Ana').closest('tr') as HTMLElement;
+    await userEvent.click(within(row).getByRole('combobox', { name: /Estado de Ana/ }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Não vai renovar' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Motivo' }));
+    await userEvent.click(await screen.findByRole('option', { name: REASON_LABELS.price }));
+    await userEvent.type(within(dialog).getByLabelText('Observação (opcional)'), 'Mudou de bairro');
+    return dialog;
+  };
+
+  it('confirmar "Não vai renovar" envia motivo e observação e recarrega', async () => {
+    const dialog = await openDecline();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Salvar' }));
+    await waitFor(() => expect(mocks.setDecision).toHaveBeenCalledWith('a', 'will_not_renew', 'price', 'Mudou de bairro'));
+    await waitFor(() => expect(mocks.fetch).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('falha ao salvar: mostra o erro amigável e o diálogo continua aberto', async () => {
+    mocks.setDecision.mockRejectedValueOnce(new Error('Você não tem permissão para isso.'));
+    const dialog = await openDecline();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Salvar' }));
+    await waitFor(() => expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({
+      description: 'Você não tem permissão para isso.', variant: 'destructive',
+    })));
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('voltar para "Sem resposta" chama o RPC com "none"', async () => {
+    renderPage();
+    await screen.findByText('Bruno');
+    const row = screen.getByText('Bruno').closest('tr') as HTMLElement;
+    await userEvent.click(within(row).getByRole('combobox', { name: /Estado de Bruno/ }));
+    await userEvent.click(await screen.findByRole('option', { name: STATE_LABELS.none }));
+    await waitFor(() => expect(mocks.setDecision).toHaveBeenCalledWith('b', 'none'));
+  });
+
+  it('ignora resposta antiga: a última chamada iniciada vence', async () => {
+    let resolveOld!: (d: RenewalData) => void;
+    mocks.fetch.mockReset();
+    mocks.fetch.mockImplementationOnce(() => new Promise<RenewalData>((r) => { resolveOld = r; }));
+    mocks.fetch.mockResolvedValueOnce(data({ contracts: [contract('z', 'Zeca')] as never, renewedIds: new Set(), decisions: {} }));
+    renderPage();
+    await waitFor(() => expect(mocks.fetch).toHaveBeenCalledTimes(1));
+    // troca a janela: dispara a segunda chamada, que resolve antes da primeira
+    await userEvent.click(screen.getByRole('combobox', { name: 'Janela' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Próximos 30 dias' }));
+    expect(await screen.findByText('Zeca')).toBeTruthy();
+    resolveOld(data());
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.getByText('Zeca')).toBeTruthy();
+    expect(screen.queryByText('Ana')).toBeNull();
   });
 });

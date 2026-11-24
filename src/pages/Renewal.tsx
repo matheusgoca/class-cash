@@ -38,13 +38,16 @@ const Renewal = () => {
   const [saving, setSaving] = useState(false);
   const [batchOpen, setBatchOpen] = useState(false);
   const preselected = useRef(false);
+  const requestId = useRef(0);
 
   const load = useCallback(async () => {
     if (!schoolId) return;
+    const myId = ++requestId.current;
     setLoading(true);
     setError(false);
     try {
       const d = await fetchRenewalData(schoolId, windowDays);
+      if (myId !== requestId.current) return; // resposta de uma chamada superada
       setData(d);
       setSelected((prev) => {
         const ok = (id: string) => {
@@ -58,9 +61,9 @@ const Renewal = () => {
         return new Set([...prev].filter(ok)); // mantém a seleção, poda quem deixou de poder ser renovado
       });
     } catch {
-      setError(true);
+      if (myId === requestId.current) setError(true);
     } finally {
-      setLoading(false);
+      if (myId === requestId.current) setLoading(false);
     }
   }, [schoolId, windowDays]);
 
