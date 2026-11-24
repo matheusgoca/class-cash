@@ -34,7 +34,7 @@ describe('buildNotificationEmail', () => {
       [{ event: 'tuition_due', offset_days: 3, item_count: 8 }, '8 mensalidades vencem em 3 dias', '/mensalidades?status=pending'],
       [{ event: 'renegotiation_installment', offset_days: 1, item_count: 3 }, '3 parcelas de renegociação vencem amanhã', '/mensalidades?status=pending'],
       [{ event: 'expense_due', offset_days: 2, item_count: 4, total_amount: 800 }, '4 despesas vencem em 2 dias', '/despesas'],
-      [{ event: 'reenrollment', offset_days: 45, item_count: 18, total_amount: null, details: { renewed_count: 6 } }, '18 contratos terminam em 45 dias', '/contratos'],
+      [{ event: 'reenrollment', offset_days: 45, item_count: 18, total_amount: null, details: { renewed_count: 6 } }, '18 contratos terminam em 45 dias', '/rematricula'],
     ];
     for (const [o, subject, path] of cases) {
       const m = buildNotificationEmail(mk(o), ctx);

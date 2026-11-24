@@ -52,13 +52,17 @@ describe('describeNotification', () => {
     expect(describeNotification(mk({ event: 'expense_due', item_count: 1, offset_days: 0, total_amount: 10, details: {} })).title)
       .toBe('1 despesa vence hoje');
   });
-  it('reenrollment com rematriculados e pendentes', () => {
+  it('reenrollment com rematriculados, recusados e pendentes', () => {
     const v = describeNotification(mk({ event: 'reenrollment', item_count: 18, offset_days: 45, total_amount: null, details: { renewed_count: 6 } }));
     expect(v.title).toBe('18 contratos terminam em 45 dias');
     expect(v.subtitle).toBe('6 já rematriculados · 12 pendentes');
     expect(v.category).toBe('rematricula');
-    expect(v.actionLabel).toBe('Ver contratos');
-    expect(v.actionPath).toBe('/contratos');
+    expect(v.actionLabel).toBe('Abrir rematrícula');
+    expect(v.actionPath).toBe('/rematricula');
+    const withDeclined = describeNotification(mk({ event: 'reenrollment', item_count: 18, offset_days: 45, total_amount: null, details: { renewed_count: 6, declined_count: 3 } }));
+    expect(withDeclined.subtitle).toBe('6 já rematriculados · 3 não vão renovar · 9 pendentes');
+    const one = describeNotification(mk({ event: 'reenrollment', item_count: 3, offset_days: 45, total_amount: null, details: { renewed_count: 1, declined_count: 1 } }));
+    expect(one.subtitle).toBe('1 já rematriculado · 1 não vai renovar · 1 pendente');
     expect(describeNotification(mk({ event: 'reenrollment', item_count: 1, offset_days: 1, details: { renewed_count: 0 } })).title)
       .toBe('1 contrato termina amanhã');
   });

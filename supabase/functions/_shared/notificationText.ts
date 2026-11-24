@@ -99,11 +99,16 @@ export function describeNotification(n: NotificationFacts): NotificationView {
     }
     case 'reenrollment': {
       const renewed = Number(n.details.renewed_count ?? 0);
+      const declined = Number(n.details.declined_count ?? 0);
+      const pending = c - renewed - declined;
+      const parts = [`${renewed} ${plural(renewed, 'já rematriculado', 'já rematriculados')}`];
+      if (declined > 0) parts.push(`${declined} ${plural(declined, 'não vai renovar', 'não vão renovar')}`);
+      parts.push(`${pending} ${plural(pending, 'pendente', 'pendentes')}`);
       return {
         title: `${c} ${plural(c, 'contrato', 'contratos')} ${plural(c, 'termina', 'terminam')} ${when(n.offset_days)}`,
-        subtitle: `${renewed} ${plural(renewed, 'já rematriculado', 'já rematriculados')} · ${c - renewed} ${plural(c - renewed, 'pendente', 'pendentes')}`,
+        subtitle: parts.join(' · '),
         category: 'rematricula', categoryLabel: CATEGORY_LABELS.rematricula,
-        actionLabel: 'Ver contratos', actionPath: '/contratos',
+        actionLabel: 'Abrir rematrícula', actionPath: '/rematricula',
       };
     }
   }
