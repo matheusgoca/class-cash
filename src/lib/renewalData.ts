@@ -18,6 +18,10 @@ export interface RenewalData {
 const one = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? v[0] ?? null : v);
 
 /** Contratos ATIVOS que terminam até hoje + windowDays (inclui os já vencidos e ainda ativos). */
+// Limite conhecido: o Supabase devolve no máximo 1000 linhas por consulta e aqui não há paginação.
+// Se a escola passar disso, a consulta de contratos ativos (capacidade por turma) e a de sucessores
+// podem vir truncadas: o aviso de capacidade fica subcontado e um contrato já renovado pode aparecer
+// como pendente. A rede de segurança é o servidor, que ignora o contrato com ALREADY_RENEWED.
 export async function fetchRenewalData(schoolId: string, windowDays: number, today: Date = new Date()): Promise<RenewalData> {
   const cutoff = toDateStr(new Date(today.getFullYear(), today.getMonth(), today.getDate() + windowDays));
 
@@ -32,7 +36,7 @@ export async function fetchRenewalData(schoolId: string, windowDays: number, tod
     supabase.from('contracts').select('renewed_from_id').eq('school_id', schoolId).not('renewed_from_id', 'is', null).neq('status', 'cancelled'),
     supabase.from('renewal_decisions').select('contract_id, status, reason, note').eq('school_id', schoolId),
     supabase.from('classes').select('id, name, max_capacity').eq('school_id', schoolId).order('name'),
-    (supabase as any).from('school_services').select('id, name, price').eq('school_id', schoolId).eq('active', true).eq('type', 'avulso').order('name'),
+    supabase.from('school_services').select('id, name, price').eq('school_id', schoolId).eq('active', true).eq('type', 'avulso').order('name'),
     supabase.from('contracts').select('class_id').eq('school_id', schoolId).eq('status', 'active'),
   ]);
   for (const r of [contractsRes, successorsRes, decisionsRes, classesRes, servicesRes, activeRes]) {
@@ -69,6 +73,6 @@ export async function fetchRenewalData(schoolId: string, windowDays: number, tod
     decisions,
     classes: (classesRes.data ?? []).map((c: any) => ({ id: c.id, name: c.name, max_capacity: c.max_capacity ?? null })),
     activeByClass,
-    services: (servicesRes.data ?? []).map((s: any) => ({ id: s.id, name: s.name, price: Number(s.price) })),
+    services: (servicesRes.data ?? []).map((s) => ({ id: s.id, name: s.name, price: Number(s.price) })),
   };
 }
