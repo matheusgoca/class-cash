@@ -23,6 +23,8 @@ Tudo depende do navegador e da escola de teste. A renovação em lote renova con
 - [ ] O aviso de rematrícula (sino/central) leva à página
 - [ ] Painel de Contratos mostra o resumo e o botão "Abrir rematrícula" leva à página
 - [ ] Escrita manual logo depois de um lote não falha (`source` da auditoria)
+- [ ] Renovar um contrato já vencido e ainda ativo: a prévia mostra o novo período começando no passado e mensalidades já vencidas (overdue) — confirmar que é o esperado
+- [ ] Filtrar por turma com contratos selecionados fora do filtro: a prévia do lote lista todos os selecionados, inclusive os escondidos pelo filtro
 
 ## Roteiro de QA — S4c, rematrícula (etapa 1: banco) (2026-11-19)
 

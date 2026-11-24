@@ -1,6 +1,6 @@
 # Status do projeto — passagem de bastão
 
-**Atualizado em:** 2026-11-19. Atualize este arquivo ao final de cada sessão: ele é o que permite continuar em outra máquina, porque a memória local do Claude não vai junto com o git.
+**Atualizado em:** 2026-11-24. Atualize este arquivo ao final de cada sessão: ele é o que permite continuar em outra máquina, porque a memória local do Claude não vai junto com o git.
 
 ## Onde estamos
 
@@ -63,7 +63,7 @@ Regras gerais: **não ligar o envio de e-mail** (sem data; o checklist de go-liv
 
 ## S4c — rematrícula
 
-**Próximo passo: Etapa 2 (interface)**; a etapa 1 já está aplicada em produção e os tipos regenerados, e o plano da Etapa 2 está escrito (falta executá-lo). Spec em `docs/superpowers/`. Notas para a Etapa 2 (contrato do cliente com `renew_contracts`, `declined_count` no texto da notificação): seção "Notas para a Etapa 2" da spec.
+**Próximo passo: fechar a Etapa 2 (interface)**; a etapa 1 já está aplicada em produção e os tipos regenerados, e a etapa 2 está feita no código (branch `feature/s4c-etapa2-interface`); faltam o QA no navegador e o `functions deploy`. Spec em `docs/superpowers/`. Notas para a Etapa 2 (contrato do cliente com `renew_contracts`, `declined_count` no texto da notificação): seção "Notas para a Etapa 2" da spec.
 
 Bug pré-existente achado na revisão final: `audit_trigger_fn` quebrava (23514) a primeira escrita manual numa conexão que antes tinha usado `set_config('app.audit_source', ..., true)`, porque o Postgres deixa `''` na configuração. Vale para TODAS as tabelas auditadas (inclui a falha latente depois de `insert_generated_tuitions` e dos RPCs de importação). Corrigido na migration `20261119135900_audit_source_nullif.sql` (um `nullif`).
 

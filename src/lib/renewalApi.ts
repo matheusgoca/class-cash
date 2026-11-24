@@ -59,20 +59,29 @@ export async function renewContracts(
 ): Promise<RenewResult> {
   const result: RenewResult = { renewed: 0, tuitions: 0, skipped: [], processed: 0, total: items.length, error: null };
   for (const batch of chunk(items, BATCH_SIZE)) {
-    const { data, error } = await supabase.rpc('renew_contracts', {
-      p_school_id: schoolId,
-      p_items: batch as unknown as Json,
-      p_fee_service_id: feeServiceId ?? undefined,
-    });
-    if (error) {
-      result.error = friendlyRenewalError(error);
+    try {
+      const { data, error } = await supabase.rpc('renew_contracts', {
+        p_school_id: schoolId,
+        p_items: batch as unknown as Json,
+        p_fee_service_id: feeServiceId ?? undefined,
+      });
+      if (error) {
+        result.error = friendlyRenewalError(error);
+        return result;
+      }
+      const d = data as { renewed: number; tuitions: number; skipped: { source_contract_id: string; reason: string }[] } | null;
+      if (!d) {
+        result.error = friendlyRenewalError(null);
+        return result;
+      }
+      result.renewed += d.renewed;
+      result.tuitions += d.tuitions;
+      result.skipped.push(...d.skipped);
+      result.processed += batch.length;
+    } catch (e) {
+      result.error = friendlyRenewalError(e);
       return result;
     }
-    const d = data as { renewed: number; tuitions: number; skipped: { source_contract_id: string; reason: string }[] };
-    result.renewed += d.renewed;
-    result.tuitions += d.tuitions;
-    result.skipped.push(...d.skipped);
-    result.processed += batch.length;
   }
   return result;
 }

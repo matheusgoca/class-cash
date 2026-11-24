@@ -6,11 +6,11 @@
 
 Spec: `docs/superpowers/specs/2026-11-19-s4c-rematricula-design.md`. Plano: `docs/superpowers/plans/2026-11-19-s4c-etapa2-interface.md`.
 
-- Página `/rematricula` (admin, financeiro e owner; item "Rematrícula" no grupo Financeiro, logo depois de Contratos): lista da janela de rematrícula, filtros, resumo por estado e decisão da família (contactado / vai renovar / não vai renovar, este com motivo obrigatório e observação de até 500 caracteres), via RPC `set_renewal_decision`.
+- Página `/rematricula` (admin, financeiro e owner; item "Rematrícula" no grupo Financeiro, logo depois de Contratos): lista da janela de rematrícula, filtros, resumo por estado e decisão da família (Contatado / vai renovar / não vai renovar, este com motivo obrigatório e observação de até 500 caracteres), via RPC `set_renewal_decision`.
 - Renovação em lote: reajuste em %, taxa de rematrícula opcional, mapa de turmas (turma de origem para a nova), prévia editável (valor por linha, datas e mensalidades), aviso de capacidade da turma (conta contratos ativos por turma) e envio em lotes de 100 via RPC `renew_contracts`, com resultado final (renovados, mensalidades, pulados por "já renovado") e tratamento de falha parcial ("Renovação interrompida", com contagens) e trava de reentrada.
 - Regra de mensalidades extraída para `tuitionRows.ts` (`buildTuitionRows`, uma única vez) e `nextTerm` compartilhado com o "Renovar" individual do formulário de contratos.
 - Texto do aviso de rematrícula: botão "Abrir rematrícula" e contagem dos que não vão renovar (`declined_count`), em `supabase/functions/_shared/notificationText.ts`.
-- Painel de Contratos vira resumo (quantos já renovados, quantos faltam) com link para `/rematricula`; o "Renovar" individual segue na tabela.
+- Painel de Contratos vira resumo (quantos já renovados, quantos faltam) com link para `/rematricula`; o "Renovar" individual fica no diálogo de edição do contrato (menu de ações da linha → Editar → Renovar).
 - Menu: a spec foi alinhada (grupo Financeiro, não Gestão).
 
 **Não feito / pendente**

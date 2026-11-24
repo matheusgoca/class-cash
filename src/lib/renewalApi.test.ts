@@ -71,3 +71,21 @@ describe('renewContracts', () => {
     expect(r.error).toContain('Contrato k130');
   });
 });
+
+describe('renewContracts - falha parcial inesperada', () => {
+  it('2º lote com data nulo e sem erro devolve o parcial com erro', async () => {
+    rpc.mockResolvedValueOnce({ data: { renewed: 100, tuitions: 100, skipped: [] }, error: null })
+       .mockResolvedValueOnce({ data: null, error: null });
+    const r = await renewContracts('s1', items(250), null);
+    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(r).toMatchObject({ renewed: 100, tuitions: 100, processed: 100, total: 250 });
+    expect(r.error).toBeTruthy();
+  });
+  it('2º lote que lança devolve o parcial com erro', async () => {
+    rpc.mockResolvedValueOnce({ data: { renewed: 100, tuitions: 100, skipped: [] }, error: null })
+       .mockRejectedValueOnce(new Error('network down'));
+    const r = await renewContracts('s1', items(250), null);
+    expect(r).toMatchObject({ renewed: 100, tuitions: 100, processed: 100, total: 250 });
+    expect(r.error).toBeTruthy();
+  });
+});

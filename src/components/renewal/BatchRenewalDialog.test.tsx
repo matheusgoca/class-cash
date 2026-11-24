@@ -56,6 +56,13 @@ describe('BatchRenewalDialog', () => {
     expect(screen.getByRole('button', { name: 'Renovar 2 contratos' })).toBeTruthy();
   });
 
+  it('prévia: totais no singular com 1 contrato', async () => {
+    render(<BatchRenewalDialog {...props({ sources: [c('a', 'Ana')] })} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Ver prévia' }));
+    expect(await screen.findByText(/1 contrato · 12 mensalidades/)).toBeTruthy();
+    expect(screen.queryByText(/1 contratos/)).toBeNull();
+  });
+
   it('valor editado na linha não é recalculado ao voltar e mudar o %', async () => {
     render(<BatchRenewalDialog {...props()} />);
     await userEvent.click(await screen.findByRole('button', { name: 'Ver prévia' }));

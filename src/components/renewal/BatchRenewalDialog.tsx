@@ -28,6 +28,7 @@ export interface BatchRenewalDialogProps {
 
 type Stage = 'config' | 'preview' | 'running' | 'done';
 const NO_CLASS = 'none';
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 const NO_FEE = 'none';
 
 export function BatchRenewalDialog({ open, onOpenChange, sources, classes, activeByClass, services, schoolId, onDone }: BatchRenewalDialogProps) {
@@ -151,7 +152,7 @@ export function BatchRenewalDialog({ open, onOpenChange, sources, classes, activ
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Capacidade das turmas</AlertTitle>
                 <AlertDescription>
-                  {warnings.map((w) => `${w.className}: ${w.projected} alunos para ${w.max} vagas`).join(' · ')}. Você pode continuar mesmo assim.
+                  {warnings.map((w) => `${w.className}: ${plural(w.projected, 'aluno', 'alunos')} para ${plural(w.max, 'vaga', 'vagas')}`).join(' · ')}. Você pode continuar mesmo assim.
                 </AlertDescription>
               </Alert>
             )}
@@ -198,7 +199,7 @@ export function BatchRenewalDialog({ open, onOpenChange, sources, classes, activ
               </TableBody>
             </Table>
             <p className="text-sm text-muted-foreground">
-              {plan.totals.contracts} contratos · {plan.totals.tuitions} mensalidades · {formatCurrency(plan.totals.monthlyTotal)} por mês
+              {plural(plan.totals.contracts, 'contrato', 'contratos')} · {plural(plan.totals.tuitions, 'mensalidade', 'mensalidades')} · {formatCurrency(plan.totals.monthlyTotal)} por mês
               {feeId !== NO_FEE ? ' · mais a taxa de rematrícula por contrato' : ''}
             </p>
             <DialogFooter>

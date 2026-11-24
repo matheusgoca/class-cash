@@ -165,7 +165,7 @@ const Contracts = () => {
   // renewed_from_id, não uma suposição por data.
   const renewalCutoff = new Date();
   renewalCutoff.setDate(renewalCutoff.getDate() + RENEWAL_WINDOW_DAYS);
-  const renewedFromIds = new Set(contracts.map(c => c.renewed_from_id).filter(Boolean));
+  const renewedFromIds = new Set(contracts.filter(c => c.status !== "cancelled").map(c => c.renewed_from_id).filter(Boolean));
   const inRenewalWindow = contracts.filter(
     c => c.status === "active" && parseISO(c.end_date) <= renewalCutoff
   );
