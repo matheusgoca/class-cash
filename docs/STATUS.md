@@ -36,6 +36,7 @@ Documentos de referência:
    - Criar conta no Resend.
    - Registrar o domínio de envio (DNS) e, depois de verificado, trocar `EMAIL_FROM`.
    - Secrets da Edge Function: `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_SENDING_ENABLED` (interruptor), `EMAIL_ALLOWLIST` (opcional, para a fase de teste) e `APP_URL` (opcional; padrão `https://class-cash-tan.vercel.app`).
+   - **Obrigatório antes do primeiro envio:** `npx supabase@2.117.0 functions deploy send-notification-emails`. A função implantada ainda tem o texto antigo do aviso de rematrícula (botão "Ver contratos" e sem "não vão renovar"); o texto novo da S4c etapa 2 vive em `supabase/functions/_shared/notificationText.ts` e só chega ao e-mail com esse deploy (escrita em produção: só com autorização).
    - Gravar no Vault o segredo `service_role_key` com o **JWT legado service_role** (Supabase → Settings → API), **idêntico** ao `SUPABASE_SERVICE_ROLE_KEY` que a função recebe. A função compara o Bearer com essa variável; um valor diferente (por exemplo uma chave nova `sb_secret_…`) faz a função responder 401 em toda chamada.
    - Situação atual: a função e o job **já estão em produção**; falta o segredo do Vault (`service_role_key`) e os secrets da função. Ordem que resta: criar o segredo no Vault (a partir da próxima hora cheia o `net._http_response` deve mostrar a função respondendo `skipped: disabled` em vez de 401), definir `RESEND_API_KEY` e `EMAIL_FROM`, e só então ligar o interruptor (testar antes com `EMAIL_ALLOWLIST`).
    Consultas de monitoramento depois do lançamento:
