@@ -1,5 +1,29 @@
 # QA Testing Checklist
 
+## Roteiro de QA — S4c, rematrícula (etapa 2: interface) (2026-11-24)
+
+Tudo depende do navegador e da escola de teste. A renovação em lote renova contratos de verdade: **só na escola de teste e com autorização expressa**.
+
+- [ ] Como owner/admin: a página `/rematricula` abre pelo menu (grupo Financeiro, depois de Contratos)
+- [ ] Como financeiro: a página abre, dá para decidir e renovar
+- [ ] Como professor: sem item no menu e a rota `/rematricula` redireciona
+- [ ] Como master vendo OUTRA escola: a página lê e renova a escola visualizada; conferir em Contratos dessa escola e em Contratos da escola do próprio master que nada vazou
+- [ ] Filtros e resumo por estado batem com a lista
+- [ ] "Não vai renovar" pede motivo e o contrato sai da seleção
+- [ ] A decisão continua aparecendo depois de recarregar a página
+- [ ] Lote com 2 contratos: prévia correta (valores com reajuste, datas, mensalidades)
+- [ ] Editar o valor de uma linha da prévia recalcula as mensalidades dela
+- [ ] Mapa de turmas troca a turma do contrato novo; aviso de capacidade aparece quando a turma enche
+- [ ] Taxa de rematrícula: lançada quando informada
+- [ ] Resultado do lote conferido: contratos novos em Contratos e mensalidades em Mensalidades
+- [ ] Contrato já renovado é pulado, com a mensagem de "já renovado" no resultado
+- [ ] Resultado de erro: "Renovação interrompida" com as contagens corretas (renovados até ali) e sem reentrada
+- [ ] A 375 px: cabeçalho e filtros quebram linha; a tabela e a prévia do lote rolam dentro do container; as linhas do mapa de turmas no diálogo podem transbordar (problema menor conhecido)
+- [ ] Tema escuro legível em todas as telas da etapa
+- [ ] O aviso de rematrícula (sino/central) leva à página
+- [ ] Painel de Contratos mostra o resumo e o botão "Abrir rematrícula" leva à página
+- [ ] Escrita manual logo depois de um lote não falha (`source` da auditoria)
+
 ## Roteiro de QA — S4c, rematrícula (etapa 1: banco) (2026-11-19)
 
 Estado: **aplicado em produção em 2026-11-19** (migrations `20261119135900` e `20261119140000`–`140300`). Itens de interface ficam para a Etapa 2.
