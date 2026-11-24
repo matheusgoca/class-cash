@@ -14,6 +14,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/professores": "Gestão de Professores",
   "/turmas": "Gestão de Turmas",
   "/contratos": "Gestão de Contratos",
+  "/rematricula": "Rematrícula",
   "/mensalidades": "Mensalidades",
   "/despesas": "Despesas",
   "/servicos": "Serviços",
