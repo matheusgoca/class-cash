@@ -76,6 +76,8 @@ Endurecimento pendente (achados diferidos da etapa 1):
 - Possível deadlock raro com dois lotes em ordem inversa (ordenar itens por `source_contract_id`).
 - `monthly_amount` sem teto.
 - A matriz não cobre: master admin em outra escola, `p_items` não-array, `class_id` nulo, borda da tolerância de R$ 0,01 e arredondamento com desconto.
+- **Lacuna: master renovando em escola alheia.** A `renewal_matrix.sql` não tem caso com `p_school_id` de uma escola que não é do master (o master só cria as escolas X/Y da própria matriz), e o QA da etapa 2 não testou isso na UI (sem autorização de escrita fora da escola de teste). Hoje nada prova que `renew_contracts` e `set_renewal_decision` aceitam o master na escola visualizada nem que não vazam para a escola do perfil dele. Próximo passo: caso novo na matriz, em `BEGIN … ROLLBACK`, com uma escola criada na própria transação e de outro dono.
+- **Dívida (não fazer agora): papel `teacher`.** Professor não tem acesso ao produto, e nenhum usuário tem esse papel em produção (`user_roles`, 24/11). Numa limpeza futura, avaliar remover o valor `teacher` do enum `app_role` (exige recriar o enum ou trocar o tipo da coluna; conferir antes funções, policies e o `types.ts` que o referenciam) e os ramos de rota e menu de professor: `allowedRoles` em `src/App.tsx`, `roles` em `src/components/layout/AppSidebar.tsx` e `AppRole`/`isTeacher` em `src/hooks/use-role.ts`.
 
 Achado sobre `enrollments`: a S4c não a toca (só a importação a escreve). Promover aluno de turma no lote não a atualiza, e a contagem por turma do Dashboard usa `enrollments`.
 
