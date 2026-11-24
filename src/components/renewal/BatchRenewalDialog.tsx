@@ -1,5 +1,5 @@
 // src/components/renewal/BatchRenewalDialog.tsx
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatCurrency } from '@/lib/calculations';
 import { buildRenewalPlan, capacityWarnings, classKey, type RenewalClass, type RenewalContract } from '@/lib/renewal';
-import { renewContracts, type RenewResult } from '@/lib/renewalApi';
+import { friendlyRenewalError, renewContracts, type RenewResult } from '@/lib/renewalApi';
 import type { RenewalService } from '@/lib/renewalData';
 
 export interface BatchRenewalDialogProps {
@@ -62,11 +62,19 @@ export function BatchRenewalDialog({ open, onOpenChange, sources, classes, activ
   const warnings = useMemo(() => capacityWarnings(plan.rows, classes, activeByClass), [plan.rows, classes, activeByClass]);
   const hasError = plan.rows.some((r) => r.error);
 
+  const running = useRef(false);
   const confirm = async () => {
+    if (running.current) return;
+    running.current = true;
     setStage('running');
-    const res = await renewContracts(schoolId, plan.items, feeId === NO_FEE ? null : feeId);
-    setResult(res);
-    setStage('done');
+    try {
+      setResult(await renewContracts(schoolId, plan.items, feeId === NO_FEE ? null : feeId));
+    } catch (e) {
+      setResult({ renewed: 0, tuitions: 0, skipped: [], processed: 0, total: plan.items.length, error: friendlyRenewalError(e) });
+    } finally {
+      running.current = false;
+      setStage('done');
+    }
   };
 
   const close = () => {
@@ -202,23 +210,29 @@ export function BatchRenewalDialog({ open, onOpenChange, sources, classes, activ
           </div>
         )}
 
-        {stage === 'running' && <p className="py-8 text-center text-sm text-muted-foreground">Renovando contratos… não feche esta janela.</p>}
+        {stage === 'running' && <p role="status" aria-live="polite" className="py-8 text-center text-sm text-muted-foreground">Renovando contratos… não feche esta janela.</p>}
 
         {stage === 'done' && result && (
           <div className="space-y-3">
-            <p className="font-medium">
-              {result.renewed} contrato{result.renewed !== 1 ? 's' : ''} renovado{result.renewed !== 1 ? 's' : ''} · {result.tuitions} mensalidade{result.tuitions !== 1 ? 's' : ''} criada{result.tuitions !== 1 ? 's' : ''}
-            </p>
+            {result.error ? (
+              <p className="font-medium">Renovação interrompida</p>
+            ) : (
+              <p className="font-medium">
+                {result.renewed} contrato{result.renewed !== 1 ? 's' : ''} renovado{result.renewed !== 1 ? 's' : ''} · {result.tuitions} mensalidade{result.tuitions !== 1 ? 's' : ''} criada{result.tuitions !== 1 ? 's' : ''}
+              </p>
+            )}
             {result.skipped.length > 0 && (
               <p className="text-sm text-muted-foreground">
-                {result.skipped.length} contrato{result.skipped.length !== 1 ? 's' : ''} já estava{result.skipped.length !== 1 ? 'm' : ''} renovado{result.skipped.length !== 1 ? 's' : ''} e foi pulado.
+                {result.skipped.length === 1
+                  ? '1 contrato já estava renovado e foi pulado.'
+                  : `${result.skipped.length} contratos já estavam renovados e foram pulados.`}
               </p>
             )}
             {result.error && (
               <Alert variant="destructive" role="alert">
                 <AlertTitle>O lote parou</AlertTitle>
                 <AlertDescription>
-                  Foram renovados {result.processed} de {result.total} antes do erro: {result.error}
+                  {result.renewed} contrato{result.renewed !== 1 ? 's' : ''} renovado{result.renewed !== 1 ? 's' : ''} antes do erro ({result.processed} de {result.total} processados), {result.tuitions} mensalidade{result.tuitions !== 1 ? 's' : ''} criada{result.tuitions !== 1 ? 's' : ''}: {result.error}
                 </AlertDescription>
               </Alert>
             )}
