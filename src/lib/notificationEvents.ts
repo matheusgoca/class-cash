@@ -58,10 +58,23 @@ export function isDirty(saved: PreferencesState, draft: PreferencesState): boole
   return key(saved) !== key(draft);
 }
 
+// Regra de produto (19/11): o e-mail acompanha o aviso no sistema. O e-mail só
+// pode ficar ligado com "No sistema" ligado no mesmo evento, porque o e-mail nasce
+// da notificação gerada para o sistema. Desligar o sistema desliga o e-mail junto;
+// religar o sistema não religa o e-mail. O banco aplica a mesma regra em
+// save_notification_preferences (EMAIL_REQUIRES_IN_APP).
+export function updatePreference(pref: EventPreference, patch: Partial<EventPreference>): EventPreference {
+  const next = { ...pref, ...patch };
+  if (!next.inApp) next.email = false;
+  return next;
+}
+
 export function applyRecommendedEmails(draft: PreferencesState): PreferencesState {
   return {
     ...draft,
-    preferences: draft.preferences.map((p) => (p.emailRecommended ? { ...p, email: true } : { ...p })),
+    preferences: draft.preferences.map((p) =>
+      p.emailRecommended ? updatePreference(p, { email: true }) : { ...p },
+    ),
   };
 }
 

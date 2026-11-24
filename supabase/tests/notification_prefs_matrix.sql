@@ -62,6 +62,9 @@ declare
        false, '07:00'::time, 'America/Sao_Paulo')::text$q$;
   q_save_bad_tz text := $q$select public.save_notification_preferences('[]'::jsonb, false, '07:00'::time, 'Marte/Olympus')::text$q$;
   q_save_bad_hr text := $q$select public.save_notification_preferences('[]'::jsonb, true, '21:00'::time, 'America/Sao_Paulo')::text$q$;
+  q_save_email_sem_sistema text := $q$select public.save_notification_preferences(
+       '[{"event":"tuition_overdue","in_app":false,"email":true,"offset_days":5}]'::jsonb,
+       false, '07:00'::time, 'America/Sao_Paulo')::text$q$;
   q_direct_ins  text;
   q_direct_upd  text := 'with x as (update public.notification_preferences set email = true where user_id = auth.uid() returning 1) select count(*)::text from x';
   q_read_admin_a text;
@@ -125,6 +128,8 @@ begin
   perform pg_temp.rec('4b reenrollment pelo financeiro',     pg_temp.run_as(u_fin_a,   'aal1', q_save_reenr),      'ERR:42501:EVENT_NOT_ALLOWED');
   perform pg_temp.rec('4c fuso inválido',                    pg_temp.run_as(u_admin_a, 'aal1', q_save_bad_tz),     'ERR:22023:INVALID_TIMEZONE');
   perform pg_temp.rec('4d horário fora da faixa',            pg_temp.run_as(u_admin_a, 'aal1', q_save_bad_hr),     'ERR:22023:INVALID_DIGEST_TIME');
+  -- regra de produto (19/11): o e-mail acompanha o aviso no sistema
+  perform pg_temp.rec('4e e-mail sem "No sistema" rejeitado', pg_temp.run_as(u_admin_a, 'aal1', q_save_email_sem_sistema), 'ERR:22023:EMAIL_REQUIRES_IN_APP');
 
   -- 5. RLS de leitura
   perform pg_temp.rec('5a financeiro não lê linhas do admin', pg_temp.run_as(u_fin_a,   'aal1', q_read_admin_a), '0');
