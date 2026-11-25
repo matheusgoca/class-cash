@@ -1,6 +1,6 @@
 # Status do projeto — passagem de bastão
 
-**Atualizado em:** 2026-11-24. Atualize este arquivo ao final de cada sessão: ele é o que permite continuar em outra máquina, porque a memória local do Claude não vai junto com o git.
+**Atualizado em:** 2026-11-25. Atualize este arquivo ao final de cada sessão: ele é o que permite continuar em outra máquina, porque a memória local do Claude não vai junto com o git.
 
 ## Onde estamos
 
@@ -15,6 +15,7 @@
 | S4c, etapa 1 (banco): rematrícula (`renewal_decisions`, `set_renewal_decision`, `renew_contracts`, `declined_count`) | ✅ mergeada (PR #13); matrizes contra o schema aplicado: renovação 68/68 e notificações 45/45 (2026-11-19) | ✅ 5 migrations aplicadas (`20261119135900` e `20261119140000`–`140300`); `types.ts` regenerado; `renewal_decisions` vazia (a interface é a Etapa 2) |
 | S4c, etapa 2 (interface): página `/rematricula`, lote com prévia, texto do aviso | ✅ **mergeada** (PR #17, 2026-11-24, merge `d36efd8`; 225 testes, build verde); **QA no navegador feito em 24/11** na escola de teste (resultados em `QA_CHECKLIST.md`; dados do QA removidos, contagens de volta a 87/965/197/0). Transbordo a 375 px (página e prévia do lote) **corrigido** com `min-w-0` no layout e no diálogo e reverificado pelo usuário em claro e escuro (24/11). Financeiro testado pelo usuário (OK). Não testados na UI: aviso no sino, erro parcial do lote e renovar como master em outra escola (lacuna de matriz abaixo); professor não tem acesso ao produto; `supabase functions deploy send-notification-emails` pendente (texto do e-mail) | ✅ front em produção (deploy da Vercel confirmado em 24/11); Edge Function com o texto novo ainda não implantada |
 | Dívida: revogar `TRUNCATE` de `anon`/`authenticated` | ✅ **mergeada** (PR #18, 24/11, merge `7cfdc6b`, depois do teste rápido do usuário no app); migration `20261123130000` **aplicada em 24/11** (`db push` com aval, dry-run antes mostrou só ela). Conferido em produção: 0 relações do `public` com TRUNCATE para `anon`/`authenticated` (antes 26 tabelas cada); SELECT/INSERT/UPDATE/DELETE iguais a antes (`anon` 26 tabelas em cada; `authenticated` SELECT 27, demais 26); default privileges do `postgres` sem TRUNCATE. | ✅ aplicada |
+| Proteção de branch na `main` | ✅ **feita em 25/11** (regra do GitHub): PR obrigatório + check "Vercel" obrigatório; bypass list vazia. Testado: push direto recusado com GH013 ("Changes must be made through a pull request" e "Required status check Vercel is expected"); force push também recusado. Todo commit, inclusive de documentação, passa por PR. | ✅ |
 | LP: blur no saldo do hero, sem selo do topo, sem depoimento | ✅ mergeada na `main` (commit `606257f`, branch `fix/lp-ajustes`) | deploy após o push da `main` |
 | S4b: resumo diário por e-mail | ⬜ não iniciada (depende da S4a funcionando) | — |
 
@@ -30,9 +31,9 @@ Documentos de referência:
 1. **Fechar a S4c:** `npx supabase@2.117.0 functions deploy send-notification-emails` (texto novo do aviso de rematrícula no e-mail; escrita em produção, só com autorização) e caso novo na `renewal_matrix.sql` para o master renovando em escola de outro dono (lacuna abaixo, em `BEGIN … ROLLBACK`).
 2. **QA pendente:** S3 etapa 2 (sino, central e card "Precisa da sua atenção"; roteiro em `QA_CHECKLIST.md`; o PR #9 foi mergeado sem esse QA); S2 Fase 3 (troca de senha, carência do admin, financeiro sem 2FA); S3 preferências (tela a 375 px; professor não entra mais: o papel não tem acesso ao produto).
    A 1ª execução real do gerador já foi conferida em 2026-11-19: `succeeded`, avisos `tuition_overdue` gerados na escola de teste.
-3. **Dívidas e endurecimento** (detalhes na seção S4c abaixo): proteção de branch na `main` antes do primeiro cliente real; Bloco 3(b) (mensalidades vencidas da escola de teste: seed ou reais?); achados diferidos da S4c etapa 1; `enrollments` não atualizada pelo lote; remover o papel `teacher` (limpeza futura); monitorar falhas do job do gerador; erros antigos do `tsc` (`StudentForm.tsx`, `generate*.ts`; o build passa).
+3. **Dívidas e endurecimento** (detalhes na seção S4c abaixo): Bloco 3(b) (mensalidades vencidas da escola de teste: seed ou reais?); achados diferidos da S4c etapa 1; `enrollments` não atualizada pelo lote; remover o papel `teacher` (limpeza futura); monitorar falhas do job do gerador; erros antigos do `tsc` (`StudentForm.tsx`, `generate*.ts`; o build passa).
 4. **Ligar a S4a** (Task 7 do plano `docs/superpowers/plans/2026-11-19-s4a-email-notificacoes.md`; o banco, a função e o job já estão em produção, falta só configuração). Passos do usuário:
-   - Criar conta no Resend.
+   - ✅ Conta no Resend criada (25/11). **Pendentes:** domínio de envio e DNS. **As chaves (`RESEND_API_KEY`, `service_role_key`) nunca passam por chat nem por commit:** o usuário as cadastra direto no painel do Supabase (secrets da função e Vault).
    - Registrar o domínio de envio (DNS) e, depois de verificado, trocar `EMAIL_FROM`.
    - Secrets da Edge Function: `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_SENDING_ENABLED` (interruptor), `EMAIL_ALLOWLIST` (opcional, para a fase de teste) e `APP_URL` (opcional; padrão `https://class-cash-tan.vercel.app`).
    - **Obrigatório antes do primeiro envio:** `npx supabase@2.117.0 functions deploy send-notification-emails`. A função implantada ainda tem o texto antigo do aviso de rematrícula (botão "Ver contratos" e sem "não vão renovar"); o texto novo da S4c etapa 2 vive em `supabase/functions/_shared/notificationText.ts` e só chega ao e-mail com esse deploy (escrita em produção: só com autorização).
@@ -47,6 +48,13 @@ Documentos de referência:
    ```
    Atenção: `cron.job_run_details` só prova que a chamada HTTP foi disparada (`net.http_post` é assíncrono). Um 401 (chave errada) ou 404 (função não implantada) só aparece em `net._http_response`, a quarta consulta.
    - **Limitação da S4a resolvida (PR #16, 23/11):** a decisão foi a opção (b): o e-mail de um evento só liga se o aviso "no sistema" do mesmo evento estiver ligado (a tela amarra os interruptores e `save_notification_preferences` rejeita `email=true` com `in_app=false`).
+
+## Plano de 25/11 (tudo via PR; escrita em produção só com autorização)
+
+1. **Deploy da função:** `npx supabase@2.117.0 functions deploy send-notification-emails` (texto novo do aviso de rematrícula).
+2. **Caso novo na `renewal_matrix.sql`:** master renovando/decidindo em escola de outro dono, em `BEGIN … ROLLBACK`, com a escola criada na própria transação.
+3. **Bloco 3(b):** consultas de leitura em `audit_logs` (`created_at`/`source`) e do padrão de `due_date` para saber se as mensalidades vencidas da escola de teste são seed ou reais.
+4. **Desenho do endurecimento de `renew_contracts`** (teto de mensalidades por contrato, `overdue` com vencimento futuro, JSON não numérico → `INVALID_ITEM`, ordenar itens por `source_contract_id`, teto de `monthly_amount`): documento de desenho primeiro, migration depois.
 
 ## Decisões do PM de 19/11 (ordem de execução; parar entre os blocos para confirmação)
 
@@ -75,7 +83,6 @@ Endurecimento pendente (achados diferidos da etapa 1):
 - `monthly_amount` sem teto.
 - A matriz não cobre: master admin em outra escola, `p_items` não-array, `class_id` nulo, borda da tolerância de R$ 0,01 e arredondamento com desconto.
 - **Lacuna: master renovando em escola alheia.** A `renewal_matrix.sql` não tem caso com `p_school_id` de uma escola que não é do master (o master só cria as escolas X/Y da própria matriz), e o QA da etapa 2 não testou isso na UI (sem autorização de escrita fora da escola de teste). Hoje nada prova que `renew_contracts` e `set_renewal_decision` aceitam o master na escola visualizada nem que não vazam para a escola do perfil dele. Próximo passo: caso novo na matriz, em `BEGIN … ROLLBACK`, com uma escola criada na própria transação e de outro dono.
-- **Dívida: proteção de branch na `main`, antes do primeiro cliente real.** Hoje a `main` aceita push direto (confirmado em 24/11). Ativar no GitHub uma regra para a `main` exigindo PR e os checks da Vercel passando antes do merge, e bloquear force push. Commits de documentação passam então a ir por PR.
 - **Dívida (não fazer agora): papel `teacher`.** Professor não tem acesso ao produto, e nenhum usuário tem esse papel em produção (`user_roles`, 24/11). Numa limpeza futura, avaliar remover o valor `teacher` do enum `app_role` (exige recriar o enum ou trocar o tipo da coluna; conferir antes funções, policies e o `types.ts` que o referenciam) e os ramos de rota e menu de professor: `allowedRoles` em `src/App.tsx`, `roles` em `src/components/layout/AppSidebar.tsx` e `AppRole`/`isTeacher` em `src/hooks/use-role.ts`.
 
 Achado sobre `enrollments`: a S4c não a toca (só a importação a escreve). Promover aluno de turma no lote não a atualiza, e a contagem por turma do Dashboard usa `enrollments`.
