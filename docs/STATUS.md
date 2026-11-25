@@ -133,6 +133,16 @@ Endurecimento (achados diferidos da etapa 1): **resolvido e aplicado em produç�
 
 Achado sobre `enrollments`: a S4c não a toca (só a importação a escreve). Promover aluno de turma no lote não a atualiza, e a contagem por turma do Dashboard usa `enrollments`.
 
+## Dívidas técnicas abertas (registradas no S6b, 25/11; origem: ensaio geral)
+Nada disso bloqueia o cadastro real do Pensar (os bloqueios viraram os blocos B, C, D e H do S6b); ficam para depois, em ordem aproximada de valor.
+- **Categorias de despesa padrão para escolas novas.** Hoje a escola nasce com 0 categorias e só o admin cria; `category_id` é obrigatório em despesas e moldes. Propor um conjunto padrão (água, luz, internet, IPTU, aluguel, coordenação, manutenção, marketing, material didático, outros), criado na criação da escola e, por script com autorização, nas escolas existentes que estiverem sem categorias (o Pensar está).
+- **Contrato de origem continua `active` depois de renovar.** Desenho atual (o sucessor é identificado por `renewed_from_id`), mas superconta a ocupação por turma na prévia do lote seguinte (`activeByClass` soma origem e sucessor) e deixa aluno com 2 contratos ativos. Opções: encerrar a origem ao renovar (novo estado ou `cancelled` sem cancelar mensalidades) ou excluir origens já renovadas da contagem de capacidade.
+- **`enrollments` não é atualizada pelo lote de rematrícula.** O gráfico "alunos por turma" lê `enrollments` e já diverge dos contratos ativos em 3 turmas da Colegio Teste (±1). Atualizar no `renew_contracts` (troca de turma) ou migrar o gráfico para contratos.
+- **CHECKs no banco.** `contracts`: `discount` entre 0 e 100, `monthly_amount > 0` (bolsa é desconto de 100%, nunca valor 0), `end_date >= start_date`, `due_day` entre 1 e 28. O ensaio provou que o banco aceita desconto 120% (`final_amount` −200), valor 0 ou negativo, fim antes do início e vencimento 0 ou 45; o formulário trava só desconto e dia. Aplicar com backfill/dry-run (os dados atuais das 3 escolas passam).
+- **Baixa dupla no banco.** Resolvida pelo bloco D (trigger `tuitions_guard_payment`) quando a migration `20261126100000` for aplicada; até lá o banco sobrescreve `paid_date`.
+- **Gráfico de 6 meses x cartão "Receita Recebida".** O cartão soma serviços, o gráfico não (Teste: R$ 3.300 a 3.940 por mês de diferença). Decisão do PM (bloco F2).
+- **Mensalidades da Teste pagas com `final_amount = 0` e `amount > 0`** (6, de abril/maio): contam R$ 0 no Realizado. Dado de teste antigo; corrigir com o escape `app.allow_paid_edit` depois do bloco D.
+
 ## Setup em outra máquina
 
 ```bash
