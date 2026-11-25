@@ -1,6 +1,6 @@
 # Item I — contrato como fonte única: plano de execução
 
-**Spec:** `docs/superpowers/specs/2026-11-25-item-i-contrato-fonte-unica-design.md` (aguarda aprovação do PM; **não executar antes**).
+**Spec:** `docs/superpowers/specs/2026-11-25-item-i-contrato-fonte-unica-design.md` (**aprovada pelo PM em 25/11, com ajustes**: rótulos "Valor do contrato" x "Referência da turma (meio período)" e fallback da importação só com turma de um único valor).
 **Regras:** TDD (teste vermelho primeiro); tudo por branch e PR (a `main` exige PR e o check da Vercel); **sem Co-Authored-By**; merge só quando o PM pedir; migration só com `--dry-run` e autorização; **nenhuma escrita no Pensar** (QA só na Colegio Teste e no Colégio Estrela); toda query nova filtra por `school_id`; erros do Postgres por `getFriendlyErrorMessage`.
 **Prioridade:** concluir antes de o Pensar lançar contratos (hoje 0). Ordem sugerida: T1 (banco) → T2–T5 (tela) → T6 (importação) → T7 (docs/QA). Cada tarefa é um PR pequeno; T1 não depende das outras.
 
@@ -35,7 +35,7 @@
 
 **Arquivos:** `src/components/students/StudentForm.tsx`, novo `StudentTuitionInfo.tsx`, testes do componente.
 
-1. Teste vermelho (`@vitest-environment jsdom`): o formulário **não** tem os rótulos "Mensalidade base (R$)" nem "Desconto (%)"; mostra o bloco nos 3 estados; trocar a turma muda a referência; a 375 px não quebra (classe `min-w-0`).
+1. Teste vermelho (`@vitest-environment jsdom`): o formulário **não** tem os rótulos "Mensalidade base (R$)" nem "Desconto (%)"; mostra o bloco nos 3 estados **com rótulos distintos** ("Valor do contrato" x "Referência da turma (meio período)", nunca o mesmo texto); trocar a turma muda a referência; a 375 px não quebra (classe `min-w-0`).
 2. Remover os 2 campos, o bloco "Valor final" e `full_tuition_value`/`discount` do `studentSchema` e dos `defaultValues`; incluir `StudentTuitionInfo` com a busca do contrato do aluno (`.eq('school_id', schoolId).eq('student_id', id)`), link "Ver contrato".
 
 ## T4 — gravação do aluno
@@ -49,16 +49,16 @@
 
 **Arquivos:** `src/pages/Students.tsx`, `src/components/students/StudentTable.tsx`, teste.
 
-1. Teste vermelho: com contrato → valor do contrato; sem contrato e turma com `monthly_fee` → valor com "(ref.)"; sem nada → "—"; **ignora** `final_tuition_value`.
+1. Teste vermelho: com contrato → valor do contrato; sem contrato e turma com `monthly_fee` → valor com o sufixo "(ref. turma, meio período)"; sem nada → "—"; **ignora** `final_tuition_value`.
 2. A busca de contratos passa a trazer `student_id, final_amount, start_date, end_date, status`; usar `pickCurrentContract` e `studentTuitionView`; tirar `active_contract_final_amount`/`final_tuition_value` do caminho de exibição.
 
 ## T6 — importação de contratos · branch `feature/item-i-import-contratos-valor-opcional`
 
 **Arquivos:** `src/lib/import/types.ts`, `validate.ts`, `templates.ts`, `src/components/settings/ImportSection.tsx`, novo `src/lib/import/validate.contracts.test.ts`.
 
-1. `ImportContext.existingClasses` passa a `{ id, name, monthly_fee }` e o `select` de `ImportSection.tsx` inclui `monthly_fee` (com `school_id`).
-2. Testes vermelhos (não existe teste da validação hoje): valor informado vale; vazio + turma com `monthly_fee` → usa o da turma e marca `usedClassFee`; vazio + sem turma → erro de linha; vazio + turma sem mensalidade → erro; valor inválido continua erro.
-3. `validate.ts`: `valor_mensalidade` opcional com o fallback acima; a prévia sinaliza "valor da turma usado".
+1. `ImportContext.existingClasses` passa a `{ id, name, monthly_fee, monthly_fee_integral }` e o `select` de `ImportSection.tsx` inclui os dois (com `school_id`).
+2. Testes vermelhos (não existe teste da validação hoje): valor informado vale; vazio + turma com **um** valor (só `monthly_fee`, ou só `monthly_fee_integral`) → usa e marca `usedClassFee` com o período; vazio + turma com **dois** valores → erro de linha que cita os dois valores; vazio + sem turma → erro; vazio + turma sem valor → erro; valor inválido continua erro; a linha com erro **não** entra em `valid`.
+3. `validate.ts`: `valor_mensalidade` opcional com o fallback restrito acima; a prévia sinaliza "valor da turma usado (meio período|integral)".
 4. `templates.ts`: instruções (`valor_mensalidade` passa a "Não", com a regra do fallback); aba de alunos ganha a linha "O valor da mensalidade é definido no contrato."
 
 ## T7 — documentação e QA
