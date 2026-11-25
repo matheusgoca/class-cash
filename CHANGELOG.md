@@ -1,5 +1,21 @@
 # Application Sync Changelog
 
+## Item I — contrato como fonte única do valor da mensalidade (2026-11-25)
+
+**Estado:** tela (PR #29) e importação (PR #30) em PR; migration do `final_amount` (PR #28) **escrita e validada, ainda NÃO aplicada em produção** (aguarda `--dry-run` e autorização). Spec aprovada pelo PM em 25/11 com dois ajustes: `docs/superpowers/specs/2026-11-25-item-i-contrato-fonte-unica-design.md`. Plano: `docs/superpowers/plans/2026-11-25-item-i-contrato-fonte-unica.md`. Diagnóstico com os números por escola: `docs/DIAGNOSTICO_ITEM_I_VALOR_MENSALIDADE.md`.
+
+- **Formulário do aluno:** saem os campos Mensalidade base e Desconto e o bloco "Valor final". Entra um bloco somente leitura com dois rótulos que não se confundem: **"Valor do contrato"** (contrato vigente, desconto, vigência, link "Ver contrato") e **"Referência da turma (meio período)"** (sem contrato; tracejado e atenuado; muda com a turma escolhida). As colunas `students.full_tuition_value`, `discount` e `final_tuition_value` **continuam no banco** e não são mais enviadas nem exibidas.
+- **Lista de alunos:** coluna Mensalidade mostra o valor do contrato vigente ou a referência da turma com o sufixo "(ref. turma, meio período)"; ignora os campos legados.
+- **Contrato vigente (R4)** numa função pura única (`src/lib/studentTuition.ts`).
+- **Importação de contratos:** `valor_mensalidade` passa a opcional. Vazio: usa o valor da turma **só quando ela tem um único valor definido** (meio período ou integral), com nota na prévia; turma com dois valores, sem valor ou sem turma = erro de linha e a linha não é importada. A planilha de alunos continua sem coluna de valor.
+- **`contracts.final_amount` com 2 casas** (`round(...,2)`, `SET EXPRESSION`, Postgres 17): migration `20261125130000` com guarda atômica (contagem, soma e hash linha a linha; aborta se algo mudar). Validada em `BEGIN…ROLLBACK`: matriz 118/118 e guarda negativa provada. **Não aplicada.**
+- Testes: 283 no PR da tela, 257 no PR da importação (cada um a partir da `main`); `tsc` com os mesmos 6 erros antigos.
+
+**Não feito / pendente**
+- `db push` da migration do `final_amount` (PR #28): só com `--dry-run` mostrado e autorização.
+- QA manual no navegador (roteiro em `QA_CHECKLIST.md`), só na Colegio Teste e no Colégio Estrela.
+- Se a turma tiver só o valor integral, o fallback da importação o usa (a planilha não tem coluna de período; o contrato fica `meio_periodo`): decisão a confirmar com o PM.
+
 ## Sprint S4c — Rematrícula, etapa 2 (interface) (2026-11-24)
 
 **Estado: pronta no código (branch `feature/s4c-etapa2-interface`), sem push nem PR.** Nada foi gravado em produção por esta etapa. Suíte: 221 testes passando (eram 164 antes da etapa); `npm run build` verde.

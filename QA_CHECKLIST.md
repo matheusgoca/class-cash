@@ -1,5 +1,45 @@
 # QA Testing Checklist
 
+## Roteiro de QA — Item I, contrato como fonte única do valor (2026-11-25)
+
+**Escolas:** só **Colegio Teste** e **Colégio Estrela**. **Nunca no Colégio Pensar** (escola real: nada de QA nem de teste nele, só leitura). Navegador, claro e escuro, e a 375 px.
+
+**Antes (leitura, anotar):** para um aluno de teste com contrato ativo, a consulta `select full_tuition_value, discount, final_tuition_value from students where id = '<aluno>'` (valores legados que **não podem mudar**).
+
+Formulário do aluno
+- [ ] Abrir **Editar aluno** (com contrato ativo): **não há** "Mensalidade base (R$)", "Desconto (%)" nem "Valor final da mensalidade".
+- [ ] O bloco mostra o rótulo **"Valor do contrato"**, o valor já com desconto, "Após N% de desconto", a vigência e o link **Ver contrato** (abre Contratos).
+- [ ] Aluno **sem** contrato ativo e com turma: rótulo **"Referência da turma (meio período)"** (borda tracejada, texto atenuado) com o valor da turma e a frase "Sem contrato ativo. O valor definitivo é definido ao criar o contrato." **Não** aparece "Valor do contrato".
+- [ ] Trocar a turma no formulário muda a referência na hora; turma sem mensalidade e "sem turma" mostram "—".
+- [ ] **Novo aluno**: mostra a referência da turma escolhida; salvar funciona.
+- [ ] **Editar e salvar** um aluno de teste: depois, a mesma consulta de antes dá **os mesmos** valores legados (nada foi zerado nem recalculado).
+- [ ] 375 px, claro e escuro: o bloco não estoura a largura e os dois rótulos continuam legíveis e distintos (não dependem só de cor).
+
+Lista de alunos
+- [ ] Coluna Mensalidade: aluno com contrato mostra o valor do contrato **sem** sufixo; aluno sem contrato mostra o valor da turma com **"(ref. turma, meio período)"**; sem nada mostra "—".
+- [ ] Um aluno cujo valor legado difere do contrato mostra o do **contrato**.
+
+Importação de contratos (`modelo-matriculas.xlsx`, escola de teste, com autorização para gravar)
+- [ ] Linha **com** valor: importa o valor informado, sem nota.
+- [ ] Linha **sem** valor, turma com **um** valor: aparece em "Linhas que usarão o valor da turma" (qual valor e se é meio período ou integral); depois de confirmar, o contrato tem esse valor.
+- [ ] Linha **sem** valor, turma com **dois** valores: erro na prévia citando os dois valores, **fora** das linhas válidas; as outras linhas seguem.
+- [ ] Linha sem valor e sem turma: erro. Linha sem valor, turma sem valor cadastrado: erro. Valor inválido ("abc"): erro.
+- [ ] Planilha de alunos: continua sem coluna de valor; as instruções dizem que o valor é definido no contrato.
+
+`final_amount` (**depois** do `db push`, que só acontece com autorização)
+- [ ] Conferência por escola (consulta abaixo): contagem, soma e hash **iguais** aos de antes (Estrela 240 / 249.247,50 / hash `87d4ff85…`, Teste 87 / 78.812,50 / hash `ca15f45a…`, Pensar 0), 0 contratos com fração de centavo.
+
+  ```sql
+  select s.name as escola, count(c.id) as contratos, coalesce(sum(c.final_amount),0)::numeric(14,2) as soma,
+         count(*) filter (where c.final_amount <> round(c.final_amount,2)) as com_fracao,
+         md5(coalesce(string_agg(c.id::text || ':' || round(c.final_amount,2)::text, ',' order by c.id), '')) as hash
+    from public.schools s left join public.contracts c on c.school_id = s.id
+   group by s.name order by s.name;
+  ```
+
+- [ ] Contrato de teste de 333,33 com 10% de desconto: `final_amount = 300.00` e as 12 mensalidades geradas ficam em 300,00.
+- [ ] Matriz de rematrícula sem o marcador: todas verdes.
+
 ## Roteiro de QA — S4c, rematrícula (etapa 2: interface) (2026-11-24)
 
 Tudo depende do navegador e da escola de teste. A renovação em lote renova contratos de verdade: **só na escola de teste e com autorização expressa**.
