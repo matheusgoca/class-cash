@@ -42,9 +42,10 @@ create function pg_temp.rec(p_cenario text, p_got text, p_esperado text) returns
 $f$;
 
 -- chama set_renewal_decision como o usuário e devolve '1' (ok) ou o erro
-create function pg_temp.decide(p_uid uuid, p_contract uuid, p_status text, p_reason text default null, p_note text default null)
+create function pg_temp.decide(p_uid uuid, p_contract uuid, p_status text, p_reason text default null, p_note text default null,
+                               p_aal text default 'aal1')
 returns text language sql as $f$
-  select pg_temp.run_as(p_uid, 'aal1',
+  select pg_temp.run_as(p_uid, p_aal,
     format('select count(*)::text from (select public.set_renewal_decision(%L, %L, %L, %L)) x',
            p_contract, p_status, p_reason, p_note))
 $f$;
@@ -66,9 +67,9 @@ returns jsonb language sql as $f$
 $f$;
 
 -- chama renew_contracts como o usuário e devolve o jsonb em texto ou o erro
-create function pg_temp.renew(p_uid uuid, p_school uuid, p_items jsonb, p_fee uuid default null)
+create function pg_temp.renew(p_uid uuid, p_school uuid, p_items jsonb, p_fee uuid default null, p_aal text default 'aal1')
 returns text language sql as $f$
-  select pg_temp.run_as(p_uid, 'aal1',
+  select pg_temp.run_as(p_uid, p_aal,
     format('select public.renew_contracts(%L, %L::jsonb, %L)::text', p_school, p_items::text, p_fee))
 $f$;
 
@@ -82,6 +83,7 @@ declare
   s_x uuid; s_y uuid; cl1 uuid; cl2 uuid; cly uuid; st uuid; sty uuid;
   k1 uuid; k2 uuid; k3 uuid; k4 uuid; k5 uuid; k6 uuid; kdead uuid; ky uuid;
   svc uuid; svc_m uuid; svc_off uuid; svcy uuid;
+  s_z uuid; clz uuid; stz uuid; kz uuid; -- escola de OUTRO dono (seção 3: master em escola alheia)
   v text; r jsonb; item jsonb; v_role text;
 begin
   perform set_config('request.jwt.claims', '', true);
@@ -326,6 +328,52 @@ begin
   -- 2zj. isolamento: nada foi criado na escola Y
   perform pg_temp.rec('2zj escola Y intacta',
     (select count(*)::text from public.contracts where school_id = s_y and renewed_from_id is not null), '0');
+
+  -- 3. Master em escola alheia -------------------------------------------------------------
+  -- Escola de OUTRO dono: o dono é u_admin, cujo perfil está na escola X; o perfil do master está em s_orig.
+  -- Ser dono não dá acesso (quem decide é profiles.school_id + papel); o master entra por is_master_admin().
+  -- O master exige 2FA sempre: as chamadas dele usam aal2.
+  insert into public.schools (name, owner_user_id) values ('Escola Teste Rematrícula Z', u_admin) returning id into s_z;
+  insert into public.classes (name, school_id) values ('Turma Z', s_z) returning id into clz;
+  insert into public.students (full_name, birth_date, school_id) values ('Aluno Z', date '2015-01-01', s_z) returning id into stz;
+  insert into public.contracts (student_id, class_id, school_id, start_date, end_date, status, monthly_amount, discount, due_day, period)
+    values (stz, clz, s_z, date '2030-03-01', date '2031-02-28', 'active', 100, 0, 10, 'meio_periodo') returning id into kz;
+  delete from public.mfa_grace where user_id = u_master;
+
+  perform pg_temp.rec('3a master marca decisão em contrato de escola alheia',
+    pg_temp.decide(u_master, kz, 'will_not_renew', 'price', null, 'aal2'), '1');
+  perform pg_temp.rec('3b ...gravada na escola do contrato, não na do perfil do master',
+    (select (school_id = s_z and status = 'will_not_renew' and decided_by = u_master)::text
+       from public.renewal_decisions where contract_id = kz), 'true');
+  perform pg_temp.rec('3c ...e nada na escola do perfil do master',
+    (select count(*)::text from public.renewal_decisions where school_id = s_orig and contract_id = kz), '0');
+  perform pg_temp.rec('3d master renova na escola alheia',
+    (((pg_temp.renew(u_master, s_z, jsonb_build_array(pg_temp.item(kz, clz, 100, 100, 10)), null, 'aal2'))::jsonb)->>'renewed'), '1');
+  perform pg_temp.rec('3e ...contrato novo e 12 mensalidades na escola alheia',
+    (select count(*)::text from public.contracts c join public.tuitions t on t.contract_id = c.id
+      where c.renewed_from_id = kz and c.school_id = s_z and t.school_id = s_z), '12');
+  perform pg_temp.rec('3f ...e nada vazou para a escola do perfil do master',
+    (select ((select count(*) from public.contracts where school_id = s_orig and renewed_from_id = kz)
+          + (select count(*) from public.tuitions where school_id = s_orig and contract_id in (select id from public.contracts where renewed_from_id = kz))
+          + (select count(*) from public.service_charges where school_id = s_orig and student_id = stz))::text), '0');
+  perform pg_temp.rec('3g auditoria do lote do master cai na escola alheia',
+    (select count(*)::text from public.audit_logs where table_name = 'tuitions' and school_id = s_orig
+        and (new_data->>'contract_id')::uuid in (select id from public.contracts where renewed_from_id = kz)), '0');
+  perform pg_temp.rec('3g2 ...e existe na escola alheia, como generated (contraprova, evita vácuo)',
+    (select count(*)::text || ':' || string_agg(distinct source, ',') from public.audit_logs where table_name = 'tuitions' and school_id = s_z
+        and (new_data->>'contract_id')::uuid in (select id from public.contracts where renewed_from_id = kz)), '12:generated');
+  perform pg_temp.rec('3h master em aal1 sem carência é bloqueado (2FA sempre)',
+    pg_temp.renew(u_master, s_z, jsonb_build_array(pg_temp.item(kz, clz, 100, 100, 10)), null, 'aal1'), 'ERR:42501:MFA_REQUIRED');
+  perform pg_temp.rec('3i master: origem de outra escola (s_x) com p_school_id = s_z é item inválido',
+    pg_temp.renew(u_master, s_z, jsonb_build_array(pg_temp.item(k5, clz, 500, 500, 10)), null, 'aal2'), 'ERR:22023:INVALID_ITEM');
+  perform pg_temp.rec('3j master: turma de destino de outra escola (cl1) é item inválido',
+    pg_temp.renew(u_master, s_x, jsonb_build_array(pg_temp.item(k6, clz, 600, 600, 10)), null, 'aal2'), 'ERR:22023:INVALID_ITEM');
+  perform pg_temp.rec('3k master em contrato inexistente', pg_temp.decide(u_master, gen_random_uuid(), 'contacted', null, null, 'aal2'),
+    'ERR:22023:INVALID_CONTRACT');
+  -- dono de outra escola, sem ser master, não ganha acesso à escola de que é dono
+  perform pg_temp.rec('3l dono (u_admin) da escola Z, com perfil na X, não renova na Z',
+    pg_temp.renew(u_admin, s_z, jsonb_build_array(pg_temp.item(kz, clz, 100, 100, 10)), null), 'ERR:42501:NOT_ALLOWED');
+  perform pg_temp.rec('3m ...nem decide em contrato da Z', pg_temp.decide(u_admin, kz, 'contacted'), 'ERR:22023:INVALID_CONTRACT');
 end $$;
 
 select n, cenario, got, esperado, ok from t_res order by n;
