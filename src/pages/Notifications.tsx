@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bell, CheckCheck, SlidersHorizontal } from 'lucide-react';
+import { Bell, CheckCheck, Info, SlidersHorizontal } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useAuth } from '@/contexts/AuthContext';
+import { useMasterAdmin } from '@/contexts/MasterAdminContext';
 import { useToast } from '@/hooks/use-toast';
+import { useRole } from '@/hooks/use-role';
+import { isMasterViewingOtherSchool } from '@/lib/accountMenu';
 import { listNotifications, markNotificationsRead, mergeById } from '@/lib/notifications';
 import {
   CATEGORY_LABELS, describeNotification, formatRelativeTime, groupByDay,
@@ -25,6 +30,16 @@ const query = (t: Tab, offset: number) =>
 const Notifications = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { profile } = useAuth();
+  const { isMasterAdmin, viewingSchoolId } = useMasterAdmin();
+  const { role } = useRole();
+  // D4: os RPCs listam os avisos da escola de CASA do usuário (get_user_school_id()). Com o master
+  // visualizando outra escola, esta tela não carrega nada (mesmo guard das preferências).
+  // Sem profile, isMasterAdmin e homeSchoolId ainda não são confiáveis: não decide nada antes disso.
+  const profileReady = profile !== null;
+  const otherSchool = profileReady && isMasterViewingOtherSchool({
+    role, isMasterAdmin, viewingSchoolId, homeSchoolId: profile?.school_id ?? null,
+  });
   const [tab, setTab] = useState<Tab>('all');
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [counts, setCounts] = useState({ total: 0, unread: 0, filtered: 0 });
@@ -46,7 +61,10 @@ const Notifications = () => {
     }
   }, []);
 
-  useEffect(() => { load(tab); }, [tab, load]);
+  useEffect(() => {
+    if (!profileReady || otherSchool) return;
+    load(tab);
+  }, [tab, load, profileReady, otherSchool]);
 
   const loadMore = async () => {
     setLoadingMore(true);
@@ -74,6 +92,23 @@ const Notifications = () => {
     if (!n.read_at) { try { await markNotificationsRead([n.id]); } catch { /* segue */ } }
     navigate(path);
   };
+
+  if (otherSchool) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Notificações</h1>
+          <p className="text-muted-foreground">Lembretes de cobrança, renegociação, despesas e rematrícula</p>
+        </div>
+        <Alert>
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            Você está visualizando outra escola. Suas notificações são as da sua própria escola: volte ao painel master e acesse-a para vê-las.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   const now = new Date();
   const groups = groupByDay(items, now);
