@@ -19,9 +19,18 @@ export interface ImportRowError {
   message: string;
 }
 
+/** Aviso de linha VÁLIDA que merece atenção na prévia (ex.: valor da turma usado). Não bloqueia nada. */
+export interface ImportRowNote {
+  row: number;
+  field?: string;
+  message: string;
+}
+
 export interface ImportValidationResult<T> {
   valid: Array<{ row: number; data: T }>;
   errors: ImportRowError[];
+  /** Avisos das linhas válidas (só a planilha de contratos usa hoje). */
+  notes?: ImportRowNote[];
   totalRows: number;
 }
 
@@ -84,7 +93,8 @@ export interface ValidatedContractRow {
 
 export interface ImportContext {
   schoolId: string;
-  existingClasses: Array<{ id: string; name: string }>;
+  /** Item I: monthly_fee e monthly_fee_integral alimentam o fallback do valor na planilha de contratos. */
+  existingClasses: Array<{ id: string; name: string; monthly_fee?: number | string | null; monthly_fee_integral?: number | string | null }>;
   existingTeachers: Array<{ id: string; email: string }>;
   existingStudents: Array<{ id: string; full_name: string; email: string | null; birth_date: string | null }>;
   existingActiveContractStudentIds: Set<string>;
