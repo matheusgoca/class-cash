@@ -1,8 +1,10 @@
 // src/lib/import/validate.contracts.test.ts
 // Item I: valor_mensalidade opcional na planilha de contratos, com fallback RESTRITO para a turma:
-// só vale quando a turma tem um único valor definido (meio período XOR integral).
+// só vale quando a turma tem APENAS o valor de meio período. Turma só com integral, com os dois valores,
+// sem valor, ou sem turma: erro de linha ("informe o valor"), a linha não é importada e as válidas seguem.
 import { describe, it, expect } from 'vitest';
 import { validateContractsRows } from './validate';
+import { resolveClassFee } from './shared';
 import type { ImportContext } from './types';
 
 type Cls = { id: string; name: string; monthly_fee?: number | null; monthly_fee_integral?: number | null };
@@ -44,11 +46,24 @@ describe('validateContractsRows: valor_mensalidade (item I)', () => {
     expect(r.notes![0].message).toMatch(/650,00/);
   });
 
-  it('vazio + turma com UM valor (só integral): usa e avisa "integral"', () => {
+  it('vazio + turma SÓ com valor integral: erro de linha "informe o valor", sem fallback e sem nota', () => {
     const r = validateContractsRows([row({ turma: '5º A' })], ctx([turmaSo({ monthly_fee: null, monthly_fee_integral: 900 })]));
+    expect(r.valid).toEqual([]);
+    expect(r.errors).toHaveLength(1);
+    expect(r.errors[0]).toMatchObject({ row: 2, field: 'valor_mensalidade' });
+    expect(r.errors[0].message).toMatch(/Informe "valor_mensalidade"/);
+    expect(r.errors[0].message).toMatch(/integral/);
+    expect(r.errors[0].message).toMatch(/900,00/);
+    expect(r.notes ?? []).toEqual([]);
+  });
+
+  it('turma só integral COM valor_mensalidade informado: importa o informado', () => {
+    const r = validateContractsRows(
+      [row({ turma: '5º A', valor_mensalidade: '950,00' })],
+      ctx([turmaSo({ monthly_fee: null, monthly_fee_integral: 900 })]),
+    );
     expect(r.errors).toEqual([]);
-    expect(r.valid[0].data.monthly_amount).toBe(900);
-    expect(r.notes![0].message).toMatch(/integral/);
+    expect(r.valid[0].data.monthly_amount).toBe(950);
   });
 
   it('vazio + turma com DOIS valores: erro de linha, linha NÃO importada, mensagem cita os dois valores', () => {
@@ -102,5 +117,22 @@ describe('validateContractsRows: valor_mensalidade (item I)', () => {
     expect(r.valid.map((v) => v.row)).toEqual([2]);
     expect(r.errors.map((e) => e.row)).toEqual([3]);
     expect(r.totalRows).toBe(2);
+  });
+});
+
+describe('resolveClassFee', () => {
+  it('só meio período = fallback permitido', () => {
+    expect(resolveClassFee({ monthly_fee: 650, monthly_fee_integral: null })).toEqual({ kind: 'single', amount: 650, period: 'meio período' });
+    expect(resolveClassFee({ monthly_fee: '650.50', monthly_fee_integral: 0 })).toEqual({ kind: 'single', amount: 650.5, period: 'meio período' });
+  });
+  it('só integral = SEM fallback (integral_only)', () => {
+    expect(resolveClassFee({ monthly_fee: null, monthly_fee_integral: 900 })).toEqual({ kind: 'integral_only', full: 900 });
+    expect(resolveClassFee({ monthly_fee: 0, monthly_fee_integral: '900' })).toEqual({ kind: 'integral_only', full: 900 });
+  });
+  it('os dois valores = both; nenhum, nulo, negativo ou turma ausente = none', () => {
+    expect(resolveClassFee({ monthly_fee: 650, monthly_fee_integral: 900 })).toEqual({ kind: 'both', half: 650, full: 900 });
+    for (const c of [{ monthly_fee: null, monthly_fee_integral: null }, { monthly_fee: 0, monthly_fee_integral: -1 }, undefined]) {
+      expect(resolveClassFee(c as never)).toEqual({ kind: 'none' });
+    }
   });
 });

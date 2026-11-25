@@ -68,7 +68,7 @@ const TEMPLATES: Record<ImportEntityKey, TemplateDef> = {
       ['aluno', 'Sim', 'Texto', 'Nome EXATO de um aluno já cadastrado. Importe a planilha de Alunos antes desta.'],
       ['aluno_email', 'Não', 'E-mail', 'Preencha se houver mais de um aluno com o mesmo nome, para desempatar'],
       ['turma', 'Não', 'Texto', 'Nome EXATO de uma turma já cadastrada'],
-      ['valor_mensalidade', 'Não', 'Moeda (R$)', 'Use vírgula como separador decimal. Ex: 650,00. Se vazio, usa o valor da turma, mas SÓ quando a turma tem um único valor cadastrado (meio período ou integral). Turma com dois valores, sem valor, ou sem turma: a linha fica com erro na prévia e não é importada.'],
+      ['valor_mensalidade', 'Não', 'Moeda (R$)', 'Use vírgula como separador decimal. Ex: 650,00. Se vazio, usa o valor da turma, mas SÓ quando a turma tem apenas o valor de meio período. Turma só com valor integral, com dois valores, sem valor, ou sem turma: a linha é ignorada (aparece com o motivo na prévia, não é importada) e você precisa informar o valor.'],
       ['desconto_percentual', 'Não', 'Número de 0 a 100', 'Se vazio, assume 0'],
       ['dia_vencimento', 'Não', 'Número de 1 a 28', 'Se vazio, assume 10'],
       ['data_inicio', 'Sim', 'Data (DD/MM/AAAA)', ''],

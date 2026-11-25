@@ -116,7 +116,8 @@ export function randomClassColor(seed: number): string {
 // ---- Item I: valor da turma como fallback na planilha de contratos ----
 
 export type ClassFeeResolution =
-  | { kind: 'single'; amount: number; period: 'meio período' | 'integral' }
+  | { kind: 'single'; amount: number; period: 'meio período' }
+  | { kind: 'integral_only'; full: number }
   | { kind: 'both'; half: number; full: number }
   | { kind: 'none' };
 
@@ -126,8 +127,9 @@ const positive = (v: unknown): number | null => {
 };
 
 /**
- * O fallback para o valor da turma SÓ vale quando a turma tem um único valor definido (meio período XOR integral).
- * Com os dois valores a planilha não diz qual período o contrato tem; sem nenhum, não há o que sugerir.
+ * O fallback para o valor da turma SÓ vale quando a turma tem APENAS o valor de meio período (`single`).
+ * A planilha de contratos não tem coluna de período e o contrato importado fica `meio_periodo`, então:
+ * só integral (`integral_only`), os dois valores (`both`) ou nenhum (`none`) NÃO têm fallback: erro de linha.
  */
 export function resolveClassFee(
   cls: { monthly_fee?: number | string | null; monthly_fee_integral?: number | string | null } | undefined,
@@ -136,6 +138,6 @@ export function resolveClassFee(
   const full = positive(cls?.monthly_fee_integral);
   if (half !== null && full !== null) return { kind: 'both', half, full };
   if (half !== null) return { kind: 'single', amount: half, period: 'meio período' };
-  if (full !== null) return { kind: 'single', amount: full, period: 'integral' };
+  if (full !== null) return { kind: 'integral_only', full };
   return { kind: 'none' };
 }

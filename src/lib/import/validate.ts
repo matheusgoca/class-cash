@@ -325,7 +325,7 @@ export function validateContractsRows(
     }
 
     // Item I: valor_mensalidade é opcional. Informado: vale o informado (valor negociado).
-    // Vazio: o fallback para a turma SÓ vale quando ela tem um único valor definido; senão a linha tem erro e não é importada.
+    // Vazio: o fallback para a turma SÓ vale quando ela tem APENAS o valor de meio período; senão a linha tem erro e não é importada.
     const monthlyAmountRaw = row['valor_mensalidade'];
     let monthlyAmount: number | undefined;
     if (String(monthlyAmountRaw ?? '').trim() === '') {
@@ -336,6 +336,14 @@ export function validateContractsRows(
       const fee = resolveClassFee(selectedClass);
       if (fee.kind === 'none') {
         errors.push({ row: rowNum, field: 'valor_mensalidade', message: `A turma "${selectedClass.name}" não tem mensalidade cadastrada. Informe "valor_mensalidade".` });
+        return;
+      }
+      if (fee.kind === 'integral_only') {
+        errors.push({
+          row: rowNum,
+          field: 'valor_mensalidade',
+          message: `A turma "${selectedClass.name}" só tem valor integral (${formatCurrency(fee.full)}) e a planilha não diz o período do contrato, então o valor da turma não é usado. Informe "valor_mensalidade".`,
+        });
         return;
       }
       if (fee.kind === 'both') {
