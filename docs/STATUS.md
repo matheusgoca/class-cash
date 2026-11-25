@@ -65,7 +65,7 @@ Regras desta rodada: Pensar só leitura; matrizes em `BEGIN … ROLLBACK`; migra
 **Bloco 1 — sino e central com o master (decisão D4, documentada).** Diagnóstico pelo código e pelo banco:
 - `NotificationBell`, o item **Notificações** da barra lateral e o card "Precisa da sua atenção" usam a mesma regra (`useShowNotifications` → `showNotificationsItem`): **somem** quando o master está sem escola (painel `/master`) **ou visualizando outra escola**; aparecem só na escola de casa. Escondido, o sino nem consulta o banco (o `useEffect` não dispara).
 - **Não há vazamento de avisos entre escolas.** `list_notifications` e `mark_notifications_read` filtram por `n.user_id = auth.uid()` **e** `n.school_id = get_user_school_id()` (a escola do perfil); `school_id` nunca vem do cliente. Hoje os 3 avisos existentes são da Colegio Teste.
-- **Inconsistência menor, não vazamento:** a rota `/notificacoes` **não tem o guard** que a página de preferências já tem (`isMasterViewingOtherSchool`). Quem digita a URL com o master visualizando outra escola vê os avisos **da escola de casa** sob o banner da escola visualizada. Correção sugerida (pequena, com teste): espelhar o guard de `NotificationPreferences.tsx`. **Não foi feita** (não é vazamento; aguarda o PM).
+- **Inconsistência menor, não vazamento:** a rota `/notificacoes` **não tem o guard** que a página de preferências já tem (`isMasterViewingOtherSchool`). Quem digita a URL com o master visualizando outra escola vê os avisos **da escola de casa** sob o banner da escola visualizada. **Corrigido em 25/11** (PR do branch `fix/notificacoes-guard-master-outra-escola`): `Notifications.tsx` ganhou o mesmo guard das preferências (`profileReady` + `isMasterViewingOtherSchool`); com o master em outra escola mostra um aviso e **não consulta nada**; 4 testes novos (243 no total).
 - Comportamento registrado no `CLAUDE.md` (convenções).
 
 **Bloco 2 — item I (valor da mensalidade em três lugares), Fase 0.** Documento: `docs/DIAGNOSTICO_ITEM_I_VALOR_MENSALIDADE.md`. **Aguarda a decisão do PM (A, B ou C) antes de qualquer spec ou migration.** Números:
@@ -83,7 +83,7 @@ Regras desta rodada: Pensar só leitura; matrizes em `BEGIN … ROLLBACK`; migra
 - **Pensar:** 3 usuários, 0 preferências confirmadas, 0 avisos e **nenhum dado a notificar** (0 mensalidades, 0 despesas, 0 contratos).
 - **DECISÃO pendente:** só depois de o PM confirmar domínio verificado e secrets configurados, propor o dia e a ordem do primeiro envio.
 
-**Pendências abertas da S5:** (1) PM escolhe A/B/C do item I; (2) PM decide se quer o guard de `/notificacoes` para o master e o freio por escola do e-mail; (3) PM confirma domínio verificado e secrets do Resend; (4) `reply-to`/`List-Unsubscribe`, se desejados.
+**Pendências abertas da S5:** (1) PM escolhe A/B/C do item I; (2) ~~guard de `/notificacoes`~~ (feito); freio por escola do e-mail: **decidido em 25/11 que não haverá agora**, ver o portão abaixo; (3) PM confirma domínio verificado e secrets do Resend; (4) `reply-to`/`List-Unsubscribe`, se desejados.
 
 ## Escolas em produção e regras de QA (25/11)
 

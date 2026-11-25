@@ -5,7 +5,13 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import type { NotificationItem } from '@/lib/notificationText';
 
-const mocks = vi.hoisted(() => ({ list: vi.fn(), mark: vi.fn(), navigate: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  list: vi.fn(), mark: vi.fn(), navigate: vi.fn(),
+  // Contexto do usuário: o padrão é um admin comum na própria escola; os testes do master sobrescrevem.
+  auth: { profile: { school_id: 'casa' } as { school_id: string | null } | null },
+  master: { isMasterAdmin: false, viewingSchoolId: null as string | null },
+  role: { role: 'admin' as string | null },
+}));
 
 vi.mock('@/lib/notifications', async () => ({
   ...(await vi.importActual<typeof import('@/lib/notifications')>('@/lib/notifications')),
@@ -13,6 +19,9 @@ vi.mock('@/lib/notifications', async () => ({
   markNotificationsRead: mocks.mark,
 }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: vi.fn() } }));
+vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => mocks.auth }));
+vi.mock('@/contexts/MasterAdminContext', () => ({ useMasterAdmin: () => mocks.master }));
+vi.mock('@/hooks/use-role', () => ({ useRole: () => mocks.role }));
 vi.mock('react-router-dom', async () => ({
   ...(await vi.importActual<typeof import('react-router-dom')>('react-router-dom')),
   useNavigate: () => mocks.navigate,
@@ -34,8 +43,53 @@ const resp = (items: NotificationItem[], o: Partial<{ filteredTotal: number; tot
 
 const renderPage = () => render(<MemoryRouter><Notifications /></MemoryRouter>);
 
-beforeEach(() => { mocks.mark.mockResolvedValue(1); });
+beforeEach(() => {
+  mocks.mark.mockResolvedValue(1);
+  mocks.auth.profile = { school_id: 'casa' };
+  mocks.master.isMasterAdmin = false;
+  mocks.master.viewingSchoolId = null;
+  mocks.role.role = 'admin';
+});
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
+
+describe('Central de notificações: master e escola visualizada (D4)', () => {
+  it('master visualizando OUTRA escola: mostra o aviso e NÃO consulta nem lista nada (sem avisos da escola de casa)', async () => {
+    mocks.master.isMasterAdmin = true;
+    mocks.master.viewingSchoolId = 'outra';
+    mocks.list.mockResolvedValue(resp([item('da-escola-de-casa')]));
+    renderPage();
+    expect(await screen.findByText(/visualizando outra escola/i)).toBeTruthy();
+    expect(screen.queryByText(/mensalidades vencidas/)).toBeNull();
+    expect(screen.queryByRole('tab', { name: /Todas/ })).toBeNull();
+    expect(mocks.list).not.toHaveBeenCalled();
+  });
+
+  it('master na PRÓPRIA escola: carrega normalmente', async () => {
+    mocks.master.isMasterAdmin = true;
+    mocks.master.viewingSchoolId = 'casa';
+    mocks.list.mockResolvedValue(resp([item('a')]));
+    renderPage();
+    expect(await screen.findByText('12 mensalidades vencidas há mais de 5 dias')).toBeTruthy();
+    expect(screen.queryByText(/visualizando outra escola/i)).toBeNull();
+  });
+
+  it('perfil ainda não carregou: não decide nada e não consulta (evita piscar a escola errada)', async () => {
+    mocks.auth.profile = null;
+    mocks.master.isMasterAdmin = true;
+    mocks.master.viewingSchoolId = 'outra';
+    mocks.list.mockResolvedValue(resp([item('a')]));
+    renderPage();
+    await waitFor(() => expect(screen.queryByText(/mensalidades vencidas/)).toBeNull());
+    expect(mocks.list).not.toHaveBeenCalled();
+  });
+
+  it('usuário comum (não master) carrega mesmo com viewingSchoolId diferente', async () => {
+    mocks.master.viewingSchoolId = 'outra';
+    mocks.list.mockResolvedValue(resp([item('a')]));
+    renderPage();
+    expect(await screen.findByText('12 mensalidades vencidas há mais de 5 dias')).toBeTruthy();
+  });
+});
 
 describe('Central de notificações', () => {
   it('carrega a lista, agrupa em "Hoje" e mostra as contagens nas abas', async () => {
