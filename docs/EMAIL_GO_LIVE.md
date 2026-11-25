@@ -13,12 +13,13 @@ Edge Function `send-notification-emails` (`supabase/functions/send-notification-
 | `EMAIL_FROM` | sim | remetente, ex.: `Class Cash <avisos@seu-dominio>`; o domínio precisa estar **verificado** no Resend (DNS) |
 | `EMAIL_SENDING_ENABLED` | sim, para enviar | interruptor global: **só o texto exato `true` liga**; ausente, vazio ou qualquer outro valor = desligado |
 | `EMAIL_ALLOWLIST` | recomendado | lista separada por vírgula (`a@x.com, b@y.com`); se definida, **só** esses endereços recebem; vazia = sem filtro |
+| `EMAIL_REPLY_TO` | não | endereço de resposta (`suporte@x.com` ou `Nome <suporte@x.com>`); vai como `reply_to` no Resend. Ausente ou inválido = sem reply-to (valor inválido é ignorado com um aviso no log, sem expor o valor, e **nunca** derruba o envio). **Código mergeado; só vale depois do deploy da função (aguarda autorização).** |
 | `APP_URL` | não | base dos links do e-mail; padrão `https://class-cash-tan.vercel.app` |
 | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | automáticos | injetados pelo Supabase; a função exige que o `Authorization: Bearer` do pedido seja **idêntico** ao `SUPABASE_SERVICE_ROLE_KEY` |
 
 **Vault (banco, não a função):** segredo de nome `service_role_key`, com o **JWT legado `service_role`** (Supabase → Settings → API), idêntico ao `SUPABASE_SERVICE_ROLE_KEY` acima. Uma chave nova no formato `sb_secret_…` faz a função responder 401 em toda chamada.
 
-**Não existe hoje:** `reply-to` (o corpo enviado ao Resend só tem `from`, `to`, `subject`, `html`, `text`) nem cabeçalho `List-Unsubscribe` (o rodapé tem o link "Ajustar preferências"). Se o PM quiser algum dos dois, é mudança de código + deploy.
+**Reply-to e cancelamento:** `EMAIL_REPLY_TO` (acima) existe desde 25/11 (código mergeado, deploy pendente). O rodapé do e-mail **já tem** o link "Ajustar preferências" (HTML e texto, com teste). **`List-Unsubscribe` fica de fora por enquanto** (decisão do PM, 25/11).
 
 **Segredo do job:** não há um segredo próprio do job; ele só usa o `service_role_key` do Vault.
 
@@ -41,7 +42,7 @@ Edge Function `send-notification-emails` (`supabase/functions/send-notification-
 5. E-mail do usuário confirmado; só `admin`/dono (e `financial` nos eventos não restritos).
 6. Reenvio: no máximo 3 tentativas por (usuário, escola, evento, dia); 40 e-mails por chamada (a fila continua na hora seguinte); pausa de 600 ms entre envios (limite do Resend).
 
-**Lacuna a decidir:** não existe um freio **por escola** (nenhum `schools.email_enabled`). Hoje o único freio por escola é o opt-in de cada usuário. Recomendo manter `EMAIL_ALLOWLIST` definida em todas as fases até a decisão do PM; um interruptor por escola é uma alternativa pequena (uma coluna + uma condição no `claim_notification_emails`).
+**PORTÃO OBRIGATÓRIO antes de remover a allowlist e abrir o e-mail para todas as escolas (decisão do PM, 25/11):** não existe freio **por escola** (nenhum `schools.email_enabled`) e **não haverá agora**. Enquanto isso, `EMAIL_ALLOWLIST` fica definida em todas as fases. **Antes** de remover a allowlist ou de abrir para as demais escolas, é obrigatório decidir e implementar um freio por escola (uma coluna + uma condição no `claim_notification_emails`, com caso na matriz de notificações) ou outro equivalente aprovado pelo PM. Sem isso, o único freio por escola seria o opt-in de cada usuário.
 
 **Estado de cada escola (contagens de 25/11, sem endereços):**
 

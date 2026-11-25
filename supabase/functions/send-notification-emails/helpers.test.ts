@@ -1,6 +1,6 @@
 // supabase/functions/send-notification-emails/helpers.test.ts
 import { describe, it, expect } from 'vitest';
-import { bearerMatches, isSendingEnabled, parseAllowlist, errorMessage } from './helpers.ts';
+import { bearerMatches, buildSendBody, isSendingEnabled, parseAllowlist, parseReplyTo, errorMessage } from './helpers.ts';
 
 describe('bearerMatches', () => {
   it('aceita só o Bearer exato', () => {
@@ -28,6 +28,35 @@ describe('parseAllowlist', () => {
     expect(parseAllowlist(undefined)).toBeNull();
     expect(parseAllowlist('')).toBeNull();
     expect(parseAllowlist(' , ')).toBeNull();
+  });
+});
+
+describe('parseReplyTo', () => {
+  it('aceita um endereço simples ou "Nome <endereço>", aparado', () => {
+    expect(parseReplyTo(' suporte@classcash.com.br ')).toBe('suporte@classcash.com.br');
+    expect(parseReplyTo('Class Cash <suporte@classcash.com.br>')).toBe('Class Cash <suporte@classcash.com.br>');
+  });
+  it('ausente, vazio ou inválido = null (sem reply-to)', () => {
+    for (const v of [undefined, null, '', '   ', 'sem-arroba', 'a@b', 'Nome <a@b.com', 'a@b.com>', '@b.com']) {
+      expect(parseReplyTo(v as never)).toBeNull();
+    }
+  });
+  it('recusa lista e quebra de linha (injeção de cabeçalho)', () => {
+    expect(parseReplyTo('a@b.com, c@d.com')).toBeNull();
+    expect(parseReplyTo('a@b.com;c@d.com')).toBeNull();
+    expect(parseReplyTo('a@b.com\r\nBcc: x@y.com')).toBeNull();
+  });
+});
+
+describe('buildSendBody', () => {
+  const mail = { subject: 'Assunto', html: '<p>oi</p>', text: 'oi' };
+  it('sem reply-to: o corpo não tem o campo', () => {
+    const b = buildSendBody('Class Cash <a@x.com>', 'dest@y.com', mail, null);
+    expect(b).toEqual({ from: 'Class Cash <a@x.com>', to: ['dest@y.com'], subject: 'Assunto', html: '<p>oi</p>', text: 'oi' });
+    expect('reply_to' in b).toBe(false);
+  });
+  it('com reply-to: vai em reply_to', () => {
+    expect(buildSendBody('a@x.com', 'dest@y.com', mail, 'suporte@x.com').reply_to).toBe('suporte@x.com');
   });
 });
 

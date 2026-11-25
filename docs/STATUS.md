@@ -77,13 +77,15 @@ Regras desta rodada: Pensar só leitura; matrizes em `BEGIN … ROLLBACK`; migra
 - Recomendação: **A** (contrato como fonte única; turma sugere; campo do aluno some ou exibe o do contrato; `final_amount` com `round(...,2)` via `SET EXPRESSION`, PG 17.6, 0 linhas afetadas).
 
 **Bloco 3 — go-live do e-mail (sem enviar nada).** Documento: `docs/EMAIL_GO_LIVE.md` (secrets, job, freios, 9 consultas de monitoramento validadas, roteiro do primeiro teste, pendências do Pensar). Pontos-chave:
-- Secrets da função (só nomes): `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_SENDING_ENABLED` (só `true` liga), `EMAIL_ALLOWLIST` (opcional, recomendada), `APP_URL` (opcional); automáticos: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`. Vault: `service_role_key` (JWT legado, igual ao `SUPABASE_SERVICE_ROLE_KEY`). **Não há** `reply-to` nem `List-Unsubscribe` no código.
+- Secrets da função (só nomes): `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_SENDING_ENABLED` (só `true` liga), `EMAIL_ALLOWLIST` (opcional, recomendada), `APP_URL` (opcional); automáticos: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`. Vault: `service_role_key` (JWT legado, igual ao `SUPABASE_SERVICE_ROLE_KEY`). `reply-to`: secret opcional `EMAIL_REPLY_TO` (PR do branch `feature/email-reply-to`, **deploy da função pendente de autorização**); o rodapé já tem "Ajustar preferências"; **sem `List-Unsubscribe`** por decisão do PM.
 - Job `send-notification-emails` ativo de hora em hora e **respondendo 401** até hoje (falta o segredo do Vault): esperado e inofensivo.
 - Freios: interruptor global, allowlist, `confirmed_at` + e-mail ligado por evento (padrão desligado) + aviso do dia + a partir das 08:00 locais. **Não há freio por escola** (decisão pendente). Hoje, com o interruptor ligado e sem allowlist, sairia 1 e-mail, da Colegio Teste; nada do Pensar.
 - **Pensar:** 3 usuários, 0 preferências confirmadas, 0 avisos e **nenhum dado a notificar** (0 mensalidades, 0 despesas, 0 contratos).
 - **DECISÃO pendente:** só depois de o PM confirmar domínio verificado e secrets configurados, propor o dia e a ordem do primeiro envio.
 
-**Pendências abertas da S5:** (1) PM escolhe A/B/C do item I; (2) ~~guard de `/notificacoes`~~ (feito); freio por escola do e-mail: **decidido em 25/11 que não haverá agora**, ver o portão abaixo; (3) PM confirma domínio verificado e secrets do Resend; (4) `reply-to`/`List-Unsubscribe`, se desejados.
+**PORTÃO OBRIGATÓRIO do e-mail (decisão de 25/11).** Sem interruptor por escola agora. **Antes de remover a `EMAIL_ALLOWLIST` e de abrir o e-mail para todas as escolas** é obrigatório ter um freio por escola (por exemplo `schools.email_enabled` + condição no `claim_notification_emails` + caso na `notifications_matrix.sql`) ou equivalente aprovado pelo PM. Até lá a allowlist fica definida em todas as fases (detalhe em `docs/EMAIL_GO_LIVE.md`).
+
+**Pendências abertas da S5:** (1) PM escolhe A/B/C do item I; (2) ~~guard de `/notificacoes`~~ (feito); freio por escola do e-mail: **decidido em 25/11 que não haverá agora**, ver o portão acima; (3) PM confirma domínio verificado e secrets do Resend; (4) `reply-to`/`List-Unsubscribe`, se desejados.
 
 ## Escolas em produção e regras de QA (25/11)
 

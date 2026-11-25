@@ -4,7 +4,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildNotificationEmail } from "../_shared/notificationEmail.ts";
-import { bearerMatches, errorMessage, isSendingEnabled, parseAllowlist } from "./helpers.ts";
+import { bearerMatches, buildSendBody, errorMessage, isSendingEnabled, parseAllowlist, parseReplyTo } from "./helpers.ts";
 
 const BATCH = 40;
 const PAUSE_MS = 600; // limite do Resend: 2 requisições por segundo
@@ -29,6 +29,10 @@ serve(async (req) => {
   const from = Deno.env.get("EMAIL_FROM");
   if (!apiKey || !from) return json({ error: "RESEND_API_KEY e EMAIL_FROM são obrigatórios" }, 500);
   const appUrl = Deno.env.get("APP_URL") || DEFAULT_APP_URL;
+  // Opcional. Valor inválido é ignorado (com aviso, sem o valor no log): nunca derruba o envio.
+  const rawReplyTo = Deno.env.get("EMAIL_REPLY_TO");
+  const replyTo = parseReplyTo(rawReplyTo);
+  if (rawReplyTo && rawReplyTo.trim() && !replyTo) console.warn("EMAIL_REPLY_TO inválido: ignorado");
 
   const supabase = createClient(Deno.env.get("SUPABASE_URL")!, serviceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
@@ -69,7 +73,7 @@ serve(async (req) => {
           // Reenvio após queda não duplica o e-mail (válida por 24 h no Resend).
           "Idempotency-Key": item.outbox_id,
         },
-        body: JSON.stringify({ from, to: [item.to_email], subject: mail.subject, html: mail.html, text: mail.text }),
+        body: JSON.stringify(buildSendBody(from, item.to_email, mail, replyTo)),
       });
       const body = await res.json().catch(() => ({}));
       if (res.ok && body && typeof body.id === "string") {
