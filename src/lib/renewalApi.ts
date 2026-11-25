@@ -13,15 +13,22 @@ const RPC_MESSAGES: Record<string, string> = {
   INVALID_STATUS: 'Estado de rematrícula inválido. Recarregue a página e tente de novo.',
   INVALID_CONTRACT: 'Contrato não encontrado, inativo ou já renovado. Recarregue a página.',
   REASON_REQUIRED: 'Informe o motivo de a família não renovar.',
-  INVALID_ITEMS: 'O lote precisa ter de 1 a 100 contratos.',
   INVALID_SERVICE: 'A taxa de rematrícula escolhida não está disponível. Escolha outra ou desmarque a taxa.',
 };
+
+const CONTRACT_PREFIX = /^Contrato [0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}: /i;
+
+/** Tira o id (uuid) do contrato do detalhe do servidor: o usuário não reconhece o id. */
+function cleanDetail(details: string): string {
+  const d = details.trim();
+  return CONTRACT_PREFIX.test(d) ? d.replace(CONTRACT_PREFIX, '').replace(/^./, (c) => c.toLowerCase()) : d;
+}
 
 export function friendlyRenewalError(error: unknown): string {
   const e = error as { message?: string; details?: string } | null;
   const code = (e?.message ?? '').trim();
-  if (code === 'INVALID_ITEM') {
-    return `Um contrato do lote foi recusado pelo servidor${e?.details ? `: ${e.details}` : '.'}`;
+  if (code === 'INVALID_ITEM' && e?.details) {
+    return `Um contrato do lote foi recusado pelo servidor: ${cleanDetail(e.details)}`;
   }
   if (RPC_MESSAGES[code]) return RPC_MESSAGES[code];
   return getFriendlyErrorMessage(error, 'Não foi possível concluir a operação. Tente novamente.');

@@ -1,7 +1,7 @@
 // src/lib/renewal.test.ts
 import { describe, it, expect } from 'vitest';
 import {
-  applyAdjustment, buildRenewalPlan, capacityWarnings, chunk, finalAmountOf, nextTerm,
+  applyAdjustment, buildRenewalPlan, capacityWarnings, chunk, finalAmountOf, MAX_MONTHLY_AMOUNT, nextTerm,
   renewalState, summarizeWindow, type DecisionRow, type RenewalClass, type RenewalContract,
 } from './renewal';
 
@@ -75,6 +75,25 @@ describe('buildRenewalPlan', () => {
     expect(rows[0].error).toBe('INVALID_AMOUNT');
     expect(items.map((i) => i.source_contract_id)).toEqual(['k2']);
     expect(totals.contracts).toBe(1);
+  });
+
+  it('valor mensal acima do teto (R$ 30.000) marca AMOUNT_TOO_HIGH e fica fora dos itens', () => {
+    expect(MAX_MONTHLY_AMOUNT).toBe(30000);
+    const { rows, items, totals } = buildRenewalPlan(
+      [src(), src({ id: 'k2' }), src({ id: 'k3' })],
+      opts({ overrides: { k1: { monthly: 30000.01 }, k2: { monthly: 30000 } } }),
+    );
+    expect(rows[0].error).toBe('AMOUNT_TOO_HIGH');
+    expect(rows[1].error).toBeNull(); // exatamente no teto passa
+    expect(items.map((i) => i.source_contract_id)).toEqual(['k2', 'k3']);
+    expect(totals.contracts).toBe(2);
+  });
+
+  it('o reajuste em % que passa do teto também é barrado na prévia', () => {
+    const { rows, items } = buildRenewalPlan([src({ monthly_amount: 29000 })], opts({ pct: 10 })); // 29000 + 10% = 31900
+    expect(rows[0].newMonthly).toBe(31900);
+    expect(rows[0].error).toBe('AMOUNT_TOO_HIGH');
+    expect(items).toHaveLength(0);
   });
 
   it('mensalidades vencidas se "hoje" é depois do vencimento', () => {

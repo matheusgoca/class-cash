@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatCurrency } from '@/lib/calculations';
-import { buildRenewalPlan, capacityWarnings, classKey, type RenewalClass, type RenewalContract } from '@/lib/renewal';
+import { buildRenewalPlan, capacityWarnings, classKey, MAX_MONTHLY_AMOUNT, type RenewalClass, type RenewalContract } from '@/lib/renewal';
 import { friendlyRenewalError, renewContracts, type RenewResult } from '@/lib/renewalApi';
 import type { RenewalService } from '@/lib/renewalData';
 
@@ -189,6 +189,7 @@ export function BatchRenewalDialog({ open, onOpenChange, sources, classes, activ
                         <CurrencyInput className="w-[120px]" aria-label={`Novo valor de ${r.studentName}`} value={r.newMonthly} onChange={(v) => setRowMonthly(r.contractId, v)} />
                       </div>
                       {r.error === 'INVALID_AMOUNT' && <p className="mt-1 text-xs text-destructive">Valor inválido: informe um valor maior que zero.</p>}
+                      {r.error === 'AMOUNT_TOO_HIGH' && <p className="mt-1 text-xs text-destructive">Valor acima do limite de {formatCurrency(MAX_MONTHLY_AMOUNT)} por mensalidade. Confira o valor ou o reajuste.</p>}
                       {r.error === 'NO_TUITIONS' && <p className="mt-1 text-xs text-destructive">Nenhuma mensalidade seria gerada.</p>}
                     </TableCell>
                     <TableCell className="text-sm">

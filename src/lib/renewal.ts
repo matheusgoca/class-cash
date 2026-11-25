@@ -77,7 +77,7 @@ export interface PlanRow {
   start: string;
   end: string;
   tuitionCount: number;
-  error: 'INVALID_AMOUNT' | 'NO_TUITIONS' | null;
+  error: 'INVALID_AMOUNT' | 'AMOUNT_TOO_HIGH' | 'NO_TUITIONS' | null;
 }
 
 export interface PlanOptions {
@@ -89,6 +89,13 @@ export interface PlanOptions {
 
 /** Chave de turma de origem; "sem turma" usa a string vazia. */
 export const classKey = (id: string | null): string => id ?? '';
+
+/**
+ * Teto da mensalidade de um contrato renovado (R$). A validação "de verdade" é a prévia do lote (AMOUNT_TOO_HIGH);
+ * o RPC renew_contracts só confirma. MANTER IGUAL a c_max_monthly em
+ * supabase/migrations/20261125120000_renew_contracts_hardening.sql.
+ */
+export const MAX_MONTHLY_AMOUNT = 30000;
 
 export const round2 = (n: number): number => Math.round(n * 100) / 100;
 
@@ -123,6 +130,8 @@ export function buildRenewalPlan(sources: RenewalContract[], opts: PlanOptions) 
     let tuitions: RpcTuition[] = [];
     if (!(newMonthly > 0)) {
       error = 'INVALID_AMOUNT';
+    } else if (newMonthly > MAX_MONTHLY_AMOUNT) {
+      error = 'AMOUNT_TOO_HIGH';
     } else {
       tuitions = buildTuitionRows(
         { startDate: start, endDate: end, dueDay: s.due_day, finalAmount: round2(finalAmountOf(newMonthly, s.discount)) },
