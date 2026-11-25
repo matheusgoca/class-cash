@@ -42,7 +42,16 @@ describe('buildRenewalPlan', () => {
     expect(items[0]).toMatchObject({ source_contract_id: 'k1', class_id: 'c1', monthly_amount: 110, start_date: '2031-03-01', end_date: '2032-02-29' });
     expect(items[0].tuitions).toHaveLength(12);
     expect(items[0].tuitions[0]).toMatchObject({ due_date: '2031-03-05', amount: 99, status: 'pending' });
-    expect(totals).toEqual({ contracts: 1, tuitions: 12, monthlyTotal: 110 });
+    expect(totals).toEqual({ contracts: 1, tuitions: 12, monthlyTotal: 110, monthlyNetTotal: 99 });
+  });
+
+  it('o total líquido desconta o desconto de cada contrato (bolsa 100% entra com zero); o bruto segue como detalhe', () => {
+    const { totals } = buildRenewalPlan(
+      [src({ id: 'k1', monthly_amount: 1000, discount: 0 }), src({ id: 'k2', monthly_amount: 333.33, discount: 10 }), src({ id: 'k3', monthly_amount: 1500, discount: 100 })],
+      opts({ pct: 7 }),
+    );
+    expect(totals.monthlyTotal).toBe(3031.66); // 1070 + 356.66 + 1605
+    expect(totals.monthlyNetTotal).toBe(1390.99); // 1070 + 320.99 + 0
   });
 
   it('mapa de turmas: a turma de origem vai para o destino; null (sem turma) usa a chave ""', () => {
