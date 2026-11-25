@@ -16,6 +16,7 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { parseLocalDate } from '@/lib/dateUtils';
 import { StudentServicesSection } from './StudentServicesSection';
+import { StudentTuitionInfo } from './StudentTuitionInfo';
 import { useSchool } from '@/contexts/SchoolContext';
 
 const studentSchema = z.object({
@@ -26,8 +27,6 @@ const studentSchema = z.object({
   enrollment_date:    z.date({ required_error: 'Data de matrícula é obrigatória' }),
   guardian_contact:   z.string().optional(),
   class_id:           z.string().nullable(),
-  full_tuition_value: z.number().min(0, 'Valor deve ser positivo').optional(),
-  discount:           z.number().min(0).max(100).optional(),
   status:             z.enum(['active', 'inactive']),
 });
 
@@ -40,9 +39,6 @@ interface StudentFormProps {
   classes: any[];
   isLoading?: boolean;
 }
-
-const fmt = (v: number) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
 export const StudentForm: React.FC<StudentFormProps> = ({
   student, onSubmit, onCancel, classes, isLoading,
@@ -58,8 +54,6 @@ export const StudentForm: React.FC<StudentFormProps> = ({
       enrollment_date:    student?.enrollment_date ? parseLocalDate(student.enrollment_date) : new Date(),
       guardian_contact:   student?.guardian_contact ?? '',
       class_id:           student?.enrollment_class_id ?? null,
-      full_tuition_value: student?.full_tuition_value ?? undefined,
-      discount:           student?.discount ?? undefined,
       status:             student?.status ?? 'active',
     },
   });
@@ -75,16 +69,12 @@ export const StudentForm: React.FC<StudentFormProps> = ({
         enrollment_date:    student.enrollment_date ? parseLocalDate(student.enrollment_date) : new Date(),
         guardian_contact:   student.guardian_contact ?? '',
         class_id:           student.enrollment_class_id ?? null,
-        full_tuition_value: student.full_tuition_value ?? undefined,
-        discount:           student.discount ?? undefined,
         status:             student.status ?? 'active',
       });
     }
   }, [student?.id]);
 
-  const fullTuitionValue = form.watch('full_tuition_value') ?? 0;
-  const discount         = form.watch('discount') ?? 0;
-  const finalValue       = fullTuitionValue * (1 - discount / 100);
+  const classId = form.watch('class_id');
 
   return (
     <DialogContent className="sm:max-w-[640px] max-h-[90vh] overflow-y-auto">
@@ -215,46 +205,10 @@ export const StudentForm: React.FC<StudentFormProps> = ({
                   <FormMessage />
                 </FormItem>
               )} />
-
-              <FormField control={form.control} name="full_tuition_value" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Mensalidade base (R$)</FormLabel>
-                  <FormControl>
-                    <Input type="number" min="0" step="0.01" placeholder="500.00"
-                      value={field.value ?? ''}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        field.onChange(val === '' ? undefined : parseFloat(val));
-                      }} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-
-              <FormField control={form.control} name="discount" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Desconto (%)</FormLabel>
-                  <FormControl>
-                    <Input type="number" min="0" max="100" step="0.01" placeholder="0"
-                      value={field.value ?? ''}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        field.onChange(val === '' ? undefined : parseFloat(val));
-                      }} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
             </div>
 
-            {/* Valor final calculado */}
-            <div className="mt-4 flex items-center justify-between rounded-lg bg-muted px-4 py-3">
-              <div>
-                <p className="text-sm font-medium">Valor final da mensalidade</p>
-                <p className="text-xs text-muted-foreground">Após {discount}% de desconto</p>
-              </div>
-              <p className="text-2xl font-bold">{fmt(finalValue)}</p>
-            </div>
+            {/* Item I: o contrato é a fonte do valor; o aluno não digita preço (somente leitura) */}
+            <StudentTuitionInfo className="mt-4" studentId={student?.id} classId={classId} classes={classes} />
           </div>
 
           {student?.id && schoolId && (
