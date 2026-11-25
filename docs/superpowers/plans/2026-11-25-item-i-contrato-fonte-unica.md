@@ -57,8 +57,9 @@
 **Arquivos:** `src/lib/import/types.ts`, `validate.ts`, `templates.ts`, `src/components/settings/ImportSection.tsx`, novo `src/lib/import/validate.contracts.test.ts`.
 
 1. `ImportContext.existingClasses` passa a `{ id, name, monthly_fee, monthly_fee_integral }` e o `select` de `ImportSection.tsx` inclui os dois (com `school_id`).
-2. Testes vermelhos (não existe teste da validação hoje): valor informado vale; vazio + turma com **um** valor (só `monthly_fee`, ou só `monthly_fee_integral`) → usa e marca `usedClassFee` com o período; vazio + turma com **dois** valores → erro de linha que cita os dois valores; vazio + sem turma → erro; vazio + turma sem valor → erro; valor inválido continua erro; a linha com erro **não** entra em `valid`.
-3. `validate.ts`: `valor_mensalidade` opcional com o fallback restrito acima; a prévia sinaliza "valor da turma usado (meio período|integral)".
+2. Testes vermelhos (não existe teste da validação hoje): valor informado vale; vazio + turma **só com meio período** → usa e marca `usedClassFee`; vazio + turma **só integral** → erro de linha "informe o valor" (sem fallback, sem nota); vazio + turma com **dois** valores → erro de linha que cita os dois valores; vazio + sem turma → erro; vazio + turma sem valor → erro; valor inválido continua erro; a linha com erro **não** entra em `valid` e as outras seguem; `resolveClassFee` (`single` | `integral_only` | `both` | `none`).
+3. `validate.ts`: `valor_mensalidade` opcional com o fallback restrito acima; a prévia sinaliza "valor da turma usado (meio período)".
+3b. **Prévia e resultado (ajuste do PM):** `ImportSummary.tsx` (`IgnoredRowsAlert`: "N linhas ignoradas" em destaque, motivo de cada uma, quantas válidas seguem; `ImportResultSummary`: "Importados: N", "Ignorados: M" com os motivos, "Falharam ao gravar: K"), usados pela `ImportSection`, com testes.
 4. `templates.ts`: instruções (`valor_mensalidade` passa a "Não", com a regra do fallback); aba de alunos ganha a linha "O valor da mensalidade é definido no contrato."
 
 ## T7 — documentação e QA

@@ -8,6 +8,7 @@ import { useSchool } from '@/contexts/SchoolContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Download, Upload, CheckCircle2, XCircle, Loader2, FileSpreadsheet } from 'lucide-react';
 
+import { IgnoredRowsAlert, ImportResultSummary } from '@/components/settings/ImportSummary';
 import { ImportEntityKey, IMPORT_ENTITY_LABELS, IMPORT_ENTITY_ORDER, ImportContext, ImportRowError, ImportRowNote, ImportExecutionResult } from '@/lib/import/types';
 import { downloadImportTemplate } from '@/lib/import/templates';
 import { parseImportFile } from '@/lib/import/parse';
@@ -27,7 +28,7 @@ const ENTITY_HELP: Record<ImportEntityKey, string> = {
   classes: 'Nome, série, capacidade, mensalidade de referência e, opcionalmente, professor(es) já cadastrado(s).',
   teachers: 'Nome, e-mail (único em toda a plataforma), telefone e salário.',
   students: 'Dados cadastrais do aluno e, opcionalmente, a turma (precisa já existir).',
-  contracts: 'A matrícula financeira do aluno: valor, desconto, vencimento e datas. É o que gera as mensalidades automaticamente. O valor pode ficar em branco quando a turma tem um único valor cadastrado.',
+  contracts: 'A matrícula financeira do aluno: valor, desconto, vencimento e datas. É o que gera as mensalidades automaticamente. O valor pode ficar em branco quando a turma tem apenas o valor de meio período.',
 };
 
 async function fetchImportContext(schoolId: string): Promise<ImportContext> {
@@ -60,12 +61,15 @@ export function ImportSection() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingImport | null>(null);
   const [result, setResult] = useState<ImportExecutionResult | null>(null);
+  // Linhas que a validação ignorou: guardadas na confirmação para o resultado final repetir total e motivo.
+  const [ignoredRows, setIgnoredRows] = useState<ImportRowError[]>([]);
 
   const resetToIdle = () => {
     setStage('idle');
     setFileName(null);
     setPending(null);
     setResult(null);
+    setIgnoredRows([]);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -116,6 +120,7 @@ export function ImportSection() {
 
   const handleConfirmImport = async () => {
     if (!pending || !schoolId || pending.validRows.length === 0) return;
+    setIgnoredRows(pending.errors);
     setStage('importing');
 
     try {
@@ -138,7 +143,7 @@ export function ImportSection() {
       setStage('done');
       toast({
         title: 'Importação concluída',
-        description: `${execResult.successCount} importado(s) com sucesso${execResult.failureCount > 0 ? `, ${execResult.failureCount} com erro` : ''}.`,
+        description: `${execResult.successCount} importado(s), ${pending.errors.length} ignorado(s)${execResult.failureCount > 0 ? `, ${execResult.failureCount} falharam ao gravar` : ''}.`,
       });
     } catch (err: any) {
       toast({ title: 'Erro na importação', description: err?.message ?? 'Erro inesperado.', variant: 'destructive' });
@@ -212,7 +217,7 @@ export function ImportSection() {
               </span>
               {pending.errors.length > 0 && (
                 <span className="flex items-center gap-1.5 text-destructive">
-                  <XCircle className="h-4 w-4" /> {pending.errors.length} linha(s) com erro
+                  <XCircle className="h-4 w-4" /> {pending.errors.length} linha(s) ignorada(s)
                 </span>
               )}
               <span className="text-muted-foreground">de {pending.totalRows} linha(s) na planilha</span>
@@ -220,7 +225,7 @@ export function ImportSection() {
 
             {pending.notes.length > 0 && (
               <Alert>
-                <AlertTitle>Linhas que usarão o valor da turma</AlertTitle>
+                <AlertTitle>Linhas que usarão o valor de meio período da turma</AlertTitle>
                 <AlertDescription>
                   <div className="max-h-40 overflow-y-auto mt-2 space-y-1">
                     {pending.notes.map((n, i) => (
@@ -234,21 +239,7 @@ export function ImportSection() {
               </Alert>
             )}
 
-            {pending.errors.length > 0 && (
-              <Alert variant="destructive">
-                <AlertTitle>Linhas que não serão importadas</AlertTitle>
-                <AlertDescription>
-                  <div className="max-h-56 overflow-y-auto mt-2 space-y-1">
-                    {pending.errors.map((e, i) => (
-                      <p key={i} className="text-xs">
-                        <span className="font-semibold">Linha {e.row}{e.field ? ` (${e.field})` : ''}:</span> {e.message}
-                      </p>
-                    ))}
-                  </div>
-                  <p className="text-xs mt-2">Corrija essas linhas na planilha e envie novamente — só elas precisam ser reenviadas.</p>
-                </AlertDescription>
-              </Alert>
-            )}
+            <IgnoredRowsAlert errors={pending.errors} validCount={pending.validRows.length} />
 
             <div className="flex gap-2">
               <Button
@@ -269,16 +260,7 @@ export function ImportSection() {
 
         {stage === 'done' && result && (
           <div className="space-y-3">
-            <div className="flex flex-wrap gap-4 text-sm">
-              <span className="flex items-center gap-1.5 text-emerald-600">
-                <CheckCircle2 className="h-4 w-4" /> {result.successCount} importado(s)
-              </span>
-              {result.failureCount > 0 && (
-                <span className="flex items-center gap-1.5 text-destructive">
-                  <XCircle className="h-4 w-4" /> {result.failureCount} falharam
-                </span>
-              )}
-            </div>
+            <ImportResultSummary imported={result.successCount} ignored={ignoredRows} failed={result.failureCount} />
             {result.failureCount > 0 && (
               <Alert variant="destructive">
                 <AlertTitle>Falhas durante a importação</AlertTitle>
