@@ -22,6 +22,41 @@ export function parseAllowlist(raw: string | undefined | null): string[] | null 
   return list.length ? list : null;
 }
 
+// String.raw: em string comum '\s' perderia a barra. ADDR = endereço simples, sem espaço, vírgula, ponto e vírgula nem < >.
+const ADDR = String.raw`[^\s<>@,;]+@[^\s<>@,;]+\.[^\s<>@,;]+`;
+const REPLY_TO_RE = new RegExp(String.raw`^(?:${ADDR}|[^<>@,;\r\n]+<${ADDR}>)$`);
+
+/**
+ * EMAIL_REPLY_TO: um único endereço ("suporte@x.com" ou "Nome <suporte@x.com>").
+ * Ausente, vazio ou inválido = null (o e-mail sai sem reply-to). Recusa lista e quebra de linha
+ * (injeção de cabeçalho): um valor ruim nunca derruba o envio, só é ignorado.
+ */
+export function parseReplyTo(raw: string | undefined | null): string | null {
+  const v = (raw ?? '').trim();
+  return v && REPLY_TO_RE.test(v) ? v : null;
+}
+
+export interface SendBody {
+  from: string;
+  to: string[];
+  subject: string;
+  html: string;
+  text: string;
+  reply_to?: string;
+}
+
+/** Corpo do POST para a API do Resend. `reply_to` só entra quando configurado. */
+export function buildSendBody(
+  from: string,
+  to: string,
+  mail: { subject: string; html: string; text: string },
+  replyTo: string | null,
+): SendBody {
+  const body: SendBody = { from, to: [to], subject: mail.subject, html: mail.html, text: mail.text };
+  if (replyTo) body.reply_to = replyTo;
+  return body;
+}
+
 /** Texto de erro gravado em email_outbox.last_error (máx. 500 caracteres). */
 export function errorMessage(status: number, body: unknown): string {
   const msg =
