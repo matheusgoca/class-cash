@@ -51,6 +51,12 @@ export function getFriendlyErrorMessage(error: any, fallback?: string): string {
     // Rematrícula em lote (S4c): o detalhe do servidor, quando existe, é acrescentado em renewalApi.ts
     INVALID_ITEM: 'Um contrato do lote foi recusado. Confira os valores, as datas e as mensalidades e tente de novo.',
     INVALID_ITEMS: 'O lote enviado é inválido: ele precisa ter de 1 a 100 contratos.',
+    // Estorno de baixa e trava de baixa dupla (S6b, bloco D)
+    ALREADY_PAID: 'Esta mensalidade já está paga. Estorne a baixa antes de registrar outro pagamento.',
+    USE_REVERSAL: 'Para reabrir uma mensalidade paga use o estorno de baixa.',
+    NOT_PAID: 'Esta mensalidade não está paga, então não há baixa para estornar. Atualize a página.',
+    SCHOLARSHIP_LOCKED: 'A mensalidade de bolsa 100% não pode ser estornada.',
+    NOT_FOUND: 'Mensalidade não encontrada. Atualize a página e tente de novo.',
     INVALID_PREFERENCES: 'Não foi possível ler as preferências enviadas. Recarregue a página e tente de novo.',
   };
   if (rpcMessages[message.trim()]) {
