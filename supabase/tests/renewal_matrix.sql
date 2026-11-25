@@ -20,7 +20,7 @@ create temp table t_res (n serial, cenario text, got text, esperado text, ok boo
 
 create function pg_temp.run_as(p_uid uuid, p_aal text, p_sql text)
 returns text language plpgsql as $f$
-declare v text;
+declare v text; v_d text;
 begin
   perform set_config('request.jwt.claims',
     json_build_object('sub', p_uid, 'aal', p_aal, 'role', 'authenticated')::text, true);
@@ -28,7 +28,8 @@ begin
   begin
     execute p_sql into v;
   exception when others then
-    v := 'ERR:' || sqlstate || ':' || sqlerrm;
+    get stacked diagnostics v_d = pg_exception_detail;
+    v := 'ERR:' || sqlstate || ':' || sqlerrm || '|' || coalesce(v_d, '');
   end;
   reset role;
   perform set_config('request.jwt.claims', '', true);
@@ -73,6 +74,38 @@ returns text language sql as $f$
     format('select public.renew_contracts(%L, %L::jsonb, %L)::text', p_school, p_items::text, p_fee))
 $f$;
 
+-- n mensalidades mensais a partir de p_start (mesmo dia do mês), todas com p_amount e p_status
+create function pg_temp.rowsn(p_start date, p_n int, p_amount numeric, p_status text default 'pending') returns jsonb language sql as $f$
+  select jsonb_agg(jsonb_build_object('due_date', (p_start + make_interval(months => g))::date,
+                                      'amount', p_amount, 'status', p_status, 'description', 'Mensalidade ' || (g + 1)) order by g)
+    from generate_series(0, p_n - 1) g
+$f$;
+
+-- item de lote com as mensalidades dadas (jsonb) em vez das 12 padrão
+create function pg_temp.item_t(p_src uuid, p_class uuid, p_monthly numeric, p_start date, p_end date, p_rows jsonb)
+returns jsonb language sql as $f$
+  select jsonb_build_object('source_contract_id', p_src, 'class_id', p_class, 'monthly_amount', p_monthly,
+                            'start_date', p_start, 'end_date', p_end, 'tuitions', p_rows)
+$f$;
+
+-- como renew, mas devolve 'renovados|mensalidades' quando dá certo (e o erro quando não dá), sem quebrar o bloco
+create function pg_temp.renew_s(p_uid uuid, p_school uuid, p_items jsonb, p_fee uuid default null, p_aal text default 'aal1')
+returns text language sql as $f$
+  select case when t like 'ERR:%' then t else (t::jsonb->>'renewed') || '|' || (t::jsonb->>'tuitions') end
+    from (select pg_temp.renew(p_uid, p_school, p_items, p_fee, p_aal) as t) x
+$f$;
+
+-- contrato ativo de teste que termina em p_end (começa 1 ano antes)
+create function pg_temp.mk(p_school uuid, p_student uuid, p_class uuid, p_end date, p_monthly numeric default 100, p_discount numeric default 0)
+returns uuid language plpgsql as $f$
+declare v uuid;
+begin
+  insert into public.contracts (student_id, class_id, school_id, start_date, end_date, status, monthly_amount, discount, due_day, period)
+    values (p_student, p_class, p_school, (p_end - interval '1 year' + interval '1 day')::date, p_end, 'active', p_monthly, p_discount, 10, 'meio_periodo')
+    returning id into v;
+  return v;
+end $f$;
+
 do $$
 declare
   -- personagens: escolhidos por consulta no início do bloco (nenhum id fixo no arquivo)
@@ -84,6 +117,7 @@ declare
   k1 uuid; k2 uuid; k3 uuid; k4 uuid; k5 uuid; k6 uuid; kdead uuid; ky uuid;
   svc uuid; svc_m uuid; svc_off uuid; svcy uuid;
   s_z uuid; clz uuid; stz uuid; kz uuid; -- escola de OUTRO dono (seção 3: master em escola alheia)
+  h uuid[]; hx uuid; hy uuid; hz uuid; hw uuid; hd uuid; lo uuid; hi uuid; got text; -- seção 4 (endurecimento)
   v text; r jsonb; item jsonb; v_role text;
 begin
   perform set_config('request.jwt.claims', '', true);
@@ -374,6 +408,93 @@ begin
   perform pg_temp.rec('3l dono (u_admin) da escola Z, com perfil na X, não renova na Z',
     pg_temp.renew(u_admin, s_z, jsonb_build_array(pg_temp.item(kz, clz, 100, 100, 10)), null), 'ERR:42501:NOT_ALLOWED');
   perform pg_temp.rec('3m ...nem decide em contrato da Z', pg_temp.decide(u_admin, kz, 'contacted'), 'ERR:22023:INVALID_CONTRACT');
+
+  -- 4. Endurecimento de renew_contracts (desenho 2026-11-25, H1-H5 e lacunas) ----------------
+  -- Escritos ANTES da migration: 4b, 4d, 4d1, 4e-4i, 4k e 4o devem falhar contra o schema anterior ao endurecimento.
+  h  := array(select pg_temp.mk(s_x, st, cl1, date '2031-02-28') from generate_series(1, 16));
+  hx := pg_temp.mk(s_x, st, cl1, date '2025-02-28');   -- ativo e já vencido (renovação retroativa)
+  hy := pg_temp.mk(s_x, st, cl1, date '2025-02-28');
+  hz := pg_temp.mk(s_x, st, cl1, current_date - 1);    -- termina ontem: o sucessor começa hoje
+  hw := pg_temp.mk(s_x, st, cl1, current_date - 1);
+  hd := pg_temp.mk(s_x, st, cl1, date '2031-02-28', 333.33, 10);
+
+  -- H1: teto de 25 mensalidades por contrato (24 meses + o dia final)
+  perform pg_temp.rec('4a (H1) 25 mensalidades são aceitas', pg_temp.renew_s(u_admin, s_x, jsonb_build_array(
+    pg_temp.item_t(h[1], cl1, 100, date '2031-03-01', date '2033-03-01', pg_temp.rowsn(date '2031-03-01', 25, 100))), null), '1|25');
+  perform pg_temp.rec('4b (H1) 26 mensalidades são recusadas', pg_temp.renew(u_admin, s_x, jsonb_build_array(
+    pg_temp.item_t(h[2], cl1, 100, date '2031-03-01', date '2033-03-01',
+      pg_temp.rowsn(date '2031-03-01', 25, 100) || jsonb_build_object('due_date', '2031-03-15', 'amount', 100, 'status', 'pending', 'description', 'Extra'))), null),
+    'ERR:22023:INVALID_ITEM');
+  perform pg_temp.rec('4b2 ...e nada foi gravado', (select count(*)::text from public.contracts where renewed_from_id = h[2]), '0');
+
+  -- H2: overdue só com vencimento que não é futuro; renovação retroativa preserva as vencidas
+  perform pg_temp.rec('4c (H2) contrato ativo já vencido renova com as 12 mensalidades vencidas', pg_temp.renew_s(u_admin, s_x, jsonb_build_array(
+    pg_temp.item_t(hx, cl1, 100, date '2025-03-01', date '2026-02-28', pg_temp.rowsn(date '2025-03-05', 12, 100, 'overdue'))), null), '1|12');
+  perform pg_temp.rec('4c2 ...todas continuam overdue, com os vencimentos enviados',
+    (select (count(*) = 12 and count(*) filter (where t.status = 'overdue') = 12
+             and min(t.due_date) = date '2025-03-05' and max(t.due_date) = date '2026-02-05')::text
+       from public.tuitions t join public.contracts c on c.id = t.contract_id where c.renewed_from_id = hx), 'true');
+  perform pg_temp.rec('4c3 (H2) vencimento passado com status pending também é aceito (o job converte)', pg_temp.renew_s(u_admin, s_x, jsonb_build_array(
+    pg_temp.item_t(hy, cl1, 100, date '2025-03-01', date '2026-02-28', pg_temp.rowsn(date '2025-03-05', 12, 100, 'pending'))), null), '1|12');
+  perform pg_temp.rec('4c4 ...e continuam pending',
+    (select count(*)::text from public.tuitions t join public.contracts c on c.id = t.contract_id
+      where c.renewed_from_id = hy and t.status = 'pending'), '12');
+  perform pg_temp.rec('4d (H2) overdue com vencimento futuro é recusado', pg_temp.renew(u_admin, s_x, jsonb_build_array(
+    pg_temp.item_t(h[3], cl1, 100, date '2031-03-01', date '2032-02-29', pg_temp.rowsn(date '2031-03-05', 12, 100, 'overdue'))), null),
+    'ERR:22023:INVALID_ITEM');
+  perform pg_temp.rec('4d1 (H2) overdue com vencimento amanhã é recusado', pg_temp.renew(u_admin, s_x, jsonb_build_array(
+    pg_temp.item_t(hz, cl1, 100, current_date, current_date + 30, jsonb_build_array(
+      jsonb_build_object('due_date', current_date + 1, 'amount', 100, 'status', 'overdue', 'description', 'Amanhã')))), null),
+    'ERR:22023:INVALID_ITEM');
+  perform pg_temp.rec('4d2 (H2) overdue com vencimento hoje é aceito (folga de fuso)', pg_temp.renew_s(u_admin, s_x, jsonb_build_array(
+    pg_temp.item_t(hw, cl1, 100, current_date, current_date + 30, jsonb_build_array(
+      jsonb_build_object('due_date', current_date, 'amount', 100, 'status', 'overdue', 'description', 'Hoje')))), null), '1|1');
+
+  -- H3: JSON malformado vira INVALID_ITEM(S), nunca erro cru nem eco do valor enviado
+  got := pg_temp.renew(u_admin, s_x, jsonb_build_array(jsonb_set(pg_temp.item(h[4], cl1, 100, 100), '{monthly_amount}', '"abc"')), null);
+  perform pg_temp.rec('4e (H3) monthly_amount não numérico', got, 'ERR:22023:INVALID_ITEM');
+  perform pg_temp.rec('4e2 ...sem ecoar o valor enviado', (got like '%abc%')::text, 'false');
+  perform pg_temp.rec('4f (H3) data de vencimento impossível', pg_temp.renew(u_admin, s_x, jsonb_build_array(
+    jsonb_set(pg_temp.item(h[5], cl1, 100, 100), '{tuitions,0,due_date}', '"2031-13-45"')), null), 'ERR:22023:INVALID_ITEM');
+  perform pg_temp.rec('4g (H3) monthly_amount objeto em vez de número', pg_temp.renew(u_admin, s_x, jsonb_build_array(
+    jsonb_set(pg_temp.item(h[6], cl1, 100, 100), '{monthly_amount}', '{"a":1}')), null), 'ERR:22023:INVALID_ITEM');
+  perform pg_temp.rec('4h (H3) mensalidades que não são objetos', pg_temp.renew(u_admin, s_x, jsonb_build_array(
+    jsonb_set(pg_temp.item(h[7], cl1, 100, 100), '{tuitions}', '[1,2]')), null), 'ERR:22023:INVALID_ITEM');
+  perform pg_temp.rec('4i (H3) itens que não são objetos', pg_temp.renew(u_admin, s_x, '[1]'::jsonb, null), 'ERR:22023:INVALID_ITEMS');
+  perform pg_temp.rec('4j (H3) p_items objeto em vez de array', pg_temp.renew(u_admin, s_x, '{}'::jsonb, null), 'ERR:22023:INVALID_ITEMS');
+
+  -- H4: itens processados em ordem de source_contract_id (a prova de deadlock entre duas sessões não cabe numa transação só)
+  lo := least(h[8], h[9]); hi := greatest(h[8], h[9]);
+  got := pg_temp.renew(u_admin, s_x, jsonb_build_array(pg_temp.item(hi, cl1, 0, 0), pg_temp.item(lo, cl1, 0, 0)), null);
+  perform pg_temp.rec('4k (H4) lote fora de ordem: o erro é do menor source_contract_id',
+    (got like 'ERR:22023:INVALID_ITEM%' and got like '%' || lo::text || '%' and got not like '%' || hi::text || '%')::text, 'true');
+  perform pg_temp.rec('4l (H4) lote com os mesmos contratos em ordem inversa renova os dois', pg_temp.renew_s(u_admin, s_x, jsonb_build_array(
+    pg_temp.item(hi, cl1, 100, 100), pg_temp.item(lo, cl1, 100, 100)), null), '2|24');
+  perform pg_temp.rec('4m (H4) duplicata no lote: a primeira ocorrência vence (ordem original preservada)', pg_temp.renew_s(u_admin, s_x, jsonb_build_array(
+    pg_temp.item(h[10], cl1, 100, 100), pg_temp.item(h[10], cl2, 150, 150)), null), '1|12');
+  perform pg_temp.rec('4m2 ...o contrato novo é o da primeira (turma 1, R$ 100)',
+    (select (class_id = cl1 and monthly_amount = 100)::text from public.contracts where renewed_from_id = h[10]), 'true');
+
+  -- H5: teto de monthly_amount = R$ 30.000,00 (constante MAX_MONTHLY_AMOUNT em src/lib/renewal.ts; o RPC só confirma)
+  perform pg_temp.rec('4n (H5) R$ 30.000,00 é aceito', pg_temp.renew_s(u_admin, s_x, jsonb_build_array(
+    pg_temp.item(h[11], cl1, 30000, 30000)), null), '1|12');
+  perform pg_temp.rec('4o (H5) R$ 30.000,01 é recusado', pg_temp.renew(u_admin, s_x, jsonb_build_array(
+    pg_temp.item(h[12], cl1, 30000.01, 30000.01)), null), 'ERR:22023:INVALID_ITEM');
+
+  -- Lacunas da etapa 1
+  perform pg_temp.rec('4p turma de destino nula (sem turma) é aceita', pg_temp.renew_s(u_admin, s_x, jsonb_build_array(
+    pg_temp.item(h[13], null::uuid, 100, 100)), null), '1|12');
+  perform pg_temp.rec('4p2 ...e o contrato novo fica sem turma',
+    (select (class_id is null)::text from public.contracts where renewed_from_id = h[13]), 'true');
+  perform pg_temp.rec('4q tolerância: diferença de R$ 0,01 passa', pg_temp.renew_s(u_admin, s_x, jsonb_build_array(
+    pg_temp.item(h[14], cl1, 500, 500.01)), null), '1|12');
+  perform pg_temp.rec('4q2 tolerância: diferença de R$ 0,02 não passa', pg_temp.renew(u_admin, s_x, jsonb_build_array(
+    pg_temp.item(h[15], cl1, 500, 500.02)), null), 'ERR:22023:INVALID_ITEM');
+  perform pg_temp.rec('4r arredondamento com desconto (333,33 com 10%): o cliente manda o valor arredondado', pg_temp.renew_s(u_admin, s_x, jsonb_build_array(
+    pg_temp.item(hd, cl1, 333.33, round(333.33 * 0.9, 2))), null), '1|12');
+  perform pg_temp.rec('4r2 ...e a mensalidade gravada é o final_amount do contrato (299,997) arredondado a 2 casas = 300,00, nas 12',
+    (select (count(*) = 12 and bool_and(t.amount = round(c.final_amount, 2) and t.amount = 300.00))::text
+       from public.tuitions t join public.contracts c on c.id = t.contract_id where c.renewed_from_id = hd), 'true');
 end $$;
 
 select n, cenario, got, esperado, ok from t_res order by n;

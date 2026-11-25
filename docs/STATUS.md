@@ -54,7 +54,7 @@ Documentos de referência:
 1. ✅ **Deploy da função** (25/11): `functions deploy send-notification-emails`.
 2. ✅ **Caso novo na `renewal_matrix.sql`** (25/11): seção 3, master renovando/decidindo em escola de outro dono (dono = `u_admin`, perfil em outra escola), master sempre com `aal2`, nada vazando para a escola do perfil dele, e contraprova de auditoria na escola alheia. 82/82 contra o schema aplicado, `BEGIN … ROLLBACK`, nada persistiu.
 3. ✅ **Bloco 3(b) fechado como seed** para Colegio Teste e Colégio Estrela (decisão do dono, 25/11). Evidência: a auditoria só começou em 13/11 e não tem nenhum `insert` dessas mensalidades; elas foram criadas em rajadas (abr–out) com vencimentos uniformes de fev a nov; os `update` registrados são do job das 03:00 UTC.
-4. 📝 **Desenho do endurecimento de `renew_contracts`** escrito em `docs/superpowers/specs/2026-11-25-renew-contracts-endurecimento-design.md` (H1–H5 + casos de teste); **aguarda aprovação**, inclusive da constante do teto de `monthly_amount` (100.000?). Migration só depois, com `--dry-run` e autorização.
+4. ✅ **Desenho do endurecimento de `renew_contracts` aprovado** (25/11, `docs/superpowers/specs/2026-11-25-renew-contracts-endurecimento-design.md`: H1 teto de 25 mensalidades, confirmado nos dados (maior contrato real: 17; Pensar: 0 contratos); H2 `overdue` não pode ser futuro, vencidas preservadas; H3 JSON malformado vira `INVALID_ITEM` com mensagem em português; H4 itens ordenados por `source_contract_id`; H5 teto de R$ 30.000 validado na prévia). **Em andamento no PR do branch `feature/s4c-endurecimento-renew-contracts`:** casos na matriz (111 verificações; 12 falhavam antes da mudança), migration `20261125120000_renew_contracts_hardening.sql` (validada em `BEGIN…ROLLBACK`, matriz 111/111) e a tela (`MAX_MONTHLY_AMOUNT`, `friendlyError.ts`; 239 testes, build verde). **A migration NÃO está aplicada em produção:** `db push` só com `--dry-run` (já feito: lista só ela) e autorização do dono.
 
 ## Escolas em produção e regras de QA (25/11)
 
@@ -87,7 +87,7 @@ Regras gerais: **não ligar o envio de e-mail** (sem data; o checklist de go-liv
 
 Bug pré-existente achado na revisão final: `audit_trigger_fn` quebrava (23514) a primeira escrita manual numa conexão que antes tinha usado `set_config('app.audit_source', ..., true)`, porque o Postgres deixa `''` na configuração. Vale para TODAS as tabelas auditadas (inclui a falha latente depois de `insert_generated_tuitions` e dos RPCs de importação). Corrigido na migration `20261119135900_audit_source_nullif.sql` (um `nullif`).
 
-Endurecimento pendente (achados diferidos da etapa 1):
+Endurecimento (achados diferidos da etapa 1): **resolvido no PR do branch `feature/s4c-endurecimento-renew-contracts`, aguardando `db push`** (teto de 25 mensalidades, `overdue` futuro, JSON não numérico, ordenação contra deadlock, teto de `monthly_amount`, e os casos `class_id` nulo, tolerância de R$ 0,01 e arredondamento com desconto na matriz). Continuam abertos: `p_items` não-array já é tratado (`INVALID_ITEMS`) e testado; **prova de deadlock entre duas sessões não coberta** (não cabe numa transação com ROLLBACK). Lista original:
 - Sem teto para o número de mensalidades por contrato em `renew_contracts` (cliente hostil poderia mandar centenas de linhas; sugestão: limitar a 25).
 - `overdue` é aceito com vencimento futuro.
 - Valores JSON não numéricos dão erro cru 22P02 em vez de `INVALID_ITEM`.

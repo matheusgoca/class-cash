@@ -4,6 +4,7 @@ const rpc = vi.hoisted(() => vi.fn());
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc } }));
 
 import { friendlyRenewalError, renewContracts, setRenewalDecision } from './renewalApi';
+import { getFriendlyErrorMessage } from './friendlyError';
 import type { RpcItem } from './renewal';
 
 const item = (i: number): RpcItem => ({
@@ -24,6 +25,23 @@ describe('friendlyRenewalError', () => {
   });
   it('INVALID_ITEM inclui o detalhe do servidor', () => {
     expect(friendlyRenewalError({ message: 'INVALID_ITEM', details: 'Contrato abc: valor mensal inválido.' })).toContain('Contrato abc: valor mensal inválido.');
+  });
+  it('INVALID_ITEM sem detalhe vira mensagem em português (friendlyError.ts), nunca o código cru', () => {
+    const msg = friendlyRenewalError({ message: 'INVALID_ITEM' });
+    expect(msg).not.toContain('INVALID_ITEM');
+    expect(msg).toMatch(/contrato/i);
+    expect(getFriendlyErrorMessage({ message: 'INVALID_ITEM' })).toBe(msg);
+    expect(getFriendlyErrorMessage({ message: 'INVALID_ITEMS' })).toMatch(/1 a 100|lote/i);
+  });
+  it('INVALID_ITEM: o id (uuid) do contrato não aparece na mensagem', () => {
+    const id = '3f2b9c1e-8a4d-4e6f-9b1a-2c7d5e8f0a14';
+    const msg = friendlyRenewalError({ message: 'INVALID_ITEM', details: `Contrato ${id}: mensalidade fora do período do contrato.` });
+    expect(msg).not.toContain(id);
+    expect(msg).toContain('mensalidade fora do período do contrato.');
+  });
+  it('INVALID_ITEM: detalhe sem id fica como veio', () => {
+    expect(friendlyRenewalError({ message: 'INVALID_ITEM', details: 'Algum valor ou data do lote está em formato inválido.' }))
+      .toContain('Algum valor ou data do lote está em formato inválido.');
   });
   it('erro desconhecido cai numa mensagem genérica', () => {
     expect(friendlyRenewalError({ message: 'algo estranho' })).toBeTruthy();
