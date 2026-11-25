@@ -55,6 +55,7 @@ const TEMPLATES: Record<ImportEntityKey, TemplateDef> = {
       ['responsavel', 'Não', 'Texto', 'Nome e contato do responsável'],
       ['turma', 'Não', 'Texto', 'Nome EXATO de uma turma já cadastrada. Importe a planilha de Turmas antes desta.'],
       ['status', 'Não', '"ativo" ou "inativo"', 'Se vazio, assume "ativo"'],
+      ['(mensalidade)', 'Não existe', '-', 'O valor da mensalidade NÃO é cadastrado no aluno: ele é definido no contrato (planilha de Matrículas).'],
     ],
   },
   contracts: {
@@ -67,7 +68,7 @@ const TEMPLATES: Record<ImportEntityKey, TemplateDef> = {
       ['aluno', 'Sim', 'Texto', 'Nome EXATO de um aluno já cadastrado. Importe a planilha de Alunos antes desta.'],
       ['aluno_email', 'Não', 'E-mail', 'Preencha se houver mais de um aluno com o mesmo nome, para desempatar'],
       ['turma', 'Não', 'Texto', 'Nome EXATO de uma turma já cadastrada'],
-      ['valor_mensalidade', 'Sim', 'Moeda (R$)', 'Use vírgula como separador decimal. Ex: 650,00'],
+      ['valor_mensalidade', 'Não', 'Moeda (R$)', 'Use vírgula como separador decimal. Ex: 650,00. Se vazio, usa o valor da turma, mas SÓ quando a turma tem um único valor cadastrado (meio período ou integral). Turma com dois valores, sem valor, ou sem turma: a linha fica com erro na prévia e não é importada.'],
       ['desconto_percentual', 'Não', 'Número de 0 a 100', 'Se vazio, assume 0'],
       ['dia_vencimento', 'Não', 'Número de 1 a 28', 'Se vazio, assume 10'],
       ['data_inicio', 'Sim', 'Data (DD/MM/AAAA)', ''],

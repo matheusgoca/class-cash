@@ -8,7 +8,7 @@ import { useSchool } from '@/contexts/SchoolContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Download, Upload, CheckCircle2, XCircle, Loader2, FileSpreadsheet } from 'lucide-react';
 
-import { ImportEntityKey, IMPORT_ENTITY_LABELS, IMPORT_ENTITY_ORDER, ImportContext, ImportRowError, ImportExecutionResult } from '@/lib/import/types';
+import { ImportEntityKey, IMPORT_ENTITY_LABELS, IMPORT_ENTITY_ORDER, ImportContext, ImportRowError, ImportRowNote, ImportExecutionResult } from '@/lib/import/types';
 import { downloadImportTemplate } from '@/lib/import/templates';
 import { parseImportFile } from '@/lib/import/parse';
 import { validateClassesRows, validateTeachersRows, validateStudentsRows, validateContractsRows } from '@/lib/import/validate';
@@ -20,18 +20,20 @@ interface PendingImport {
   validRows: Array<{ row: number; data: any }>;
   errors: ImportRowError[];
   totalRows: number;
+  notes: ImportRowNote[];
 }
 
 const ENTITY_HELP: Record<ImportEntityKey, string> = {
   classes: 'Nome, série, capacidade, mensalidade de referência e, opcionalmente, professor(es) já cadastrado(s).',
   teachers: 'Nome, e-mail (único em toda a plataforma), telefone e salário.',
   students: 'Dados cadastrais do aluno e, opcionalmente, a turma (precisa já existir).',
-  contracts: 'A matrícula financeira do aluno: valor, desconto, vencimento e datas. É o que gera as mensalidades automaticamente.',
+  contracts: 'A matrícula financeira do aluno: valor, desconto, vencimento e datas. É o que gera as mensalidades automaticamente. O valor pode ficar em branco quando a turma tem um único valor cadastrado.',
 };
 
 async function fetchImportContext(schoolId: string): Promise<ImportContext> {
   const [classesRes, teachersRes, studentsRes, contractsRes] = await Promise.all([
-    supabase.from('classes').select('id, name').eq('school_id', schoolId),
+    // monthly_fee e monthly_fee_integral: fallback do valor na planilha de contratos (item I, só quando a turma tem um único valor)
+    supabase.from('classes').select('id, name, monthly_fee, monthly_fee_integral').eq('school_id', schoolId),
     // Só ativos — um professor/aluno desligado não deveria casar com o import
     // de Turmas/Contratos, que criaria vínculo/cobrança pra quem já saiu.
     supabase.from('teachers').select('id, email').eq('school_id', schoolId).eq('status', 'active'),
@@ -100,7 +102,7 @@ export function ImportSection() {
           break;
       }
 
-      setPending({ validRows: validation.valid, errors: validation.errors, totalRows: validation.totalRows });
+      setPending({ validRows: validation.valid, errors: validation.errors, totalRows: validation.totalRows, notes: validation.notes ?? [] });
       setStage('preview');
     } catch (err: any) {
       toast({
@@ -215,6 +217,22 @@ export function ImportSection() {
               )}
               <span className="text-muted-foreground">de {pending.totalRows} linha(s) na planilha</span>
             </div>
+
+            {pending.notes.length > 0 && (
+              <Alert>
+                <AlertTitle>Linhas que usarão o valor da turma</AlertTitle>
+                <AlertDescription>
+                  <div className="max-h-40 overflow-y-auto mt-2 space-y-1">
+                    {pending.notes.map((n, i) => (
+                      <p key={i} className="text-xs">
+                        <span className="font-semibold">Linha {n.row}:</span> {n.message}
+                      </p>
+                    ))}
+                  </div>
+                  <p className="text-xs mt-2">Confira antes de confirmar. O valor da turma é só uma sugestão: o contrato passa a valer o que for importado aqui.</p>
+                </AlertDescription>
+              </Alert>
+            )}
 
             {pending.errors.length > 0 && (
               <Alert variant="destructive">

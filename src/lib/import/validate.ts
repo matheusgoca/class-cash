@@ -1,6 +1,7 @@
 import {
   ImportContext,
   ImportRowError,
+  ImportRowNote,
   ImportValidationResult,
   ValidatedClassRow,
   ValidatedContractRow,
@@ -15,9 +16,11 @@ import {
   parseDateBR,
   parseIntSafe,
   randomClassColor,
+  resolveClassFee,
   splitEmails,
   toISODate,
 } from './shared';
+import { formatCurrency } from '@/lib/calculations';
 
 // Every validator gets the raw parsed rows (Record<string,string>, one per
 // spreadsheet row) plus the current ImportContext (already-existing records
@@ -260,6 +263,7 @@ export function validateContractsRows(
   context: ImportContext
 ): ImportValidationResult<ValidatedContractRow> {
   const errors: ImportRowError[] = [];
+  const notes: ImportRowNote[] = [];
   const valid: Array<{ row: number; data: ValidatedContractRow }> = [];
   // Alunos já usados nesta planilha — sem isso, duas linhas pro mesmo aluno
   // (ex: reenviar o arquivo depois de corrigir uma linha) criavam dois
@@ -306,11 +310,50 @@ export function validateContractsRows(
       return;
     }
 
+    // Turma primeiro: o fallback do valor depende dela.
+    let classId: string | null = null;
+    let selectedClass: ImportContext['existingClasses'][number] | undefined;
+    const className = normalizeText(row['turma']);
+    if (className) {
+      const found = context.existingClasses.find((c) => c.name.trim().toLowerCase() === className.toLowerCase());
+      if (!found) {
+        errors.push({ row: rowNum, field: 'turma', message: `Turma "${className}" não encontrada. Importe a planilha de Turmas antes desta, ou deixe em branco.` });
+        return;
+      }
+      classId = found.id;
+      selectedClass = found;
+    }
+
+    // Item I: valor_mensalidade é opcional. Informado: vale o informado (valor negociado).
+    // Vazio: o fallback para a turma SÓ vale quando ela tem um único valor definido; senão a linha tem erro e não é importada.
     const monthlyAmountRaw = row['valor_mensalidade'];
-    const monthlyAmount = parseCurrencyBR(monthlyAmountRaw);
-    if (monthlyAmount === undefined) {
-      errors.push({ row: rowNum, field: 'valor_mensalidade', message: `Valor da mensalidade é obrigatório e precisa ser um número (recebido: "${monthlyAmountRaw}").` });
-      return;
+    let monthlyAmount: number | undefined;
+    if (String(monthlyAmountRaw ?? '').trim() === '') {
+      if (!selectedClass) {
+        errors.push({ row: rowNum, field: 'valor_mensalidade', message: 'Informe "valor_mensalidade" ou escolha uma turma que tenha mensalidade cadastrada.' });
+        return;
+      }
+      const fee = resolveClassFee(selectedClass);
+      if (fee.kind === 'none') {
+        errors.push({ row: rowNum, field: 'valor_mensalidade', message: `A turma "${selectedClass.name}" não tem mensalidade cadastrada. Informe "valor_mensalidade".` });
+        return;
+      }
+      if (fee.kind === 'both') {
+        errors.push({
+          row: rowNum,
+          field: 'valor_mensalidade',
+          message: `A turma "${selectedClass.name}" tem dois valores (meio período ${formatCurrency(fee.half)} e integral ${formatCurrency(fee.full)}) e a planilha não diz qual período o contrato tem. Informe "valor_mensalidade".`,
+        });
+        return;
+      }
+      monthlyAmount = fee.amount;
+      notes.push({ row: rowNum, field: 'valor_mensalidade', message: `Valor da turma "${selectedClass.name}" usado (${fee.period}): ${formatCurrency(fee.amount)}.` });
+    } else {
+      monthlyAmount = parseCurrencyBR(monthlyAmountRaw);
+      if (monthlyAmount === undefined) {
+        errors.push({ row: rowNum, field: 'valor_mensalidade', message: `Valor da mensalidade precisa ser um número (recebido: "${monthlyAmountRaw}").` });
+        return;
+      }
     }
 
     const discountRaw = row['desconto_percentual'];
@@ -355,17 +398,6 @@ export function validateContractsRows(
       return;
     }
 
-    let classId: string | null = null;
-    const className = normalizeText(row['turma']);
-    if (className) {
-      const found = context.existingClasses.find((c) => c.name.trim().toLowerCase() === className.toLowerCase());
-      if (!found) {
-        errors.push({ row: rowNum, field: 'turma', message: `Turma "${className}" não encontrada. Importe a planilha de Turmas antes desta, ou deixe em branco.` });
-        return;
-      }
-      classId = found.id;
-    }
-
     studentIdsInFile.add(student.id);
     valid.push({
       row: rowNum,
@@ -383,5 +415,5 @@ export function validateContractsRows(
     });
   });
 
-  return { valid, errors, totalRows: rows.length };
+  return { valid, errors, notes, totalRows: rows.length };
 }

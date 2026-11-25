@@ -112,3 +112,30 @@ const CLASS_COLOR_PALETTE = [
 export function randomClassColor(seed: number): string {
   return CLASS_COLOR_PALETTE[seed % CLASS_COLOR_PALETTE.length];
 }
+
+// ---- Item I: valor da turma como fallback na planilha de contratos ----
+
+export type ClassFeeResolution =
+  | { kind: 'single'; amount: number; period: 'meio período' | 'integral' }
+  | { kind: 'both'; half: number; full: number }
+  | { kind: 'none' };
+
+const positive = (v: unknown): number | null => {
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) && n > 0 ? n : null;
+};
+
+/**
+ * O fallback para o valor da turma SÓ vale quando a turma tem um único valor definido (meio período XOR integral).
+ * Com os dois valores a planilha não diz qual período o contrato tem; sem nenhum, não há o que sugerir.
+ */
+export function resolveClassFee(
+  cls: { monthly_fee?: number | string | null; monthly_fee_integral?: number | string | null } | undefined,
+): ClassFeeResolution {
+  const half = positive(cls?.monthly_fee);
+  const full = positive(cls?.monthly_fee_integral);
+  if (half !== null && full !== null) return { kind: 'both', half, full };
+  if (half !== null) return { kind: 'single', amount: half, period: 'meio período' };
+  if (full !== null) return { kind: 'single', amount: full, period: 'integral' };
+  return { kind: 'none' };
+}
