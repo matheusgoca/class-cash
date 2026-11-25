@@ -118,6 +118,7 @@ declare
   svc uuid; svc_m uuid; svc_off uuid; svcy uuid;
   s_z uuid; clz uuid; stz uuid; kz uuid; -- escola de OUTRO dono (seção 3: master em escola alheia)
   h uuid[]; hx uuid; hy uuid; hz uuid; hw uuid; hd uuid; lo uuid; hi uuid; got text; -- seção 4 (endurecimento)
+  hk1 uuid; hk2 uuid; hk3 uuid; hk4 uuid; -- seção 5 (item I: final_amount arredondado)
   v text; r jsonb; item jsonb; v_role text;
 begin
   perform set_config('request.jwt.claims', '', true);
@@ -495,6 +496,29 @@ begin
   perform pg_temp.rec('4r2 ...e a mensalidade gravada é o final_amount do contrato (299,997) arredondado a 2 casas = 300,00, nas 12',
     (select (count(*) = 12 and bool_and(t.amount = round(c.final_amount, 2) and t.amount = 300.00))::text
        from public.tuitions t join public.contracts c on c.id = t.contract_id where c.renewed_from_id = hd), 'true');
+
+  -- 5. Item I: contracts.final_amount com 2 casas na origem (round) -------------------------
+  -- Escritos ANTES da migration 20261125130000_contracts_final_amount_round.sql: 5a, 5b e 5e devem falhar contra o schema anterior.
+  hk1 := pg_temp.mk(s_x, st, cl1, date '2031-02-28', 333.33, 10);
+  hk2 := pg_temp.mk(s_x, st, cl1, date '2031-02-28', 99.99, 33.33);
+  hk3 := pg_temp.mk(s_x, st, cl1, date '2031-02-28', 250, 0);
+  hk4 := pg_temp.mk(s_x, st, cl1, date '2031-02-28', 1350, 12.5);
+
+  perform pg_temp.rec('5a (I) 333,33 com 10% = 300,00 exato (299,997 arredondado)',
+    (select (final_amount = 300.00 and scale(final_amount) <= 2)::text from public.contracts where id = hk1), 'true');
+  perform pg_temp.rec('5b (I) 99,99 com 33,33% = 66,66 (66,659333 arredondado)',
+    (select (final_amount = 66.66 and scale(final_amount) <= 2)::text from public.contracts where id = hk2), 'true');
+  perform pg_temp.rec('5c (I) desconto zero: final_amount = monthly_amount',
+    (select (final_amount = 250.00 and scale(final_amount) <= 2)::text from public.contracts where id = hk3), 'true');
+  perform pg_temp.rec('5d (I) valor com desconto que já fecha em 2 casas não muda (1350 com 12,5% = 1181,25)',
+    (select (final_amount = 1181.25)::text from public.contracts where id = hk4), 'true');
+  perform pg_temp.rec('5e (I) nenhum contrato da matriz tem fração de centavo no final_amount',
+    (select count(*)::text from public.contracts where final_amount <> round(final_amount, 2)), '0');
+  perform pg_temp.rec('5f (I) renew_contracts com o valor arredondado renova e grava 300,00 nas 12',
+    pg_temp.renew_s(u_admin, s_x, jsonb_build_array(pg_temp.item(hk1, cl1, 333.33, 300.00)), null), '1|12');
+  perform pg_temp.rec('5f2 (I) ...as 12 mensalidades gravadas são exatamente o final_amount do contrato de origem',
+    (select (count(*) = 12 and bool_and(t.amount = (select final_amount from public.contracts where id = hk1)))::text
+       from public.tuitions t join public.contracts c on c.id = t.contract_id where c.renewed_from_id = hk1), 'true');
 end $$;
 
 select n, cenario, got, esperado, ok from t_res order by n;
