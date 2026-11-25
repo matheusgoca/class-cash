@@ -1,6 +1,6 @@
 # Status do projeto — passagem de bastão
 
-**Atualizado em:** 2026-11-25 (fim do dia). Atualize este arquivo ao final de cada sessão: ele é o que permite continuar em outra máquina, porque a memória local do Claude não vai junto com o git.
+**Atualizado em:** 2026-11-25 (S5: diagnósticos do sino com o master, do item I e do go-live do e-mail). Atualize este arquivo ao final de cada sessão: ele é o que permite continuar em outra máquina, porque a memória local do Claude não vai junto com o git.
 
 ## Onde estamos
 
@@ -55,6 +55,35 @@ Documentos de referência:
 2. ✅ **Caso novo na `renewal_matrix.sql`** (25/11): seção 3, master renovando/decidindo em escola de outro dono (dono = `u_admin`, perfil em outra escola), master sempre com `aal2`, nada vazando para a escola do perfil dele, e contraprova de auditoria na escola alheia. 82/82 contra o schema aplicado, `BEGIN … ROLLBACK`, nada persistiu.
 3. ✅ **Bloco 3(b) fechado como seed** para Colegio Teste e Colégio Estrela (decisão do dono, 25/11). Evidência: a auditoria só começou em 13/11 e não tem nenhum `insert` dessas mensalidades; elas foram criadas em rajadas (abr–out) com vencimentos uniformes de fev a nov; os `update` registrados são do job das 03:00 UTC.
 4. ✅ **Endurecimento de `renew_contracts` concluído e em produção (25/11):** desenho aprovado (`docs/superpowers/specs/2026-11-25-renew-contracts-endurecimento-design.md`: H1 teto de 25 mensalidades, confirmado nos dados (maior contrato real: 17; Pensar: 0 contratos); H2 `overdue` não pode ser futuro, vencidas preservadas; H3 JSON malformado vira `INVALID_ITEM` com mensagem em português; H4 itens ordenados por `source_contract_id`; H5 teto de R$ 30.000 validado na prévia). PR #21 mergeado (`94b47f0`, deploy de produção `success`); migration `20261125120000_renew_contracts_hardening.sql` **aplicada** (`db push` com `--dry-run` antes e autorização; `migration list` alinhado). Matriz contra o schema aplicado, sem marcador: **111/111**; nenhuma escola de teste ficou no banco (3 escolas, 327 contratos, 0 contratos no Pensar, 0 auditoria nova). Tela: `MAX_MONTHLY_AMOUNT` na prévia do lote e `INVALID_ITEM(S)` em `friendlyError.ts`.
+
+## S5 (25/11): diagnósticos, sem código de produto
+
+Regras desta rodada: Pensar só leitura; matrizes em `BEGIN … ROLLBACK`; migrations e deploys só com `--dry-run` e autorização; sem Co-Authored-By; merge só quando o PM pedir. **Nada foi escrito em produção nesta rodada.**
+
+**Bloco 0.** PR #22 (STATUS) já estava mergeado (`faf923e`).
+
+**Bloco 1 — sino e central com o master (decisão D4, documentada).** Diagnóstico pelo código e pelo banco:
+- `NotificationBell`, o item **Notificações** da barra lateral e o card "Precisa da sua atenção" usam a mesma regra (`useShowNotifications` → `showNotificationsItem`): **somem** quando o master está sem escola (painel `/master`) **ou visualizando outra escola**; aparecem só na escola de casa. Escondido, o sino nem consulta o banco (o `useEffect` não dispara).
+- **Não há vazamento de avisos entre escolas.** `list_notifications` e `mark_notifications_read` filtram por `n.user_id = auth.uid()` **e** `n.school_id = get_user_school_id()` (a escola do perfil); `school_id` nunca vem do cliente. Hoje os 3 avisos existentes são da Colegio Teste.
+- **Inconsistência menor, não vazamento:** a rota `/notificacoes` **não tem o guard** que a página de preferências já tem (`isMasterViewingOtherSchool`). Quem digita a URL com o master visualizando outra escola vê os avisos **da escola de casa** sob o banner da escola visualizada. Correção sugerida (pequena, com teste): espelhar o guard de `NotificationPreferences.tsx`. **Não foi feita** (não é vazamento; aguarda o PM).
+- Comportamento registrado no `CLAUDE.md` (convenções).
+
+**Bloco 2 — item I (valor da mensalidade em três lugares), Fase 0.** Documento: `docs/DIAGNOSTICO_ITEM_I_VALOR_MENSALIDADE.md`. **Aguarda a decisão do PM (A, B ou C) antes de qualquer spec ou migration.** Números:
+- Contrato diverge da base da turma: Estrela 0/240, Teste 1/86 (+R$ 30), **Pensar sem contratos**. Contrato diverge do valor-base do aluno: Estrela 0, Teste 4/87 (+R$ 750 a +R$ 1.000), Pensar n/a.
+- **Pensar: 201 alunos com valor 0 no cadastro, 13 turmas com `monthly_fee`, 0 contratos, 0 mensalidades.**
+- Mensalidades com `amount` diferente do contrato: Estrela 2/2.642, Teste 11/965, Pensar 0; **todas são parcelas de renegociação** (esperado); **0** por arredondamento de 1 centavo; **0** contratos com fração de centavo no `final_amount` (o 299,997 é latente).
+- `contracts.final_amount` é lido em `generateTuitions.ts`, `Students.tsx`, `renew_contracts` e `auditFormat.ts`; sem views.
+- **Correção de premissa:** a turma **já sugere** a mensalidade no `ContractForm` em contrato novo (commit `60d4ea2`).
+- Recomendação: **A** (contrato como fonte única; turma sugere; campo do aluno some ou exibe o do contrato; `final_amount` com `round(...,2)` via `SET EXPRESSION`, PG 17.6, 0 linhas afetadas).
+
+**Bloco 3 — go-live do e-mail (sem enviar nada).** Documento: `docs/EMAIL_GO_LIVE.md` (secrets, job, freios, 9 consultas de monitoramento validadas, roteiro do primeiro teste, pendências do Pensar). Pontos-chave:
+- Secrets da função (só nomes): `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_SENDING_ENABLED` (só `true` liga), `EMAIL_ALLOWLIST` (opcional, recomendada), `APP_URL` (opcional); automáticos: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`. Vault: `service_role_key` (JWT legado, igual ao `SUPABASE_SERVICE_ROLE_KEY`). **Não há** `reply-to` nem `List-Unsubscribe` no código.
+- Job `send-notification-emails` ativo de hora em hora e **respondendo 401** até hoje (falta o segredo do Vault): esperado e inofensivo.
+- Freios: interruptor global, allowlist, `confirmed_at` + e-mail ligado por evento (padrão desligado) + aviso do dia + a partir das 08:00 locais. **Não há freio por escola** (decisão pendente). Hoje, com o interruptor ligado e sem allowlist, sairia 1 e-mail, da Colegio Teste; nada do Pensar.
+- **Pensar:** 3 usuários, 0 preferências confirmadas, 0 avisos e **nenhum dado a notificar** (0 mensalidades, 0 despesas, 0 contratos).
+- **DECISÃO pendente:** só depois de o PM confirmar domínio verificado e secrets configurados, propor o dia e a ordem do primeiro envio.
+
+**Pendências abertas da S5:** (1) PM escolhe A/B/C do item I; (2) PM decide se quer o guard de `/notificacoes` para o master e o freio por escola do e-mail; (3) PM confirma domínio verificado e secrets do Resend; (4) `reply-to`/`List-Unsubscribe`, se desejados.
 
 ## Escolas em produção e regras de QA (25/11)
 
