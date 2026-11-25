@@ -6,6 +6,8 @@ import { Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useSchool } from '@/contexts/SchoolContext';
 import { StudentForm } from '@/components/students/StudentForm';
+import { buildStudentPayload } from '@/lib/studentPayload';
+import { pickCurrentContract, studentTuitionView } from '@/lib/studentTuition';
 import { StudentTable } from '@/components/students/StudentTable';
 import { getFriendlyErrorMessage } from '@/lib/friendlyError';
 import { PlanLimitBanner } from '@/components/PlanLimitBanner';
@@ -54,13 +56,11 @@ const Students = () => {
 
       if (enrollmentsError) throw enrollmentsError;
 
-      // Active contract's final_amount — the "Mensalidade" column shows this
-      // when a contract exists, since that's what actually generates
-      // cobranças; students.full_tuition_value/discount are only a reference
-      // for students who don't have a contract yet (e.g. pré-matrícula).
+      // Item I: o contrato é a fonte do valor. A coluna "Mensalidade" mostra o valor do contrato vigente
+      // ou, sem contrato, a referência da turma; os campos legados do cadastro do aluno não são usados.
       const { data: contractsData, error: contractsError } = await (supabase as any)
         .from('contracts')
-        .select('student_id, final_amount')
+        .select('id, student_id, status, start_date, end_date, final_amount, discount')
         .eq('school_id', schoolId)
         .eq('status', 'active');
 
@@ -69,12 +69,11 @@ const Students = () => {
       // Merge student data with enrollment and active-contract data
       const studentsWithClasses = (studentsData || []).map(student => {
         const enrollment = (enrollmentsData || []).find((e: any) => e.student_id === student.id);
-        const activeContract = (contractsData || []).find((c: any) => c.student_id === student.id);
         return {
           ...student,
           enrollment_class_id: enrollment?.classes?.id,
           enrollment_class_name: enrollment?.classes?.name,
-          active_contract_final_amount: activeContract?.final_amount ?? undefined,
+          active_contracts: (contractsData || []).filter((c: any) => c.student_id === student.id),
         };
       });
 
@@ -110,19 +109,8 @@ const Students = () => {
   const handleSubmit = async (formData) => {
     setIsLoading(true);
     try {
-      // Calculate final_tuition_value server-side (authoritative)
-      const finalTuitionValue = formData.full_tuition_value * (1 - (formData.discount || 0) / 100);
-
-      // Remove class_id from student data, convert dates to strings
-      const { class_id, birth_date, enrollment_date, ...studentData } = formData;
-      const dataToSubmit = {
-        ...studentData,
-        full_name: studentData.full_name,
-        birth_date: birth_date instanceof Date ? toDateStr(birth_date) : birth_date,
-        enrollment_date: enrollment_date instanceof Date ? toDateStr(enrollment_date) : enrollment_date,
-        final_tuition_value: finalTuitionValue,
-        school_id: schoolId,
-      };
+      // Item I: o aluno não grava valor (nem calcula final_tuition_value); ver studentPayload.ts.
+      const { payload: dataToSubmit, classId: class_id } = buildStudentPayload(formData, schoolId);
 
       if (editingStudent) {
         // Update student
@@ -172,7 +160,7 @@ const Students = () => {
         // Create new student
         const { data: newStudent, error: studentError } = await supabase
           .from('students')
-          .insert([dataToSubmit])
+          .insert([dataToSubmit as any])
           .select()
           .single();
 
@@ -230,7 +218,18 @@ const Students = () => {
     }
   };
 
-  const filteredStudents = students.filter(student => {
+  // Item I: valor do contrato vigente ou referência da turma (meio período). Calculado aqui porque
+  // as turmas e os contratos chegam por consultas separadas.
+  const today = toDateStr(new Date());
+  const studentsWithTuition = students.map((student: any) => ({
+    ...student,
+    tuition: studentTuitionView(
+      pickCurrentContract(student.active_contracts ?? [], today),
+      classes.find((c: any) => c.id === student.enrollment_class_id)?.monthly_fee,
+    ),
+  }));
+
+  const filteredStudents = studentsWithTuition.filter(student => {
     const matchesSearch = ( student.full_name ?? '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesClass = !classFilter || classFilter === 'all' || student.enrollment_class_id === classFilter;
     return matchesSearch && matchesClass;

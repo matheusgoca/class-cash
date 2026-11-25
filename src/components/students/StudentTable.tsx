@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Edit2, Trash2, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
+import { formatCurrency } from '@/lib/calculations';
+import { CLASS_REFERENCE_LABEL, type StudentTuitionView } from '@/lib/studentTuition';
 import { ptBR } from 'date-fns/locale';
 
 const PAGE_SIZE = 10;
@@ -21,10 +23,8 @@ interface Student {
   guardian_contact?: string;
   enrollment_class_id?: string;
   enrollment_class_name?: string;
-  full_tuition_value?: number;
-  discount?: number;
-  final_tuition_value?: number;
-  active_contract_final_amount?: number;
+  /** Item I: valor do contrato vigente ou referência da turma; calculado em Students.tsx. Os campos legados do cadastro do aluno não são mais exibidos. */
+  tuition?: StudentTuitionView;
   status: 'active' | 'inactive';
 }
 
@@ -125,14 +125,14 @@ export const StudentTable: React.FC<StudentTableProps> = ({
                       : '-'}
                   </TableCell>
                   <TableCell>
-                    {(() => {
-                      // Contrato ativo é a fonte real de cobrança — só cai pro
-                      // valor de referência do cadastro quando não há contrato.
-                      const value = student.active_contract_final_amount ?? student.final_tuition_value;
-                      return value
-                        ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value)
-                        : '-';
-                    })()}
+                    {student.tuition?.kind === 'contract' && formatCurrency(student.tuition.value)}
+                    {student.tuition?.kind === 'class_reference' && (
+                      <span className="text-muted-foreground">
+                        {formatCurrency(student.tuition.value)}{' '}
+                        <span className="text-xs" title={CLASS_REFERENCE_LABEL}>(ref. turma, meio período)</span>
+                      </span>
+                    )}
+                    {(!student.tuition || student.tuition.kind === 'none') && '—'}
                   </TableCell>
                   <TableCell>{getClassName(student)}</TableCell>
                   <TableCell>
