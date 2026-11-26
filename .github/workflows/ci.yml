@@ -1,0 +1,42 @@
+# CI (S6, bloco 3, fase 1): testes, tipos, lint e build em todo PR e em todo push na main.
+# Sem secrets e sem acesso à produção: nada aqui lê ou escreve no Supabase. As variáveis do build são valores FICTÍCIOS
+# (o build só embute o texto; nenhuma chamada é feita). A Vercel continua sendo o deploy; este workflow é o portão de qualidade.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VITE_SUPABASE_URL: https://ci.invalid
+      VITE_SUPABASE_PUBLISHABLE_KEY: ci-placeholder
+      VITE_SUPABASE_PROJECT_ID: ci-placeholder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Instalar dependências
+        run: npm ci
+      - name: Testes (vitest)
+        run: npm test
+      - name: Tipos (tsc, sem piorar a linha de base)
+        run: node scripts/ci-ratchet.mjs tsc
+      - name: Lint (eslint, sem piorar a linha de base)
+        run: node scripts/ci-ratchet.mjs eslint
+      - name: Build
+        run: npm run build
