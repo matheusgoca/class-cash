@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { PaginationCompact } from "@/components/ui/pagination-compact";
-import { ArrowUpDown, Edit, CheckCircle, Search, RefreshCw } from "lucide-react";
+import { ArrowUpDown, Edit, CheckCircle, Search, RefreshCw, Undo2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
@@ -18,6 +18,8 @@ import { isTuitionOverdue, calculateTuitionWithPenalty, getTuitionValue } from "
 import { getFriendlyErrorMessage } from "@/lib/friendlyError";
 import { useSchool } from "@/contexts/SchoolContext";
 import { PaymentConfirmModal, PaymentConfirmData } from "@/components/tuitions/PaymentConfirmModal";
+import { ReversePaymentDialog } from "@/components/tuitions/ReversePaymentDialog";
+import { canReverseTuition } from "@/lib/tuitionReversal";
 
 interface TuitionData {
   id: string;
@@ -78,6 +80,8 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
   const [classFilter, setClassFilter] = useState("all");
   const [groupByClass, setGroupByClass] = useState(false);
   const [confirmingPayment, setConfirmingPayment] = useState<TuitionData | null>(null);
+  const [reversing, setReversing] = useState<TuitionData | null>(null);
+  const [reverseLoading, setReverseLoading] = useState(false);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -166,6 +170,27 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
       setSortDirection("asc");
     }
     setCurrentPage(1);
+  };
+
+  // Estorno de baixa (S6b, bloco D): o RPC valida papel, escola e estado; a auditoria guarda o old_data.
+  const handleReverse = async (tuition: TuitionData) => {
+    try {
+      setReverseLoading(true);
+      const { error } = await supabase.rpc('reverse_tuition_payment' as never, { p_school_id: schoolId, p_tuition_id: tuition.id } as never);
+      if (error) throw error;
+      toast({ title: "Baixa estornada", description: "A mensalidade voltou a ficar pendente." });
+      setReversing(null);
+      onRefresh();
+    } catch (error) {
+      console.error('Error reversing payment:', error);
+      toast({
+        title: "Erro",
+        description: getFriendlyErrorMessage(error, "Erro ao estornar a baixa"),
+        variant: "destructive",
+      });
+    } finally {
+      setReverseLoading(false);
+    }
   };
 
   const handleConfirmPayment = async (tuition: TuitionData, data: PaymentConfirmData) => {
@@ -513,6 +538,19 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
                           </Button>
                         )}
 
+                        {canReverseTuition(tuition) && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            aria-label="Estornar baixa"
+                            title="Estornar baixa"
+                            onClick={() => setReversing(tuition)}
+                            className="text-amber-600 hover:text-amber-700"
+                          >
+                            <Undo2 className="h-4 w-4" />
+                          </Button>
+                        )}
+
                         {isOverdue && onRenegotiate && (
                           <Button
                             size="sm"
@@ -560,6 +598,19 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
         />
       </CardContent>
     </Card>
+
+    {reversing && reversing.paid_date && (
+      <ReversePaymentDialog
+        studentName={reversing.students?.full_name || 'N/A'}
+        description={reversing.description}
+        paidDate={reversing.paid_date}
+        finalAmount={reversing.final_amount}
+        amount={reversing.amount}
+        loading={reverseLoading}
+        onConfirm={() => handleReverse(reversing)}
+        onCancel={() => setReversing(null)}
+      />
+    )}
 
     {confirmingPayment && (
       <PaymentConfirmModal
