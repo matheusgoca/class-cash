@@ -42,6 +42,8 @@ Edge Function `send-notification-emails` (`supabase/functions/send-notification-
 5. E-mail do usuário confirmado; só `admin`/dono (e `financial` nos eventos não restritos).
 6. Reenvio: no máximo 3 tentativas por (usuário, escola, evento, dia); 40 e-mails por chamada (a fila continua na hora seguinte); pausa de 600 ms entre envios (limite do Resend).
 
+> **Atualização 26/11:** o freio por escola foi desenhado e aprovado (PR do bloco 1: `schools.email_enabled`, só o master liga, checado no enfileiramento e no envio). Enquanto ele não estiver em produção o portão abaixo continua valendo; depois dele, ver o checklist da seção 6.
+
 **PORTÃO OBRIGATÓRIO antes de remover a allowlist e abrir o e-mail para todas as escolas (decisão do PM, 25/11):** não existe freio **por escola** (nenhum `schools.email_enabled`) e **não haverá agora**. Enquanto isso, `EMAIL_ALLOWLIST` fica definida em todas as fases. **Antes** de remover a allowlist ou de abrir para as demais escolas, é obrigatório decidir e implementar um freio por escola (uma coluna + uma condição no `claim_notification_emails`, com caso na matriz de notificações) ou outro equivalente aprovado pelo PM. Sem isso, o único freio por escola seria o opt-in de cada usuário.
 
 **Estado de cada escola (contagens de 25/11, sem endereços):**
@@ -159,3 +161,28 @@ Estado em 25/11: 3 usuários (1 admin, 2 financeiros), todos com e-mail confirma
 6. **Confirmar com o dono** se o interruptor por escola (seção 2, "Lacuna") é desejado antes de abrir para o Pensar.
 
 **DECISÃO:** só depois de o PM confirmar **domínio verificado e secrets configurados**, proponho o dia e a ordem do primeiro envio.
+
+## 6. Checklist do dia do go-live (ordem segura; decisão do PM de 26/11)
+
+**Nada disto foi executado.** O Vault fica para o dia do go-live (feito pelo PM, no painel, junto com os secrets do Resend). Nenhum valor de chave passa por chat, commit ou PR: aqui só há **nomes**. Cada passo só começa quando o anterior foi conferido; qualquer conferência que falhe **para** o processo.
+
+| # | Passo | Quem | Conferir antes de seguir (somente leitura) |
+|---|---|---|---|
+| 1 | **Interruptor por escola em produção** (PR do bloco 1): migration `20261126140000` aplicada (dry-run + autorização) e Edge Function implantada (autorização) | dev, com autorização do PM | `schools.email_enabled` existe e **todas** as escolas estão `false`; matriz `school_email_switch_matrix.sql` 43/43; `email_outbox_matrix.sql` 34/34 |
+| 2 | **DNS e domínio verificados no Resend** (SPF, DKIM e o que o painel pedir) | PM | domínio com status "Verified" no painel do Resend |
+| 3 | **Secrets da função** (Supabase, Edge Functions, Secrets): `RESEND_API_KEY`, `EMAIL_FROM` (remetente do domínio verificado), `APP_URL`, `EMAIL_REPLY_TO` (opcional). **Ainda NÃO** criar `EMAIL_SENDING_ENABLED` com o valor `true` (ausente = desligado) nem tirar a allowlist | PM | `supabase secrets list` mostra os nomes (nunca os valores) |
+| 4 | **Vault**: segredo `service_role_key` com o JWT legado `service_role` (idêntico ao `SUPABASE_SERVICE_ROLE_KEY` da função) | PM, no painel | `select name from vault.secrets` mostra `service_role_key`; na hora seguinte o job deixa de responder 401 (passa a `{"skipped":"disabled"}`, porque o envio global ainda está desligado) |
+| 5 | **Allowlist só com o e-mail do PM**: `EMAIL_ALLOWLIST` = o e-mail do PM e mais nenhum | PM | `supabase secrets list` mostra `EMAIL_ALLOWLIST` |
+| 6 | **Ligar o envio global**: `EMAIL_SENDING_ENABLED` = `true` (só o texto exato liga) | PM | a resposta do job passa de `skipped: disabled` para `claimed: 0` (nada elegível ainda, porque nenhuma escola está ligada) |
+| 7 | **O master liga a Colegio Teste** no painel master (toggle "E-mail de avisos", com confirmação) | PM (master, com 2FA) | `schools.email_enabled = true` só na Teste; `email_enabled_by` = o master; auditoria mostra "Suporte Class Cash" |
+| 8 | **Teste ponta a ponta** (roteiro da seção 4): o PM confirma as preferências na Colegio Teste e liga o e-mail em um evento; a partir das 08:00 locais conferir a fila (`email_outbox`) e o recebimento | PM e dev | 1 e-mail só, para o e-mail do PM; `email_outbox` com `sent` e `provider_message_id`; nenhuma outra escola na fila |
+
+**Só depois** de o passo 8 dar certo discutir o Pensar (seção 5): o dono do Pensar confirma as preferências, o PM liga a escola no painel master e a allowlist passa a incluir os e-mails dele. A allowlist só é removida depois do piloto.
+
+**Como desfazer, do mais leve ao mais forte (qualquer um para o envio):**
+1. Painel master: desligar o toggle da escola (a fila dela vira `skipped`, sem apagar).
+2. `EMAIL_SENDING_ENABLED` diferente de `true` (apagar ou `false`): a função responde `skipped: disabled` antes de reivindicar.
+3. Apagar o segredo do Vault: a função responde 401.
+4. `select cron.unschedule('send-notification-emails');` (escrita no banco: só com autorização).
+
+**O que NÃO fazer:** ligar `EMAIL_SENDING_ENABLED=true` antes do passo 1; remover a allowlist antes do piloto; ligar uma escola sem o dono dela ter confirmado as preferências (nada sairia, mas o aviso prévio à família é do PM); colar chave em qualquer lugar fora do painel.
