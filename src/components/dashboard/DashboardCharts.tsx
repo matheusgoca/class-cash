@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/contexts/SchoolContext";
-import { formatCurrency, getTuitionValue } from "@/lib/calculations";
-import { parseLocalDate } from "@/lib/dateUtils";
+import { formatCurrency } from "@/lib/calculations";
+import { buildCashTrend } from "@/lib/cashTrend";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   Cell, LineChart, Line, Legend, ReferenceLine,
@@ -42,18 +42,23 @@ export function DashboardCharts() {
         { data: tuitions },
         { data: totalSalaryData },
         { data: expenses },
+        { data: serviceCharges },
       ] = await Promise.all([
         supabase.from("classes").select("id, name, color, max_capacity").eq("school_id", schoolId).order("name"),
         // enrollments has no school_id — scoped implicitly via class_id cross-reference
         (supabase as any).from("enrollments").select("class_id"),
-        supabase.from("tuitions").select("final_amount, amount, paid_date")
+        supabase.from("tuitions").select("final_amount, amount, status, due_date, paid_date")
           .eq("school_id", schoolId).eq("status", "paid")
           .not("paid_date", "is", null).gte("paid_date", sixMonthsAgo),
         // teachers.salary é restrito a admin/financial no RLS — o Dashboard é
         // aberto a qualquer role, então usamos uma função que só retorna o
         // agregado, sem expor salário individual.
         (supabase as any).rpc("get_active_teachers_salary_sum", { p_school_id: schoolId }),
-        (supabase as any).from("expenses").select("amount, paid_date")
+        (supabase as any).from("expenses").select("amount, status, due_date, paid_date")
+          .eq("school_id", schoolId).eq("status", "paid")
+          .not("paid_date", "is", null).gte("paid_date", sixMonthsAgo),
+        // Serviços pagos (bloco F2): o cartão "Receita Recebida" soma serviços, então o gráfico também soma.
+        (supabase as any).from("service_charges").select("amount, status, due_date, paid_date")
           .eq("school_id", schoolId).eq("status", "paid")
           .not("paid_date", "is", null).gte("paid_date", sixMonthsAgo),
       ]);
@@ -72,32 +77,14 @@ export function DashboardCharts() {
       }));
       setStudentDist(dist);
 
-      // ── 2. Monthly revenue + cost trend (last 6 months) ────
-      const revenueByMonth: Record<string, number> = Object.fromEntries(months.map(m => [m.key, 0]));
-      for (const t of tuitions || []) {
-        const d = parseLocalDate(t.paid_date!);
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-        if (key in revenueByMonth) revenueByMonth[key] += getTuitionValue(t);
-      }
-
-      // Salary has no month-by-month history today — same value repeated across months
-      const totalSalary = Number(totalSalaryData || 0);
-
-      const expensesByMonth: Record<string, number> = Object.fromEntries(months.map(m => [m.key, 0]));
-      for (const e of expenses || []) {
-        const d = parseLocalDate(e.paid_date!);
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-        if (key in expensesByMonth) expensesByMonth[key] += Number(e.amount ?? 0);
-      }
-
-      const trend = months.map(m => {
-        const custo = totalSalary + expensesByMonth[m.key];
-        return {
-          name: m.name,
-          receita: revenueByMonth[m.key],
-          custo,
-          resultado: revenueByMonth[m.key] - custo,
-        };
+      // ── 2. Receita x custo por mês do pagamento (últimos 6 meses) ────
+      // Mesma conta do Saldo Realizado do cartão (calculateMonthlyBalance): mensalidades + serviços pagos, menos salários e despesas.
+      // Salário não tem histórico mês a mês: o total atual se repete (como no cartão).
+      const trend = buildCashTrend(months, {
+        tuitions: (tuitions || []) as any[],
+        serviceCharges: (serviceCharges || []) as any[],
+        expenses: (expenses || []) as any[],
+        monthlySalaries: Number(totalSalaryData || 0),
       });
       setMonthlyTrend(trend);
     } catch (err) {
