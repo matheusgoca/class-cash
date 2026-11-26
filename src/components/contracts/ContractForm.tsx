@@ -501,6 +501,11 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
           {errors.discount && (
             <p className="text-sm text-destructive">{errors.discount.message}</p>
           )}
+          {watchDiscount >= 100 && (
+            <p className="text-sm text-muted-foreground">
+              Bolsa 100%: o valor de tabela fica registrado e as mensalidades nascem quitadas como bolsa (não entram em atrasos, avisos nem na inadimplência).
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">

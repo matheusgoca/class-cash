@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { SCHOLARSHIP_LABEL } from "@/lib/scholarship";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -249,6 +250,9 @@ export function ContractTable({ data, loading, onEdit, onRefresh }: ContractTabl
                 </TableCell>
                 <TableCell>
                   {contract.discount}%
+                  {contract.discount >= 100 && (
+                    <Badge className="ml-2 bg-sky-600 text-white">{SCHOLARSHIP_LABEL}</Badge>
+                  )}
                 </TableCell>
                 <TableCell className="font-medium">
                   {formatCurrency(calculateFinalAmount(contract.monthly_amount, contract.discount))}

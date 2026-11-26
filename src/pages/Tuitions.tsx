@@ -13,6 +13,8 @@ import { RenegotiationModal } from "@/components/tuitions/RenegotiationModal";
 import { useToast } from "@/hooks/use-toast";
 import { isTuitionOverdue, getTuitionValue } from "@/lib/calculations";
 import { getFriendlyErrorMessage } from "@/lib/friendlyError";
+import { summarizeTuitions } from "@/lib/tuitionSummary";
+import { SCHOLARSHIP_LABEL } from "@/lib/scholarship";
 
 interface TuitionData {
   id: string;
@@ -44,18 +46,6 @@ interface TuitionData {
     discount: number;
     classes?: { name: string } | null;
   } | null;
-}
-
-interface TuitionSummary {
-  total: number;
-  pending: number;
-  paid: number;
-  overdue: number;
-  cancelled: number;
-  totalAmount: number;
-  pendingAmount: number;
-  paidAmount: number;
-  overdueAmount: number;
 }
 
 const Tuitions = () => {
@@ -167,43 +157,10 @@ const Tuitions = () => {
     setEditingTuition(null);
   };
 
-  const calculateSummary = (): TuitionSummary => {
-    return tuitions.reduce(
-      (acc, tuition) => {
-        const isOverdue = isTuitionOverdue(tuition.due_date, tuition.status);
-        const status = isOverdue ? "overdue" : tuition.status;
-        acc.total += 1;
-        // Cancelled tuitions (e.g. replaced by a renegotiation) are not revenue.
-        if (status !== "cancelled") {
-          acc.totalAmount += getTuitionValue(tuition);
-        }
-        switch (status) {
-          case "pending":
-            acc.pending += 1;
-            acc.pendingAmount += getTuitionValue(tuition);
-            break;
-          case "paid":
-            acc.paid += 1;
-            acc.paidAmount += getTuitionValue(tuition);
-            break;
-          case "overdue":
-            acc.overdue += 1;
-            acc.overdueAmount += getTuitionValue(tuition);
-            break;
-          case "cancelled":
-            acc.cancelled += 1;
-            break;
-        }
-        return acc;
-      },
-      { total: 0, pending: 0, paid: 0, overdue: 0, cancelled: 0, totalAmount: 0, pendingAmount: 0, paidAmount: 0, overdueAmount: 0 }
-    );
-  };
-
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 
-  const summary = calculateSummary();
+  const summary = summarizeTuitions(tuitions);
 
   return (
     <div className="space-y-6">
@@ -268,6 +225,9 @@ const Tuitions = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-card-foreground">{formatCurrency(summary.paidAmount)}</div>
+            <p className="text-muted-foreground text-xs mt-1" data-testid="scholarship-count">
+              {SCHOLARSHIP_LABEL}: {summary.scholarship} {summary.scholarship === 1 ? 'mensalidade' : 'mensalidades'} (fora dos pagos)
+            </p>
           </CardContent>
         </Card>
 

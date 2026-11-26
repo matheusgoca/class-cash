@@ -1,4 +1,5 @@
-import { getTuitionValue } from "./calculations";
+import { getTuitionValue, isTuitionOverdue } from "./calculations";
+import { isScholarshipTuition } from "./scholarship";
 import { parseLocalDate } from "./dateUtils";
 
 interface TuitionLike {
@@ -88,4 +89,31 @@ export function calculateMonthlyBalance({
     forecastExpenses,
     forecast: forecastRevenue - monthlySalaries - forecastExpenses,
   };
+}
+
+/**
+ * Inadimplência do mês (competência): entre as mensalidades com vencimento no mês, quanto já está vencido e não pago
+ * (numerador) sobre o que já venceu (pagas + vencidas; pendente ainda no prazo não entra). Mesma conta do cartão do Dashboard.
+ * Canceladas e BOLSAS 100% (bloco H) ficam fora do numerador e do denominador.
+ */
+export function calculateMonthlyDelinquency({
+  tuitions,
+  year,
+  month,
+}: {
+  tuitions: (TuitionLike & { payment_method?: string | null })[];
+  year: number;
+  month: number; // 0-indexed
+}): { overdue: number; dued: number; rate: number } {
+  let overdue = 0;
+  let dued = 0;
+  for (const t of tuitions) {
+    if (t.status === "cancelled" || isScholarshipTuition(t)) continue;
+    if (!isInMonth(t.due_date, year, month)) continue;
+    const late = isTuitionOverdue(t.due_date, t.status);
+    if (t.status === "paid" || late) dued += getTuitionValue(t);
+    if (late) overdue += getTuitionValue(t);
+  }
+  const rate = dued > 0 ? Math.round((overdue / dued) * 1000) / 10 : 0;
+  return { overdue, dued, rate };
 }

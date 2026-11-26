@@ -74,6 +74,8 @@ export interface PlanRow {
   newMonthly: number;
   /** Valor da mensalidade já líquido do desconto do contrato (o que será cobrado por mês). */
   newNet: number;
+  /** Bolsa 100% (bloco H): valor de tabela > 0 com mensalidade líquida zero; as mensalidades nascem quitadas como bolsa no servidor. */
+  scholarship: boolean;
   monthlyEdited: boolean;
   classChanged: boolean;
   start: string;
@@ -151,6 +153,7 @@ export function buildRenewalPlan(sources: RenewalContract[], opts: PlanOptions) 
       currentMonthly: s.monthly_amount,
       newMonthly,
       newNet,
+      scholarship: newMonthly > 0 && newNet === 0,
       monthlyEdited,
       classChanged: toClassId !== s.class_id,
       start,
@@ -181,6 +184,8 @@ export function buildRenewalPlan(sources: RenewalContract[], opts: PlanOptions) 
       monthlyTotal: round2(valid.reduce((n, r) => n + r.newMonthly, 0)),
       /** Líquido: o que será de fato cobrado por mês (número principal da prévia). */
       monthlyNetTotal: round2(valid.reduce((n, r) => n + r.newNet, 0)),
+      /** Quantos dos contratos do lote são de bolsa 100%. */
+      scholarships: valid.filter((r) => r.scholarship).length,
     },
   };
 }
