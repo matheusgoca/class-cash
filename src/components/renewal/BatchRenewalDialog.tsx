@@ -201,7 +201,8 @@ export function BatchRenewalDialog({ open, onOpenChange, sources, classes, activ
               </TableBody>
             </Table>
             <p className="text-sm text-muted-foreground">
-              {plural(plan.totals.contracts, 'contrato', 'contratos')} · {plural(plan.totals.tuitions, 'mensalidade', 'mensalidades')} · {formatCurrency(plan.totals.monthlyTotal)} por mês
+              {plural(plan.totals.contracts, 'contrato', 'contratos')} · {plural(plan.totals.tuitions, 'mensalidade', 'mensalidades')} · {formatCurrency(plan.totals.monthlyNetTotal)} por mês
+              {plan.totals.monthlyTotal !== plan.totals.monthlyNetTotal ? ` (líquido de desconto; ${formatCurrency(plan.totals.monthlyTotal)} antes dos descontos)` : ''}
               {feeId !== NO_FEE ? ' · mais a taxa de rematrícula por contrato' : ''}
             </p>
             <DialogFooter>

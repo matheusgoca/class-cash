@@ -72,6 +72,8 @@ export interface PlanRow {
   toClassId: string | null;
   currentMonthly: number;
   newMonthly: number;
+  /** Valor da mensalidade já líquido do desconto do contrato (o que será cobrado por mês). */
+  newNet: number;
   monthlyEdited: boolean;
   classChanged: boolean;
   start: string;
@@ -126,6 +128,7 @@ export function buildRenewalPlan(sources: RenewalContract[], opts: PlanOptions) 
     const newMonthly = round2(monthlyEdited ? (ov.monthly as number) : applyAdjustment(s.monthly_amount, opts.pct));
     const { start, end } = nextTerm(s.end_date);
 
+    const newNet = round2(finalAmountOf(newMonthly, s.discount));
     let error: PlanRow['error'] = null;
     let tuitions: RpcTuition[] = [];
     if (!(newMonthly > 0)) {
@@ -134,7 +137,7 @@ export function buildRenewalPlan(sources: RenewalContract[], opts: PlanOptions) 
       error = 'AMOUNT_TOO_HIGH';
     } else {
       tuitions = buildTuitionRows(
-        { startDate: start, endDate: end, dueDay: s.due_day, finalAmount: round2(finalAmountOf(newMonthly, s.discount)) },
+        { startDate: start, endDate: end, dueDay: s.due_day, finalAmount: newNet },
         opts.today,
       );
       if (tuitions.length === 0) error = 'NO_TUITIONS';
@@ -147,6 +150,7 @@ export function buildRenewalPlan(sources: RenewalContract[], opts: PlanOptions) 
       toClassId,
       currentMonthly: s.monthly_amount,
       newMonthly,
+      newNet,
       monthlyEdited,
       classChanged: toClassId !== s.class_id,
       start,
@@ -173,7 +177,10 @@ export function buildRenewalPlan(sources: RenewalContract[], opts: PlanOptions) 
     totals: {
       contracts: valid.length,
       tuitions: valid.reduce((n, r) => n + r.tuitionCount, 0),
+      /** Bruto: soma dos valores de tabela, antes dos descontos (só como detalhe). */
       monthlyTotal: round2(valid.reduce((n, r) => n + r.newMonthly, 0)),
+      /** Líquido: o que será de fato cobrado por mês (número principal da prévia). */
+      monthlyNetTotal: round2(valid.reduce((n, r) => n + r.newNet, 0)),
     },
   };
 }
