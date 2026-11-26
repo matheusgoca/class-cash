@@ -6,7 +6,8 @@
 -- Não rode contra uma escola real que não seja a escola de teste do master (a escola alvo é impressa na 1ª linha).
 -- Como rodar: npx supabase@2.117.0 db query --linked -f supabase/tests/ensaio_matrix.sql
 -- Saída: uma linha por verificação; "ok" deve ser true em TODAS.
--- Linhas "LACUNA": registram o comportamento ATUAL conhecido e indesejado (ok = true enquanto a lacuna existir).
+-- Linhas "LACUNA": registram o comportamento ATUAL conhecido e indesejado (ok = true enquanto a lacuna existir). Depois dos blocos B, C2 e D
+-- (26/11) as lacunas que restam são: edição/criação DIRETA pela API (sem RPC), origem ativa após renovar e CHECKs no banco.
 -- Quando o bloco que corrige a lacuna entrar, a linha correspondente deve ser invertida para o comportamento novo.
 
 begin;
@@ -108,11 +109,14 @@ begin
   v := pg_temp.run_as(u_adm, 'aal1', format($q$with u as (update public.tuitions set status='paid', paid_date = date '2031-03-01', final_amount = amount where id = %L and school_id = %L returning 1) select count(*)::text from u$q$, t2, s));
   perform pg_temp.rec('2c baixa dupla é barrada (ALREADY_PAID) e a paid_date original é preservada', (select paid_date::text from public.tuitions where id = t2), '2031-02-12');
 
-  -- ===== 3. Edição de valor (item I)
-  v := pg_temp.run_as(u_adm, 'aal1', format($q$with u as (update public.contracts set monthly_amount = 1100 where id = %L and school_id = %L returning 1) select count(*)::text from u$q$, k_a, s));
-  perform pg_temp.rec('3a final_amount recalculado ao editar o contrato (1100 com 15%)', (select final_amount::text from public.contracts where id = k_a), '935.00');
-  -- LACUNA (Bloco B): mensalidades abertas ficam com o valor antigo
-  perform pg_temp.rec('LACUNA (Bloco B) 3b mensalidades abertas seguem com o valor antigo', (select count(*)::text from public.tuitions where contract_id = k_a and status in ('pending','overdue') and amount <> 935.00), '10');
+  -- ===== 3. Edição de valor (item I + bloco B): o caminho oficial é o RPC update_contract_amounts (propaga às mensalidades abertas)
+  v := pg_temp.run_as(u_adm, 'aal1', format($q$select public.update_contract_amounts(%L, %L, 1100, null)::text$q$, s, k_a));
+  perform pg_temp.rec('3a final_amount recalculado ao editar o contrato pelo RPC (1100 com 15%)', (select final_amount::text from public.contracts where id = k_a), '935.00');
+  perform pg_temp.rec('3b as 10 mensalidades abertas foram propagadas (nenhuma com o valor antigo)', (select count(*)::text from public.tuitions where contract_id = k_a and status in ('pending','overdue') and amount <> 935.00), '0');
+  perform pg_temp.rec('3c as 2 pagas não mudaram (800 e 880)', (select string_agg(final_amount::text, ',' order by due_date) from public.tuitions where contract_id = k_a and status = 'paid'), '800.00,880.00');
+  -- LACUNA (edição direta pela API): UPDATE direto em contracts, fora do RPC, não propaga (aceito por ora; o formulário usa o RPC)
+  v := pg_temp.run_as(u_adm, 'aal1', format($q$with u as (update public.contracts set monthly_amount = 1200 where id = %L and school_id = %L returning 1) select count(*)::text from u$q$, k_a, s));
+  perform pg_temp.rec('LACUNA (API direta) 3d UPDATE direto do contrato não propaga: as 10 abertas seguem em 935', (select count(*)::text from public.tuitions where contract_id = k_a and status in ('pending','overdue') and amount = 935.00), '10');
 
   -- ===== 4. Renegociação do inadimplente
   insert into public.students (full_name, birth_date, school_id) values ('ENSAIO i', date '2015-03-01', s) returning id into st_i;
@@ -166,10 +170,11 @@ begin
   perform pg_temp.rec('6c total do molde = 3 x 1.234,56', (select sum(amount)::text from public.expenses where recurring_expense_id = rid), '3703.68');
 
   -- ===== 7. Bordas
-  -- LACUNA (Bloco C): o banco aceita 2º contrato ativo sobreposto do mesmo aluno
+  -- Bloco C2: o import_contract barra ativo sobreposto; LACUNA (API direta): o INSERT direto em contracts segue aceito pelo banco
+  perform pg_temp.rec('7a0 import_contract barra 2º contrato ativo sobreposto do mesmo aluno (OVERLAP)', pg_temp.run_as(u_adm, 'aal1', format($q$select public.import_contract(%L::jsonb, %L)::text$q$, json_build_object('student_id', st_a, 'monthly_amount', 500, 'discount', 0, 'due_day', 10, 'start_date', '2031-06-01', 'end_date', '2031-12-31', 'status', 'active')::text, s)), 'ERR:22023:OVERLAP');
   v := pg_temp.run_as(u_adm, 'aal1', format($q$with c as (insert into public.contracts (student_id, class_id, period, start_date, end_date, monthly_amount, discount, due_day, status, school_id)
     values (%L, %L, 'meio_periodo', date '2031-06-01', date '2031-12-31', 1000, 0, 10, 'active', %L) returning id) select id::text from c$q$, st_a, cl, s));
-  perform pg_temp.rec('LACUNA (Bloco C) 7a 2º contrato ativo sobreposto do mesmo aluno e aceito', (v ~ '^[0-9a-f-]{36}$')::text, 'true');
+  perform pg_temp.rec('LACUNA (API direta) 7a INSERT direto de 2º contrato ativo sobreposto e aceito pelo banco', (v ~ '^[0-9a-f-]{36}$')::text, 'true');
   -- LACUNA (Bloco C/F): sem CHECKs no banco
   for i in 1..4 loop
     insert into public.students (full_name, birth_date, school_id) values ('ENSAIO borda ' || i, date '2015-01-01', s) returning id into rid;
