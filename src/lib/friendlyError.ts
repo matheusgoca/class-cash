@@ -57,6 +57,9 @@ export function getFriendlyErrorMessage(error: any, fallback?: string): string {
     NOT_PAID: 'Esta mensalidade não está paga, então não há baixa para estornar. Atualize a página.',
     SCHOLARSHIP_LOCKED: 'A mensalidade de bolsa 100% não pode ser estornada.',
     NOT_FOUND: 'Mensalidade não encontrada. Atualize a página e tente de novo.',
+    // Edição de valor do contrato (S6b, bloco B)
+    INVALID_AMOUNT: 'O valor da mensalidade precisa ser maior que zero e no máximo R$ 30.000,00.',
+    INVALID_DISCOUNT: 'O desconto precisa estar entre 0% e 100%.',
     INVALID_PREFERENCES: 'Não foi possível ler as preferências enviadas. Recarregue a página e tente de novo.',
   };
   if (rpcMessages[message.trim()]) {
