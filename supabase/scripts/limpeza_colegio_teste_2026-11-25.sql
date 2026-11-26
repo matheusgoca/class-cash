@@ -17,6 +17,10 @@
 --  4. Contratos ativos com fim vencido são encerrados (status 'cancelled': é o único estado terminal que a tela conhece).
 --     Isso também resolve o aluno com 2 contratos ativos (origem encerrada + sucessor ativo).
 --  5. Fixtures: turma "Teste Capacidade" e o professor de teste (sem nenhuma dependência), excluídos.
+--  6. Mensalidades PAGAS com final_amount = 0 e amount > 0 (6, abril/maio): final_amount passa a valer o valor correto
+--     amount - desconto + multa (R$ 750,00: igual ao final_amount do contrato, sem desconto nem multa; as outras pagas do contrato valem 750).
+--     Usa o escape app.allow_paid_edit da trava tuitions_guard_payment (migration 20261126100000, bloco D). Guarda: só corrige se o
+--     valor bater com o final_amount do contrato; senão aborta.
 
 begin;
 
@@ -49,6 +53,8 @@ begin
     union all select 'ANOMALIA contrato ativo com fim vencido', count(*)::text from public.contracts where school_id = s and status = 'active' and end_date < current_date
     union all select 'ANOMALIA aluno com 2+ contratos ativos', count(*)::text from (
         select 1 from public.contracts where school_id = s and status = 'active' group by student_id having count(*) > 1) d
+    union all select 'ANOMALIA paga com final_amount 0 e amount > 0', count(*)::text from public.tuitions where school_id = s and status = 'paid' and final_amount = 0 and amount > 0
+    union all select 'soma de final_amount das pagas', coalesce(sum(final_amount), 0)::text from public.tuitions where school_id = s and status = 'paid'
   ) z;
 
   -- ---------- 1. duplicatas: a original (sem renegociação) sai; fica a parcela da renegociação
@@ -103,6 +109,18 @@ begin
   delete from public.teachers where id = v_prof;
   insert into t_exp (k, v) values ('fixtures removidas (turma + professor)', '2');
 
+  -- ---------- 6. pagas com final_amount 0: corrige para o valor correto (escape explícito da trava de baixa)
+  perform set_config('app.allow_paid_edit', 'on', true);
+  update public.tuitions t set final_amount = t.amount - coalesce(t.discount_applied, 0) + coalesce(t.penalty_amount, 0)
+    from public.contracts c
+   where c.id = t.contract_id and t.school_id = s and c.school_id = s
+     and t.status = 'paid' and t.final_amount = 0 and t.amount > 0
+     and t.amount - coalesce(t.discount_applied, 0) + coalesce(t.penalty_amount, 0) = c.final_amount;
+  get diagnostics n = row_count;
+  perform set_config('app.allow_paid_edit', '', true);
+  if n <> 6 then raise exception 'esperava corrigir 6 mensalidades pagas com final_amount 0, corrigi %', n; end if;
+  insert into t_exp (k, v) values ('pagas com final_amount 0 corrigidas para o valor do contrato', n::text);
+
   -- ---------- contagens DEPOIS
   fase := '2 depois';
   insert into t_cnt (fase, k, v)
@@ -120,6 +138,8 @@ begin
     union all select 'ANOMALIA contrato ativo com fim vencido', count(*)::text from public.contracts where school_id = s and status = 'active' and end_date < current_date
     union all select 'ANOMALIA aluno com 2+ contratos ativos', count(*)::text from (
         select 1 from public.contracts where school_id = s and status = 'active' group by student_id having count(*) > 1) d
+    union all select 'ANOMALIA paga com final_amount 0 e amount > 0', count(*)::text from public.tuitions where school_id = s and status = 'paid' and final_amount = 0 and amount > 0
+    union all select 'soma de final_amount das pagas', coalesce(sum(final_amount), 0)::text from public.tuitions where school_id = s and status = 'paid'
   ) z;
 
   -- Salvaguarda: nenhuma outra escola mudou nesta transação (contagens simples; a Estrela e o Pensar não são tocados)
