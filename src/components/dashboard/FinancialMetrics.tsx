@@ -3,12 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/contexts/SchoolContext";
-import { formatCurrency, isTuitionOverdue, getTuitionValue } from "@/lib/calculations";
-import { calculateMonthlyBalance } from "@/lib/financialBalance";
+import { formatCurrency, getTuitionValue } from "@/lib/calculations";
+import { calculateMonthlyBalance, calculateMonthlyDelinquency } from "@/lib/financialBalance";
 import { parseLocalDate } from "@/lib/dateUtils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { DollarSign, TrendingUp, TrendingDown, AlertTriangle, Users, UserCheck, Calculator, Wallet, Sparkles } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, AlertTriangle, Users, UserCheck, Calculator, Wallet, Sparkles, GraduationCap } from "lucide-react";
 
 // Mesmo padrão do extinto FinancialKanban (removido em 96258e5, 17/09): os
 // 12 meses do ano corrente, 'yyyy-MM' como valor.
@@ -31,6 +31,7 @@ export function FinancialMetrics() {
     monthlyDuedRevenue: 0,
     monthlyServiceRevenue: 0,
     totalStudents: 0,
+    scholarshipStudents: 0,
     totalTeachers: 0,
     totalSalaries: 0,
     // Realizado (caixa, paid_date) é o Saldo principal; Previsto (competência,
@@ -63,16 +64,19 @@ export function FinancialMetrics() {
         { data: tuitions, error: tuitionsError },
         { data: expenses, error: expensesError },
         { data: serviceCharges, error: serviceChargesError },
+        { data: scholarshipContracts, error: scholarshipError },
       ] = await Promise.all([
         (supabase as any).from('students').select('id').eq('school_id', schoolId).eq('status', 'active'),
         (supabase as any).from('teachers_directory').select('id').eq('school_id', schoolId).eq('status', 'active'),
         (supabase as any).rpc('get_active_teachers_salary_sum', { p_school_id: schoolId }),
-        (supabase as any).from('tuitions').select('amount, final_amount, status, due_date, paid_date').eq('school_id', schoolId),
+        (supabase as any).from('tuitions').select('amount, final_amount, status, due_date, paid_date, payment_method').eq('school_id', schoolId),
         // Sem filtro de data: Realizado (paid_date) e Previsto (due_date) podem
         // cair em meses diferentes de quando a busca é feita (pagamento em
         // atraso), então não há uma janela de data única que cubra os dois.
         (supabase as any).from('expenses').select('amount, status, due_date, paid_date').eq('school_id', schoolId),
         (supabase as any).from('service_charges').select('amount, status, due_date, paid_date').eq('school_id', schoolId),
+        // Bolsistas (bloco H): alunos com contrato ativo de desconto 100% (final_amount = 0)
+        (supabase as any).from('contracts').select('student_id').eq('school_id', schoolId).eq('status', 'active').eq('final_amount', 0),
       ]);
 
       if (studentsError) throw studentsError;
@@ -81,6 +85,7 @@ export function FinancialMetrics() {
       if (tuitionsError) throw tuitionsError;
       if (expensesError) throw expensesError;
       if (serviceChargesError) throw serviceChargesError;
+      if (scholarshipError) throw scholarshipError;
 
       // Cancelled tuitions (e.g. replaced by a renegotiation) are not revenue —
       // exclude them everywhere, same as the expenses bucket below already does.
@@ -117,15 +122,10 @@ export function FinancialMetrics() {
       // Inadimplência do mês: entre as mensalidades com vencimento no mês
       // atual, quanto já está vencido e não pago. Denominador exclui
       // pendentes ainda dentro do prazo — não são inadimplência.
-      let monthlyOverdueRevenue = 0;
-      let monthlyDuedRevenue = 0;
-      for (const t of activeTuitions) {
-        const due = parseLocalDate(t.due_date);
-        if (due.getFullYear() !== currentYear || due.getMonth() !== currentMonth) continue;
-        const isOverdue = isTuitionOverdue(t.due_date, t.status);
-        if (t.status === 'paid' || isOverdue) monthlyDuedRevenue += getTuitionValue(t);
-        if (isOverdue) monthlyOverdueRevenue += getTuitionValue(t);
-      }
+      // Bolsa 100% (bloco H) fica fora do numerador e do denominador; a conta é a função pura calculateMonthlyDelinquency.
+      const delinquency = calculateMonthlyDelinquency({ tuitions: activeTuitions, year: currentYear, month: currentMonth });
+      const monthlyOverdueRevenue = delinquency.overdue;
+      const monthlyDuedRevenue = delinquency.dued;
 
       // "Receita de serviços" card: informativo, sempre competência (due_date)
       const activeServiceCharges = serviceCharges?.filter((s: any) => s.status !== "cancelled") || [];
@@ -145,6 +145,7 @@ export function FinancialMetrics() {
         monthlyDuedRevenue,
         monthlyServiceRevenue,
         totalStudents: students?.length || 0,
+        scholarshipStudents: new Set((scholarshipContracts || []).map((c: any) => c.student_id)).size,
         totalTeachers: teachers?.length || 0,
         totalSalaries,
         realizedBalance: currentMonthBalance.realized,
@@ -295,7 +296,7 @@ export function FinancialMetrics() {
       </div>
 
       {/* Faixa secundária — operacional, peso visual menor que o financeiro acima */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
         <div className="flex items-center gap-3 rounded-lg border p-3">
           <div className="rounded-md p-2 bg-muted/50">
             <UserCheck className="h-4 w-4 text-muted-foreground" />
@@ -343,6 +344,16 @@ export function FinancialMetrics() {
           <div>
             <p className="text-xs text-muted-foreground">Alunos ativos</p>
             <p className="text-sm font-semibold">{metrics.totalStudents}</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 rounded-lg border p-3" data-testid="scholarship-students">
+          <div className="rounded-md p-2 bg-muted/50">
+            <GraduationCap className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Bolsistas (Bolsa 100%)</p>
+            <p className="text-sm font-semibold">{metrics.scholarshipStudents}</p>
           </div>
         </div>
 

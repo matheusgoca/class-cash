@@ -20,6 +20,7 @@ import { useSchool } from "@/contexts/SchoolContext";
 import { PaymentConfirmModal, PaymentConfirmData } from "@/components/tuitions/PaymentConfirmModal";
 import { ReversePaymentDialog } from "@/components/tuitions/ReversePaymentDialog";
 import { canReverseTuition } from "@/lib/tuitionReversal";
+import { isScholarshipTuition, SCHOLARSHIP_LABEL } from "@/lib/scholarship";
 
 interface TuitionData {
   id: string;
@@ -128,6 +129,11 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
     const isOverdue = isTuitionOverdue(tuition.due_date, tuition.status);
     const status = isOverdue ? "overdue" : tuition.status;
 
+    // Bolsa 100% (bloco H): nasce paga no servidor; o selo a distingue da paga de verdade.
+    if (status === "paid" && isScholarshipTuition(tuition)) {
+      return <Badge className="bg-sky-600 text-white">{SCHOLARSHIP_LABEL}</Badge>;
+    }
+
     switch (status) {
       case "pending":
         return <Badge className="bg-pending text-primary-foreground">Pendente</Badge>;
@@ -232,7 +238,9 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
 
   // Filter data
   const filteredData = data.filter(t => {
-    const effectiveStatus = isTuitionOverdue(t.due_date, t.status) ? 'overdue' : t.status;
+    const effectiveStatus = t.status === 'paid' && isScholarshipTuition(t)
+      ? 'scholarship'
+      : isTuitionOverdue(t.due_date, t.status) ? 'overdue' : t.status;
     const matchesSearch = !search || (t.students?.full_name ?? '').toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === 'all' || effectiveStatus === statusFilter;
     const matchesMonth  = monthFilter === 'all' || t.due_date.startsWith(monthFilter);
@@ -346,6 +354,7 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
               <SelectItem value="all">Todos</SelectItem>
               <SelectItem value="pending">Pendente</SelectItem>
               <SelectItem value="paid">Pago</SelectItem>
+              <SelectItem value="scholarship">{SCHOLARSHIP_LABEL}</SelectItem>
               <SelectItem value="overdue">Atrasado</SelectItem>
               <SelectItem value="cancelled">Cancelado</SelectItem>
             </SelectContent>
@@ -523,7 +532,7 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
                       {tuition.paid_date ? formatDate(tuition.paid_date) : '-'}
                     </TableCell>
                     <TableCell>
-                      {tuition.payment_method || '-'}
+                      {isScholarshipTuition(tuition) ? SCHOLARSHIP_LABEL : (tuition.payment_method || '-')}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">

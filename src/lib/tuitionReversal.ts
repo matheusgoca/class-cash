@@ -2,13 +2,13 @@
 // (supabase/migrations/20261126100000_tuition_reversal.sql): só mensalidade paga e que não é de bolsa.
 import { getTuitionValue, formatCurrency } from '@/lib/calculations';
 import { parseLocalDate } from '@/lib/dateUtils';
+import { SCHOLARSHIP_METHOD, isScholarshipTuition } from '@/lib/scholarship';
 
-/** Forma de pagamento que marca a mensalidade de bolsa 100% (bloco H); nunca se estorna. */
-export const SCHOLARSHIP_METHOD = 'bolsa';
+export { SCHOLARSHIP_METHOD };
 
 export function canReverseTuition(t: { status: string; payment_method: string | null }): boolean {
   if (t.status !== 'paid') return false;
-  return (t.payment_method ?? '').trim().toLowerCase() !== SCHOLARSHIP_METHOD;
+  return !isScholarshipTuition(t);
 }
 
 /** O que muda no Realizado (caixa, por paid_date) quando a baixa é desfeita. */

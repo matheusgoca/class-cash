@@ -1,6 +1,6 @@
-export type TuitionStatusFilter = 'all' | 'pending' | 'overdue' | 'paid';
+export type TuitionStatusFilter = 'all' | 'pending' | 'overdue' | 'paid' | 'scholarship';
 
-const VALID: TuitionStatusFilter[] = ['pending', 'overdue', 'paid'];
+const VALID: TuitionStatusFilter[] = ['pending', 'overdue', 'paid', 'scholarship'];
 
 /** Valor inicial do filtro de status vindo de `?status=` (ex.: botões das notificações). */
 export function parseStatusParam(raw: string | null): TuitionStatusFilter {

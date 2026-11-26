@@ -136,3 +136,26 @@ describe('resolveClassFee', () => {
     }
   });
 });
+
+describe('validateContractsRows: bolsa 100% (bloco H)', () => {
+  it('desconto 100% é aceito com valor de tabela > 0 (bolsa); o valor de tabela é preservado', () => {
+    const r = validateContractsRows([row({ turma: '5º A', valor_mensalidade: '900,00', desconto_percentual: '100' })], ctx([turmaSo()]));
+    expect(r.errors).toEqual([]);
+    expect(r.valid).toHaveLength(1);
+    expect(r.valid[0].data.monthly_amount).toBe(900);
+    expect(r.valid[0].data.discount).toBe(100);
+  });
+
+  it('desconto 100% sem valor informado usa o valor da turma como valor de tabela (turma só meio período)', () => {
+    const r = validateContractsRows([row({ turma: '5º A', desconto_percentual: '100' })], ctx([turmaSo()]));
+    expect(r.errors).toEqual([]);
+    expect(r.valid[0].data.monthly_amount).toBe(650);
+    expect(r.valid[0].data.discount).toBe(100);
+  });
+
+  it('desconto acima de 100% continua sendo erro de linha', () => {
+    const r = validateContractsRows([row({ turma: '5º A', valor_mensalidade: '900,00', desconto_percentual: '101' })], ctx([turmaSo()]));
+    expect(r.valid).toEqual([]);
+    expect(r.errors[0]).toMatchObject({ field: 'desconto_percentual' });
+  });
+});

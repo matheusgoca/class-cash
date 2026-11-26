@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -11,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatCurrency } from '@/lib/calculations';
+import { SCHOLARSHIP_LABEL } from '@/lib/scholarship';
 import { buildRenewalPlan, capacityWarnings, classKey, MAX_MONTHLY_AMOUNT, type RenewalClass, type RenewalContract } from '@/lib/renewal';
 import { friendlyRenewalError, renewContracts, type RenewResult } from '@/lib/renewalApi';
 import type { RenewalService } from '@/lib/renewalData';
@@ -170,7 +172,7 @@ export function BatchRenewalDialog({ open, onOpenChange, sources, classes, activ
               <TableBody>
                 {plan.rows.map((r) => (
                   <TableRow key={r.contractId}>
-                    <TableCell className="font-medium">{r.studentName}</TableCell>
+                    <TableCell className="font-medium">{r.studentName}{r.scholarship && <Badge className="ml-2 bg-sky-600 text-white">{SCHOLARSHIP_LABEL}</Badge>}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-muted-foreground">{classNameOf(r.fromClassId)} →</span>
@@ -202,6 +204,7 @@ export function BatchRenewalDialog({ open, onOpenChange, sources, classes, activ
             </Table>
             <p className="text-sm text-muted-foreground">
               {plural(plan.totals.contracts, 'contrato', 'contratos')} · {plural(plan.totals.tuitions, 'mensalidade', 'mensalidades')} · {formatCurrency(plan.totals.monthlyNetTotal)} por mês
+              {plan.totals.scholarships > 0 ? ` · ${plural(plan.totals.scholarships, 'bolsista', 'bolsistas')} (Bolsa 100%)` : ''}
               {plan.totals.monthlyTotal !== plan.totals.monthlyNetTotal ? ` (líquido de desconto; ${formatCurrency(plan.totals.monthlyTotal)} antes dos descontos)` : ''}
               {feeId !== NO_FEE ? ' · mais a taxa de rematrícula por contrato' : ''}
             </p>

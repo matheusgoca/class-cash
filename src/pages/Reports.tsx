@@ -19,6 +19,7 @@ import { PaginationCompact } from "@/components/ui/pagination-compact";
 import { useSchool } from "@/contexts/SchoolContext";
 import { RenegotiationModal } from "@/components/tuitions/RenegotiationModal";
 import { isTuitionOverdue } from "@/lib/calculations";
+import { isScholarshipTuition, SCHOLARSHIP_LABEL } from "@/lib/scholarship";
 import { getFriendlyErrorMessage } from "@/lib/friendlyError";
 import { parseLocalDate } from "@/lib/dateUtils";
 import { useToast } from "@/hooks/use-toast";
@@ -34,6 +35,8 @@ interface TuitionReport {
   due_date: string;
   paid_date: string | null;
   description: string;
+  /** Forma de pagamento; 'bolsa' marca a mensalidade de bolsa 100% (bloco H). */
+  payment_method?: string | null;
 }
 
 interface ClassOption {
@@ -53,6 +56,8 @@ interface ReportSummary {
   pending: number;
   paid: number;
   overdue: number;
+  /** Mensalidades de bolsa 100% (bloco H): contadas à parte, fora de "pagos". */
+  scholarship: number;
   totalAmount: number;
   pendingAmount: number;
   paidAmount: number;
@@ -160,7 +165,7 @@ const Reports = () => {
       const [tuitionsRes, studentsRes, contractsRes] = await Promise.all([
         supabase
           .from('tuitions')
-          .select('id, amount, status, due_date, paid_date, description, student_id, contract_id')
+          .select('id, amount, status, due_date, paid_date, description, student_id, contract_id, payment_method')
           .eq('school_id', schoolId!)
           .order('due_date', { ascending: false }),
         supabase.from('students').select('id, full_name').eq('school_id', schoolId!),
@@ -195,7 +200,8 @@ const Reports = () => {
           status: isOverdue ? "overdue" : item.status as "pending" | "paid" | "overdue",
           due_date: item.due_date,
           paid_date: item.paid_date,
-          description: item.description || ""
+          description: item.description || "",
+          payment_method: item.payment_method ?? null,
         };
       });
 
@@ -284,8 +290,12 @@ const Reports = () => {
             acc.pendingAmount += item.amount;
             break;
           case "paid":
-            acc.paid += 1;
-            acc.paidAmount += item.amount;
+            if (isScholarshipTuition(item)) {
+              acc.scholarship += 1;
+            } else {
+              acc.paid += 1;
+              acc.paidAmount += item.amount;
+            }
             break;
           case "overdue":
             acc.overdue += 1;
@@ -299,6 +309,7 @@ const Reports = () => {
         pending: 0,
         paid: 0,
         overdue: 0,
+        scholarship: 0,
         totalAmount: 0,
         pendingAmount: 0,
         paidAmount: 0,
@@ -694,6 +705,7 @@ const Reports = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(summary.paidAmount)}</div>
+            <p className="text-xs text-muted-foreground mt-1">{SCHOLARSHIP_LABEL}: {summary.scholarship} (fora dos pagos)</p>
           </CardContent>
         </Card>
 
