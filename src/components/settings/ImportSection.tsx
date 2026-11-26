@@ -39,7 +39,7 @@ async function fetchImportContext(schoolId: string): Promise<ImportContext> {
     // de Turmas/Contratos, que criaria vínculo/cobrança pra quem já saiu.
     supabase.from('teachers').select('id, email').eq('school_id', schoolId).eq('status', 'active'),
     (supabase as any).from('students').select('id, full_name, email, birth_date').eq('school_id', schoolId).eq('status', 'active'),
-    (supabase as any).from('contracts').select('student_id').eq('school_id', schoolId).eq('status', 'active'),
+    (supabase as any).from('contracts').select('id, student_id, start_date, end_date, status').eq('school_id', schoolId).eq('status', 'active'),
   ]);
 
   return {
@@ -47,7 +47,7 @@ async function fetchImportContext(schoolId: string): Promise<ImportContext> {
     existingClasses: classesRes.data ?? [],
     existingTeachers: teachersRes.data ?? [],
     existingStudents: studentsRes.data ?? [],
-    existingActiveContractStudentIds: new Set((contractsRes.data ?? []).map((c: any) => c.student_id)),
+    existingActiveContracts: contractsRes.data ?? [],
   };
 }
 

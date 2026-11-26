@@ -21,6 +21,7 @@ import {
   toISODate,
 } from './shared';
 import { formatCurrency } from '@/lib/calculations';
+import { findOverlap } from '@/lib/contractOverlap';
 
 // Every validator gets the raw parsed rows (Record<string,string>, one per
 // spreadsheet row) plus the current ImportContext (already-existing records
@@ -268,7 +269,8 @@ export function validateContractsRows(
   // Alunos já usados nesta planilha — sem isso, duas linhas pro mesmo aluno
   // (ex: reenviar o arquivo depois de corrigir uma linha) criavam dois
   // contratos ativos, e generateTuitions rodava pros dois — cobrança em dobro.
-  const studentIdsInFile = new Set<string>();
+  // Bloco C2: contratos ATIVOS já aceitos neste arquivo (aluno + período + linha), para a trava de sobreposição entre linhas.
+  const activeInFile: Array<{ student_id: string; start_date: string; end_date: string; status: string; row: number }> = [];
 
   rows.forEach((row, idx) => {
     const rowNum = idx + 2;
@@ -301,14 +303,6 @@ export function validateContractsRows(
       student = disambiguated;
     }
 
-    if (context.existingActiveContractStudentIds.has(student.id)) {
-      errors.push({ row: rowNum, field: 'aluno', message: `"${studentName}" já tem um contrato ativo nesta escola. Encerre o contrato atual antes de importar um novo.` });
-      return;
-    }
-    if (studentIdsInFile.has(student.id)) {
-      errors.push({ row: rowNum, field: 'aluno', message: `"${studentName}" aparece em mais de uma linha desta planilha de contratos.` });
-      return;
-    }
 
     // Turma primeiro: o fallback do valor depende dela.
     let classId: string | null = null;
@@ -364,6 +358,11 @@ export function validateContractsRows(
       }
     }
 
+    if (monthlyAmount <= 0) {
+      errors.push({ row: rowNum, field: 'valor_mensalidade', message: 'O valor da mensalidade precisa ser maior que zero. Para bolsa integral use desconto de 100% (coluna desconto_percentual); o valor de tabela fica registrado.' });
+      return;
+    }
+
     const discountRaw = row['desconto_percentual'];
     const discount = discountRaw ? parseCurrencyBR(discountRaw) : 0;
     if (discount === undefined || discount < 0 || discount > 100) {
@@ -406,7 +405,29 @@ export function validateContractsRows(
       return;
     }
 
-    studentIdsInFile.add(student.id);
+    if (endDate < startDate) {
+      errors.push({ row: rowNum, field: 'data_fim', message: 'A data de término não pode ser anterior à data de início.' });
+      return;
+    }
+
+    // Bloco C2: só contrato ATIVO cobra, então só ele é barrado quando se sobrepõe a outro ativo do mesmo aluno
+    // (já existente na escola ou aceito antes neste arquivo). Períodos seguidos (renovação) entram.
+    if (status === 'active') {
+      const cand = { student_id: student.id, start_date: toISODate(startDate), end_date: toISODate(endDate) };
+      const clash = findOverlap(context.existingActiveContracts, cand);
+      if (clash) {
+        const d = (iso: string) => iso.split('-').reverse().join('/');
+        errors.push({ row: rowNum, field: 'aluno', message: `"${studentName}" já tem um contrato ativo de ${d(clash.start_date)} a ${d(clash.end_date)} que se sobrepõe a este período. Encerre ou ajuste o contrato atual antes de importar outro.` });
+        return;
+      }
+      const inFile = findOverlap(activeInFile, cand);
+      if (inFile) {
+        errors.push({ row: rowNum, field: 'aluno', message: `"${studentName}" aparece em outra linha desta planilha (linha ${(inFile as { row?: number }).row}) com período que se sobrepõe a este.` });
+        return;
+      }
+      activeInFile.push({ ...cand, status: 'active', row: rowNum });
+    }
+
     valid.push({
       row: rowNum,
       data: {

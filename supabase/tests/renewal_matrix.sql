@@ -95,13 +95,21 @@ returns text language sql as $f$
     from (select pg_temp.renew(p_uid, p_school, p_items, p_fee, p_aal) as t) x
 $f$;
 
--- contrato ativo de teste que termina em p_end (começa 1 ano antes)
+-- aluno novo (S6b, bloco C2: o mesmo aluno não pode ter dois contratos ativos sobrepostos, então cada contrato de teste tem o seu aluno)
+create function pg_temp.newst(p_school uuid) returns uuid language plpgsql as $f$
+declare v uuid;
+begin
+  insert into public.students (full_name, birth_date, school_id) values ('Aluno Teste', date '2015-01-01', p_school) returning id into v;
+  return v;
+end $f$;
+
+-- contrato ativo de teste que termina em p_end (começa 1 ano antes); p_student é ignorado: cada contrato ganha um aluno novo
 create function pg_temp.mk(p_school uuid, p_student uuid, p_class uuid, p_end date, p_monthly numeric default 100, p_discount numeric default 0)
 returns uuid language plpgsql as $f$
 declare v uuid;
 begin
   insert into public.contracts (student_id, class_id, school_id, start_date, end_date, status, monthly_amount, discount, due_day, period)
-    values (p_student, p_class, p_school, (p_end - interval '1 year' + interval '1 day')::date, p_end, 'active', p_monthly, p_discount, 10, 'meio_periodo')
+    values (pg_temp.newst(p_school), p_class, p_school, (p_end - interval '1 year' + interval '1 day')::date, p_end, 'active', p_monthly, p_discount, 10, 'meio_periodo')
     returning id into v;
   return v;
 end $f$;
@@ -148,19 +156,19 @@ begin
 
   -- Contratos de origem (todos terminam em 2031-02-28; o sucessor começa em 2031-03-01).
   insert into public.contracts (student_id, class_id, school_id, start_date, end_date, status, monthly_amount, discount, due_day, period)
-    values (st, cl1, s_x, date '2030-03-01', date '2031-02-28', 'active', 100, 10, 5, 'integral') returning id into k1;
+    values (pg_temp.newst(s_x), cl1, s_x, date '2030-03-01', date '2031-02-28', 'active', 100, 10, 5, 'integral') returning id into k1;
   insert into public.contracts (student_id, class_id, school_id, start_date, end_date, status, monthly_amount, discount, due_day, period)
-    values (st, cl1, s_x, date '2030-03-01', date '2031-02-28', 'active', 200, 0, 10, 'meio_periodo') returning id into k2;
+    values (pg_temp.newst(s_x), cl1, s_x, date '2030-03-01', date '2031-02-28', 'active', 200, 0, 10, 'meio_periodo') returning id into k2;
   insert into public.contracts (student_id, class_id, school_id, start_date, end_date, status, monthly_amount, discount, due_day, period)
-    values (st, cl1, s_x, date '2030-03-01', date '2031-02-28', 'active', 300, 0, 10, 'meio_periodo') returning id into k3;
+    values (pg_temp.newst(s_x), cl1, s_x, date '2030-03-01', date '2031-02-28', 'active', 300, 0, 10, 'meio_periodo') returning id into k3;
   insert into public.contracts (student_id, class_id, school_id, start_date, end_date, status, monthly_amount, discount, due_day, period)
-    values (st, cl1, s_x, date '2030-03-01', date '2031-02-28', 'active', 400, 0, 10, 'meio_periodo') returning id into k4;
+    values (pg_temp.newst(s_x), cl1, s_x, date '2030-03-01', date '2031-02-28', 'active', 400, 0, 10, 'meio_periodo') returning id into k4;
   insert into public.contracts (student_id, class_id, school_id, start_date, end_date, status, monthly_amount, discount, due_day, period)
-    values (st, cl1, s_x, date '2030-03-01', date '2031-02-28', 'active', 500, 0, 10, 'meio_periodo') returning id into k5;
+    values (pg_temp.newst(s_x), cl1, s_x, date '2030-03-01', date '2031-02-28', 'active', 500, 0, 10, 'meio_periodo') returning id into k5;
   insert into public.contracts (student_id, class_id, school_id, start_date, end_date, status, monthly_amount, discount, due_day, period)
-    values (st, cl1, s_x, date '2030-03-01', date '2031-02-28', 'active', 600, 0, 10, 'meio_periodo') returning id into k6;
+    values (pg_temp.newst(s_x), cl1, s_x, date '2030-03-01', date '2031-02-28', 'active', 600, 0, 10, 'meio_periodo') returning id into k6;
   insert into public.contracts (student_id, class_id, school_id, start_date, end_date, status, monthly_amount, discount, due_day, period)
-    values (st, cl1, s_x, date '2030-03-01', date '2031-02-28', 'cancelled', 100, 0, 10, 'meio_periodo') returning id into kdead;
+    values (pg_temp.newst(s_x), cl1, s_x, date '2030-03-01', date '2031-02-28', 'cancelled', 100, 0, 10, 'meio_periodo') returning id into kdead;
   insert into public.contracts (student_id, class_id, school_id, start_date, end_date, status, monthly_amount, discount, due_day, period)
     values (sty, cly, s_y, date '2030-03-01', date '2031-02-28', 'active', 100, 0, 10, 'meio_periodo') returning id into ky;
 
@@ -257,12 +265,12 @@ begin
   perform pg_temp.rec('2b contrato novo de k1: valores, turma, período e herança',
     (select (monthly_amount = 110 and discount = 10 and due_day = 5 and period = 'integral' and class_id = cl2
              and start_date = date '2031-03-01' and end_date = date '2032-02-29' and status = 'active' and school_id = s_x
-             and student_id = st)::text
+             and student_id = (select o.student_id from public.contracts o where o.id = k1))::text
        from public.contracts where renewed_from_id = k1), 'true');
   perform pg_temp.rec('2c 12 mensalidades do novo k1 a R$ 99,00, final_amount nulo, na escola certa',
     (select count(*)::text from public.tuitions t join public.contracts c on c.id = t.contract_id
       where c.renewed_from_id = k1 and t.amount = 99 and t.final_amount is null and t.school_id = s_x
-        and t.student_id = st and t.status = 'pending'), '12');
+        and t.student_id = (select o.student_id from public.contracts o where o.id = k1) and t.status = 'pending'), '12');
   perform pg_temp.rec('2d 2 cobranças de taxa de R$ 150 pendentes no início do contrato novo',
     (select count(*)::text from public.service_charges
       where school_id = s_x and service_id = svc and amount = 150 and status = 'pending' and due_date = date '2031-03-01'), '2');

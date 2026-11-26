@@ -17,22 +17,26 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { ContractAmountsDialog } from "@/components/contracts/ContractAmountsDialog";
 import { amountsChanged, type AmountsResult } from "@/lib/contractAmounts";
+import { fetchOverlappingContract, needsOverlapCheck, overlapMessage } from "@/lib/contractOverlap";
 import { generateTuitions } from "@/lib/generateTuitions";
 import { getFriendlyErrorMessage } from "@/lib/friendlyError";
 import { toDateStr } from "@/lib/dateUtils";
 import { nextTerm } from "@/lib/renewal";
 
-const contractSchema = z.object({
-  student_id:     z.string().min(1, "Aluno é obrigatório"),
-  class_id:       z.string().optional(),
-  period:         z.enum(["meio_periodo", "integral"]),
-  start_date:     z.date({ message: "Data de início é obrigatória" }),
-  end_date:       z.date({ message: "Data de término é obrigatória" }),
-  monthly_amount: z.number().min(0, "Valor deve ser maior que zero"),
-  discount:       z.number().min(0).max(100, "Desconto deve ser entre 0 e 100%"),
-  due_day:        z.number().int().min(1).max(28),
-  status:         z.enum(["active", "suspended", "cancelled"]),
-});
+const contractSchema = z
+  .object({
+    student_id:     z.string().min(1, "Aluno é obrigatório"),
+    class_id:       z.string().optional(),
+    period:         z.enum(["meio_periodo", "integral"]),
+    start_date:     z.date({ message: "Data de início é obrigatória" }),
+    end_date:       z.date({ message: "Data de término é obrigatória" }),
+    // Bolsa se faz por desconto de 100%, nunca por valor 0 (bloco C2/H).
+    monthly_amount: z.number({ message: "Informe o valor da mensalidade" }).gt(0, "Valor deve ser maior que zero (para bolsa, use desconto de 100%)"),
+    discount:       z.number().min(0, "Desconto deve ser entre 0 e 100%").max(100, "Desconto deve ser entre 0 e 100%"),
+    due_day:        z.number().int("Dia de vencimento inválido").min(1, "O dia de vencimento deve ser de 1 a 28").max(28, "O dia de vencimento deve ser de 1 a 28"),
+    status:         z.enum(["active", "suspended", "cancelled"]),
+  })
+  .refine((d) => d.end_date >= d.start_date, { message: "A data de término não pode ser anterior à de início", path: ["end_date"] });
 
 type ContractFormData = z.infer<typeof contractSchema>;
 
@@ -214,6 +218,20 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
         school_id:      schoolId,
       };
 
+      // Bloco C2: contrato ativo sobreposto a outro ativo do mesmo aluno geraria cobrança em dobro.
+      // Criação ativa, reativação e mudança de datas validam; editar outro campo não (não trava o ajuste de um cadastro legado).
+      if (!amountsConfirmed) {
+        const before = contract ? { status: contract.status, start_date: contract.start_date, end_date: contract.end_date } : null;
+        const after = { status: data.status, start_date: contractData.start_date, end_date: contractData.end_date };
+        if (needsOverlapCheck(before, after)) {
+          const clash = await fetchOverlappingContract(supabase, schoolId, { student_id: data.student_id, start_date: after.start_date, end_date: after.end_date, excludeId: contract?.id });
+          if (clash) {
+            toast({ title: "Contrato sobreposto", description: overlapMessage(clash), variant: "destructive" });
+            return;
+          }
+        }
+      }
+
       if (contract) {
         // Valor/desconto mudaram: o RPC propaga para as mensalidades abertas. Primeiro o dry-run (aviso e confirmação).
         const amountsEdited = amountsChanged(contract, data);
@@ -302,6 +320,13 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
       // assim reajuste de valor e troca de turma na tela antes de clicar em
       // "Renovar" são respeitados em vez de ignorados.
       const formValues = getValues();
+
+      // Bloco C2: o sucessor começa depois do fim da origem; só conflita se o aluno tiver OUTRO contrato ativo nesse período.
+      const clash = await fetchOverlappingContract(supabase, schoolId, { student_id: contract.student_id, start_date: newStartStr, end_date: newEndStr, excludeId: contract.id });
+      if (clash) {
+        toast({ title: "Contrato sobreposto", description: overlapMessage(clash), variant: "destructive" });
+        return;
+      }
 
       const renewalData = {
         student_id:      contract.student_id,

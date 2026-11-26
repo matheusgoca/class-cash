@@ -97,5 +97,6 @@ export interface ImportContext {
   existingClasses: Array<{ id: string; name: string; monthly_fee?: number | string | null; monthly_fee_integral?: number | string | null }>;
   existingTeachers: Array<{ id: string; email: string }>;
   existingStudents: Array<{ id: string; full_name: string; email: string | null; birth_date: string | null }>;
-  existingActiveContractStudentIds: Set<string>;
+  /** Contratos da escola com período, para a trava de sobreposição (bloco C2); só os de status 'active' bloqueiam. */
+  existingActiveContracts: Array<{ id?: string; student_id: string; start_date: string; end_date: string; status?: string }>;
 }
