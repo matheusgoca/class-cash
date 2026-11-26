@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SCHOLARSHIP_LABEL } from "@/lib/scholarship";
+import { fetchOverlappingContract, overlapMessage } from "@/lib/contractOverlap";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -99,6 +100,17 @@ export function ContractTable({ data, loading, onEdit, onRefresh }: ContractTabl
   const handleStatusChange = async (contractId: string, newStatus: "active" | "suspended" | "cancelled") => {
     try {
       setActionLoading(contractId);
+      // Bloco C2: reativar (suspenso para ativo) revalida a sobreposição com outro contrato ativo do mesmo aluno.
+      if (newStatus === 'active') {
+        const target = data.find((c) => c.id === contractId);
+        if (target) {
+          const clash = await fetchOverlappingContract(supabase, schoolId, { student_id: target.student_id, start_date: target.start_date, end_date: target.end_date, excludeId: contractId });
+          if (clash) {
+            toast({ title: "Não foi possível reativar", description: overlapMessage(clash), variant: "destructive" });
+            return;
+          }
+        }
+      }
       const { error } = await supabase
         .from('contracts')
         .update({ status: newStatus })

@@ -9,13 +9,15 @@ import type { ImportContext } from './types';
 
 type Cls = { id: string; name: string; monthly_fee?: number | null; monthly_fee_integral?: number | null };
 
-const ctx = (classes: Cls[], students = [{ id: 's1', full_name: 'Ana Souza', email: null, birth_date: null }]): ImportContext =>
+type Active = { id?: string; student_id: string; start_date: string; end_date: string; status?: string };
+
+const ctx = (classes: Cls[], students = [{ id: 's1', full_name: 'Ana Souza', email: null, birth_date: null }], active: Active[] = []): ImportContext =>
   ({
     schoolId: 'escola-1',
     existingClasses: classes,
     existingTeachers: [],
     existingStudents: students,
-    existingActiveContractStudentIds: new Set<string>(),
+    existingActiveContracts: active.map((a) => ({ status: 'active', ...a })),
   }) as ImportContext;
 
 const row = (o: Record<string, string> = {}): Record<string, string> => ({
@@ -157,5 +159,90 @@ describe('validateContractsRows: bolsa 100% (bloco H)', () => {
     const r = validateContractsRows([row({ turma: '5º A', valor_mensalidade: '900,00', desconto_percentual: '101' })], ctx([turmaSo()]));
     expect(r.valid).toEqual([]);
     expect(r.errors[0]).toMatchObject({ field: 'desconto_percentual' });
+  });
+});
+
+describe('validateContractsRows: sobreposição de contratos ativos (bloco C2)', () => {
+  const ativo = (start: string, end: string, extra: Partial<Active> = {}): Active => ({ student_id: 's1', start_date: start, end_date: end, ...extra });
+
+  it('contra existente: ativo que se sobrepõe vira erro de linha com o período do contrato atual', () => {
+    const r = validateContractsRows([row({ turma: '5º A', valor_mensalidade: '700', data_inicio: '01/06/2031', data_fim: '31/05/2032' })], ctx([turmaSo()], undefined, [ativo('2031-01-01', '2031-12-31')]));
+    expect(r.valid).toEqual([]);
+    expect(r.errors).toHaveLength(1);
+    expect(r.errors[0]).toMatchObject({ row: 2, field: 'aluno' });
+    expect(r.errors[0].message).toMatch(/Ana Souza/);
+    expect(r.errors[0].message).toMatch(/01\/01\/2031 a 31\/12\/2031/);
+  });
+
+  it('contra existente: período que começa no dia seguinte (renovação antecipada) entra', () => {
+    const r = validateContractsRows([row({ valor_mensalidade: '700', data_inicio: '01/01/2032', data_fim: '31/12/2032' })], ctx([turmaSo()], undefined, [ativo('2031-01-01', '2031-12-31')]));
+    expect(r.errors).toEqual([]);
+    expect(r.valid).toHaveLength(1);
+  });
+
+  it('existente suspenso ou cancelado não bloqueia', () => {
+    const r = validateContractsRows([row({ valor_mensalidade: '700', data_inicio: '01/03/2031', data_fim: '28/02/2032' })],
+      ctx([turmaSo()], undefined, [ativo('2031-01-01', '2031-12-31', { status: 'suspended' }), ativo('2031-01-01', '2031-12-31', { status: 'cancelled' })]));
+    expect(r.errors).toEqual([]);
+  });
+
+  it('linha com status suspenso ou cancelado não é barrada (não cobra)', () => {
+    const r = validateContractsRows([row({ valor_mensalidade: '700', data_inicio: '01/03/2031', data_fim: '28/02/2032', status: 'suspenso' })], ctx([turmaSo()], undefined, [ativo('2031-01-01', '2031-12-31')]));
+    expect(r.errors).toEqual([]);
+    expect(r.valid).toHaveLength(1);
+  });
+
+  it('entre linhas do mesmo arquivo: a 2ª linha ativa que se sobrepõe à 1ª é erro; a 1ª segue', () => {
+    const r = validateContractsRows(
+      [row({ valor_mensalidade: '700', data_inicio: '01/01/2031', data_fim: '31/12/2031' }), row({ valor_mensalidade: '700', data_inicio: '01/06/2031', data_fim: '31/05/2032' })],
+      ctx([turmaSo()]),
+    );
+    expect(r.valid).toHaveLength(1);
+    expect(r.errors).toHaveLength(1);
+    expect(r.errors[0]).toMatchObject({ row: 3, field: 'aluno' });
+    expect(r.errors[0].message).toMatch(/linha 2/);
+  });
+
+  it('entre linhas do mesmo arquivo: períodos que não se sobrepõem (anos seguidos) entram os dois', () => {
+    const r = validateContractsRows(
+      [row({ valor_mensalidade: '700', data_inicio: '01/01/2031', data_fim: '31/12/2031' }), row({ valor_mensalidade: '700', data_inicio: '01/01/2032', data_fim: '31/12/2032' })],
+      ctx([turmaSo()]),
+    );
+    expect(r.errors).toEqual([]);
+    expect(r.valid).toHaveLength(2);
+  });
+
+  it('linhas de outros alunos não interferem', () => {
+    const students = [{ id: 's1', full_name: 'Ana Souza', email: null, birth_date: null }, { id: 's2', full_name: 'Bia Lima', email: null, birth_date: null }];
+    const r = validateContractsRows(
+      [row({ valor_mensalidade: '700', data_inicio: '01/01/2031', data_fim: '31/12/2031' }), row({ aluno: 'Bia Lima', valor_mensalidade: '700', data_inicio: '01/01/2031', data_fim: '31/12/2031' })],
+      ctx([turmaSo()], students),
+    );
+    expect(r.errors).toEqual([]);
+    expect(r.valid).toHaveLength(2);
+  });
+});
+
+describe('validateContractsRows: valor e datas (bloco C2)', () => {
+  it('valor zero ou negativo é erro de linha (bolsa se faz por desconto de 100%)', () => {
+    for (const v of ['0', '-50', '0,00']) {
+      const r = validateContractsRows([row({ valor_mensalidade: v })], ctx([turmaSo()]));
+      expect(r.valid).toEqual([]);
+      expect(r.errors[0]).toMatchObject({ field: 'valor_mensalidade' });
+      expect(r.errors[0].message).toMatch(/maior que zero/);
+      expect(r.errors[0].message).toMatch(/desconto de 100%/);
+    }
+  });
+
+  it('data de término antes da de início é erro de linha', () => {
+    const r = validateContractsRows([row({ valor_mensalidade: '700', data_inicio: '01/06/2031', data_fim: '31/05/2031' })], ctx([turmaSo()]));
+    expect(r.valid).toEqual([]);
+    expect(r.errors[0]).toMatchObject({ field: 'data_fim' });
+    expect(r.errors[0].message).toMatch(/anterior/);
+  });
+
+  it('vencimento fora de 1 a 28 continua sendo erro', () => {
+    const r = validateContractsRows([row({ valor_mensalidade: '700', dia_vencimento: '31' })], ctx([turmaSo()]));
+    expect(r.errors[0]).toMatchObject({ field: 'dia_vencimento' });
   });
 });
