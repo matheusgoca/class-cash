@@ -15,6 +15,8 @@ import { useToast } from "@/hooks/use-toast";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { ContractAmountsDialog } from "@/components/contracts/ContractAmountsDialog";
+import { amountsChanged, type AmountsResult } from "@/lib/contractAmounts";
 import { generateTuitions } from "@/lib/generateTuitions";
 import { getFriendlyErrorMessage } from "@/lib/friendlyError";
 import { toDateStr } from "@/lib/dateUtils";
@@ -64,6 +66,8 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
   const [avulsoServices, setAvulsoServices] = useState<{ id: string; name: string; price: number }[]>([]);
   const [chargeRenewalFee, setChargeRenewalFee] = useState(false);
   const [renewalFeeServiceId, setRenewalFeeServiceId] = useState("");
+  // Edição de valor/desconto (bloco B): aviso do que será propagado às mensalidades, antes de gravar
+  const [pendingAmounts, setPendingAmounts] = useState<{ data: ContractFormData; result: AmountsResult } | null>(null);
 
   const {
     register,
@@ -193,7 +197,7 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
     }
   };
 
-  const onFormSubmit = async (data: ContractFormData) => {
+  const onFormSubmit = async (data: ContractFormData, amountsConfirmed = false) => {
     try {
       setLoading(true);
 
@@ -211,12 +215,32 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
       };
 
       if (contract) {
+        // Valor/desconto mudaram: o RPC propaga para as mensalidades abertas. Primeiro o dry-run (aviso e confirmação).
+        const amountsEdited = amountsChanged(contract, data);
+        if (amountsEdited && !amountsConfirmed) {
+          const { data: preview, error: previewError } = await (supabase as any).rpc('update_contract_amounts', {
+            p_school_id: schoolId, p_contract_id: contract.id, p_monthly_amount: data.monthly_amount, p_discount: data.discount, p_dry_run: true,
+          });
+          if (previewError) throw previewError;
+          setPendingAmounts({ data, result: preview as AmountsResult });
+          return;
+        }
+        if (amountsEdited) {
+          // O RPC grava o valor/desconto e atualiza as mensalidades elegíveis na mesma transação.
+          const { error: amountsError } = await (supabase as any).rpc('update_contract_amounts', {
+            p_school_id: schoolId, p_contract_id: contract.id, p_monthly_amount: data.monthly_amount, p_discount: data.discount, p_dry_run: false,
+          });
+          if (amountsError) throw amountsError;
+        }
+        // Demais campos pelo update direto (valor e desconto já foram pelo RPC; não regravar para não confundir o final_amount antigo).
+        const { monthly_amount: _monthly, discount: _discount, ...otherFields } = contractData;
         const { error } = await supabase
           .from('contracts')
-          .update(contractData)
+          .update(otherFields)
           .eq('id', contract.id);
 
         if (error) throw error;
+        setPendingAmounts(null);
 
         // If status changed to active, generate missing tuitions
         if (data.status === 'active') {
@@ -349,7 +373,8 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
   };
 
   return (
-    <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-6">
+    <>
+    <form onSubmit={handleSubmit((d) => onFormSubmit(d))} className="space-y-6">
       <div className="space-y-2">
         <Label htmlFor="student_id">Aluno *</Label>
         <Select
@@ -598,5 +623,15 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
         </Button>
       </div>
     </form>
+
+    {pendingAmounts && (
+      <ContractAmountsDialog
+        result={pendingAmounts.result}
+        loading={loading}
+        onConfirm={() => onFormSubmit(pendingAmounts.data, true)}
+        onCancel={() => setPendingAmounts(null)}
+      />
+    )}
+    </>
   );
 }
