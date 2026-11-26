@@ -1,15 +1,30 @@
 // supabase/functions/send-notification-emails/helpers.test.ts
 import { describe, it, expect } from 'vitest';
-import { bearerMatches, buildSendBody, isSendingEnabled, parseAllowlist, parseReplyTo, errorMessage, mayShip } from './helpers.ts';
+import { jobAuthorized, buildSendBody, isSendingEnabled, parseAllowlist, parseReplyTo, errorMessage, mayShip } from './helpers.ts';
 
-describe('bearerMatches', () => {
-  it('aceita só o Bearer exato', () => {
-    expect(bearerMatches('Bearer abc123', 'abc123')).toBe(true);
-    expect(bearerMatches('Bearer abc124', 'abc123')).toBe(false);
-    expect(bearerMatches('abc123', 'abc123')).toBe(false);
-    expect(bearerMatches(null, 'abc123')).toBe(false);
-    expect(bearerMatches('Bearer ', 'abc123')).toBe(false);
-    expect(bearerMatches('Bearer abc123', '')).toBe(false);
+describe('jobAuthorized (segredo dedicado do job, S6)', () => {
+  const S = 'f'.repeat(64);
+  it('aceita só o valor exato, ignorando espaço e quebra de linha nas pontas', async () => {
+    expect(await jobAuthorized(S, S)).toBe(true);
+    expect(await jobAuthorized(` ${S}
+`, `${S}
+`)).toBe(true);
+  });
+  it('rejeita valor diferente, parecido, mais curto, mais longo e ausente', async () => {
+    expect(await jobAuthorized('e'.repeat(64), S)).toBe(false);
+    expect(await jobAuthorized('f'.repeat(63) + 'e', S)).toBe(false);
+    expect(await jobAuthorized('f'.repeat(63), S)).toBe(false);
+    expect(await jobAuthorized('f'.repeat(65), S)).toBe(false);
+    expect(await jobAuthorized(null, S)).toBe(false);
+    expect(await jobAuthorized('', S)).toBe(false);
+  });
+  it('falha fechada: segredo configurado ausente, vazio ou com menos de 32 caracteres nunca autoriza', async () => {
+    expect(await jobAuthorized(S, undefined)).toBe(false);
+    expect(await jobAuthorized(S, null)).toBe(false);
+    expect(await jobAuthorized('', '')).toBe(false);
+    expect(await jobAuthorized('abc', 'abc')).toBe(false);
+    expect(await jobAuthorized('a'.repeat(31), 'a'.repeat(31))).toBe(false);
+    expect(await jobAuthorized('a'.repeat(32), 'a'.repeat(32))).toBe(true);
   });
 });
 
