@@ -5,6 +5,7 @@ import { authorizeMfaReset, jwtAal } from "./authz.ts";
 // Só a origem real do app — nunca "*" (mesmo padrão das demais functions).
 const ALLOWED_ORIGINS = [
   "https://class-cash-tan.vercel.app",
+  "https://app.classcash.com.br",
   "http://localhost:8080",
   "http://localhost:8081",
 ];
