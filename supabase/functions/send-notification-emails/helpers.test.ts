@@ -1,6 +1,6 @@
 // supabase/functions/send-notification-emails/helpers.test.ts
 import { describe, it, expect } from 'vitest';
-import { bearerMatches, buildSendBody, isSendingEnabled, parseAllowlist, parseReplyTo, errorMessage } from './helpers.ts';
+import { bearerMatches, buildSendBody, isSendingEnabled, parseAllowlist, parseReplyTo, errorMessage, mayShip } from './helpers.ts';
 
 describe('bearerMatches', () => {
   it('aceita só o Bearer exato', () => {
@@ -67,5 +67,19 @@ describe('errorMessage', () => {
   it('serializa corpo sem message e trunca em 500', () => {
     expect(errorMessage(500, { x: 1 })).toBe('HTTP 500: {"x":1}');
     expect(errorMessage(500, { message: 'a'.repeat(900) }).length).toBe(500);
+  });
+});
+
+describe('mayShip (checagem no envio do interruptor por escola, S6 bloco 1)', () => {
+  it('só envia quando o RPC email_may_send devolve exatamente true', () => {
+    expect(mayShip({ data: true, error: null })).toBe(true);
+  });
+  it('falha fechada: false, nulo, erro do RPC ou valor inesperado NÃO enviam', () => {
+    expect(mayShip({ data: false, error: null })).toBe(false);
+    expect(mayShip({ data: null, error: null })).toBe(false);
+    expect(mayShip({ data: true, error: { message: 'boom' } })).toBe(false);
+    expect(mayShip({ data: 'true', error: null })).toBe(false);
+    expect(mayShip({ data: 1, error: null })).toBe(false);
+    expect(mayShip(undefined)).toBe(false);
   });
 });

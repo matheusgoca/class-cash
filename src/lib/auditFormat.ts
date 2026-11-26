@@ -287,6 +287,9 @@ const FIELD_META: Record<
   schools: {
     name: { label: "Nome" },
     segments: { label: "Segmentos" },
+    email_enabled: { label: "E-mail de avisos" },
+    email_enabled_at: { label: "E-mail de avisos ligado em" },
+    email_enabled_by: { label: "E-mail de avisos ligado por" },
     plan: { label: "Plano" },
     status: { label: "Status" },
   },
