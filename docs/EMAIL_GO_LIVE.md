@@ -15,13 +15,14 @@ Edge Function `send-notification-emails` (`supabase/functions/send-notification-
 | `EMAIL_ALLOWLIST` | recomendado | lista separada por vírgula (`a@x.com, b@y.com`); se definida, **só** esses endereços recebem; vazia = sem filtro |
 | `EMAIL_REPLY_TO` | não | endereço de resposta (`suporte@x.com` ou `Nome <suporte@x.com>`); vai como `reply_to` no Resend. Ausente ou inválido = sem reply-to (valor inválido é ignorado com um aviso no log, sem expor o valor, e **nunca** derruba o envio). **Código mergeado; só vale depois do deploy da função (aguarda autorização).** |
 | `APP_URL` | não | base dos links do e-mail; padrão `https://class-cash-tan.vercel.app` |
-| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | automáticos | injetados pelo Supabase; a função exige que o `Authorization: Bearer` do pedido seja **idêntico** ao `SUPABASE_SERVICE_ROLE_KEY` |
+| `EMAIL_JOB_SECRET` | sim | **segredo dedicado do job** (26/11): a função só atende a chamada cujo cabeçalho `x-job-secret` for idêntico. Hex de 64 caracteres (mínimo 32; abaixo disso a função recusa tudo). Mesmo valor do segredo `email_job_secret` do Vault. Ver seção 7 |
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | automáticos | injetados pelo Supabase; a função os usa **só** para o cliente interno que chama os RPCs (claim, email_may_send, mark_email_result). **Não** autenticam mais o pedido (o `Authorization` deixou de ser aceito) |
 
-**Vault (banco, não a função):** segredo de nome `service_role_key`, com o **JWT legado `service_role`** (Supabase → Settings → API), idêntico ao `SUPABASE_SERVICE_ROLE_KEY` acima. Uma chave nova no formato `sb_secret_…` faz a função responder 401 em toda chamada.
+**Vault (banco, não a função):** segredo de nome `email_job_secret`, **com o mesmo valor** do secret `EMAIL_JOB_SECRET` da função (gerado e cadastrado pelo PM; ninguém o imprime). O job o lê em tempo de execução. O antigo `service_role_key` do Vault **deixa de ser usado** e deve ser apagado pelo PM depois que o corte funcionar (seção 7).
 
 **Reply-to e cancelamento:** `EMAIL_REPLY_TO` (acima) existe desde 25/11 (código mergeado, deploy pendente). O rodapé do e-mail **já tem** o link "Ajustar preferências" (HTML e texto, com teste). **`List-Unsubscribe` fica de fora por enquanto** (decisão do PM, 25/11).
 
-**Segredo do job:** não há um segredo próprio do job; ele só usa o `service_role_key` do Vault.
+**Segredo do job:** `EMAIL_JOB_SECRET` (função) = `email_job_secret` (Vault), cabeçalho `x-job-secret`. Detalhes, rotação e modo saúde na seção 7.
 
 ## 2. Como o job chama a função, o que o desliga, e os freios
 
@@ -136,7 +137,7 @@ select status, start_time
 ## 4. Roteiro do primeiro teste (usuário do PM na Colegio Teste)
 
 **Pré-condições (feitas pelo dono, nunca por chat):**
-- Domínio de envio **verificado** no Resend; `RESEND_API_KEY` e `EMAIL_FROM` gravados nos secrets; `service_role_key` gravado no Vault.
+- Domínio de envio **verificado** no Resend; `RESEND_API_KEY` e `EMAIL_FROM` gravados nos secrets; `EMAIL_JOB_SECRET` na função e `email_job_secret` no Vault.
 - `EMAIL_ALLOWLIST` = **somente** o e-mail do PM. `EMAIL_SENDING_ENABLED` continua desligado até o passo 4.
 
 **Passo a passo:**
@@ -171,7 +172,7 @@ Estado em 25/11: 3 usuários (1 admin, 2 financeiros), todos com e-mail confirma
 | 1 | **Interruptor por escola em produção** (PR do bloco 1): migration `20261126140000` aplicada (dry-run + autorização) e Edge Function implantada (autorização) | dev, com autorização do PM | `schools.email_enabled` existe e **todas** as escolas estão `false`; matriz `school_email_switch_matrix.sql` 43/43; `email_outbox_matrix.sql` 34/34 |
 | 2 | **DNS e domínio verificados no Resend** (SPF, DKIM e o que o painel pedir) | PM | domínio com status "Verified" no painel do Resend |
 | 3 | **Secrets da função** (Supabase, Edge Functions, Secrets): `RESEND_API_KEY`, `EMAIL_FROM` (remetente do domínio verificado), `APP_URL`, `EMAIL_REPLY_TO` (opcional). **Ainda NÃO** criar `EMAIL_SENDING_ENABLED` com o valor `true` (ausente = desligado) nem tirar a allowlist | PM | `supabase secrets list` mostra os nomes (nunca os valores) |
-| 4 | **Vault**: segredo `service_role_key` com o JWT legado `service_role` (idêntico ao `SUPABASE_SERVICE_ROLE_KEY` da função) | PM, no painel | `select name from vault.secrets` mostra `service_role_key`; na hora seguinte o job deixa de responder 401 (passa a `{"skipped":"disabled"}`, porque o envio global ainda está desligado) |
+| 4 | **Segredo do job**: `EMAIL_JOB_SECRET` (secret da função) e `email_job_secret` (Vault) com o **mesmo** valor de 64 hex (seção 7) | PM, no painel | nomes existem; tamanho 64; o hash do Vault bate com o da função (só "igual"); depois do corte, o job deixa de responder 401 e passa a `{"skipped":"disabled"}` (envio global ainda desligado) |
 | 5 | **Allowlist só com o e-mail do PM**: `EMAIL_ALLOWLIST` = o e-mail do PM e mais nenhum | PM | `supabase secrets list` mostra `EMAIL_ALLOWLIST` |
 | 6 | **Ligar o envio global**: `EMAIL_SENDING_ENABLED` = `true` (só o texto exato liga) | PM | a resposta do job passa de `skipped: disabled` para `claimed: 0` (nada elegível ainda, porque nenhuma escola está ligada) |
 | 7 | **O master liga a Colegio Teste** no painel master (toggle "E-mail de avisos", com confirmação) | PM (master, com 2FA) | `schools.email_enabled = true` só na Teste; `email_enabled_by` = o master; auditoria mostra "Suporte Class Cash" |
@@ -186,3 +187,28 @@ Estado em 25/11: 3 usuários (1 admin, 2 financeiros), todos com e-mail confirma
 4. `select cron.unschedule('send-notification-emails');` (escrita no banco: só com autorização).
 
 **O que NÃO fazer:** ligar `EMAIL_SENDING_ENABLED=true` antes do passo 1; remover a allowlist antes do piloto; ligar uma escola sem o dono dela ter confirmado as preferências (nada sairia, mas o aviso prévio à família é do PM); colar chave em qualquer lugar fora do painel.
+
+## 7. Segredo dedicado do job (substitui o `service_role_key`; 26/11/2026)
+
+**Por quê.** O job mandava a chave `service_role` do Vault e a função a comparava com o `SUPABASE_SERVICE_ROLE_KEY` que o Supabase injeta nela; os dois valores nunca batiam (401 toda hora). Agora o job usa um segredo **só dele**.
+
+**Como funciona.**
+- O job (`pg_cron` → `pg_net`, `0 * * * *`) envia o cabeçalho `x-job-secret`, lido do Vault (`email_job_secret`) em tempo de execução. Nada de valor no comando do `cron.job` nem em migration.
+- A função (`handler.ts`) só atende POST com `x-job-secret` idêntico ao secret `EMAIL_JOB_SECRET`. A comparação é em tempo constante (SHA-256 dos dois lados). **Falha fechada:** secret ausente, com menos de 32 caracteres ou cabeçalho ausente/errado = 401 igual para tudo, sem tocar no banco nem no Resend. O `Authorization` (inclusive a chave de serviço) **não é mais aceito**.
+- A função continua com `verify_jwt = false` (o gateway não exige JWT; a autenticação é toda dela). Risco: o endpoint é público; a barreira é o segredo de 256 bits e o 401 antes de qualquer trabalho.
+- As **travas não mudam**: ordem = segredo do job, modo saúde (só com o segredo), `EMAIL_SENDING_ENABLED`, secrets do Resend, claim (allowlist, preferências confirmadas, e-mail ligado no evento, interruptor por escola, 08:00 locais, lote de 40) e `email_may_send` por item.
+- A chave `service_role` injetada continua sendo usada **só** pelo cliente interno que chama os RPCs (concedidos ao papel `service_role`); quem controla essa chave é o Supabase.
+
+**Passo a passo do PM (sem valores em chat, commit ou PR).**
+1. Gere o valor no seu computador: PowerShell `$b = New-Object byte[] 32; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b); -join ($b | % { $_.ToString('x2') })` (64 caracteres hexadecimais).
+2. Supabase → Edge Functions → Secrets: crie `EMAIL_JOB_SECRET` com o valor (sem aspas, espaço ou quebra de linha).
+3. Supabase → Vault: crie `email_job_secret` com o **mesmo** valor.
+4. Limpe a área de transferência e o histórico do terminal. Avise só "criei".
+5. O dev confere **em leitura** (nomes, tamanho 64, hash igual) e segue: deploy da função, migration do job, conferência do disparo seguinte.
+6. **Depois do corte funcionando, o PM apaga o `service_role_key` do Vault** (o job não precisa mais dele e é uma chave de alto privilégio guardada no banco).
+
+**Modo saúde (`x-job-mode: health`).** Com o segredo certo, a função chama só `email_may_send` com um UUID aleatório (devolve falso, sem efeito colateral) e responde `{"health":"ok"}` se o cliente interno falou com o banco, ou `{"health":"falha"}` (500) sem vazar mensagem. Roda **antes** do portão de envio, então funciona com `EMAIL_SENDING_ENABLED` desligado. Disparo manual, uma vez, pelo banco (`net.http_post` com o segredo do Vault, resposta em `net._http_response`), sempre com autorização.
+
+**Rotação: a cada 6 meses** (ou na hora, se houver suspeita de vazamento). Gere um valor novo e troque **os dois lados** (secret da função e Vault); entre uma troca e outra o job recebe 401, que é inofensivo. Depois confira em leitura que o hash dos dois bate e que o disparo seguinte volta a `skipped: disabled` (ou ao envio, se já estiver ligado). Anote a data da troca no STATUS.
+
+**Rollback.** Migration que volta o comando antigo (ou `select cron.unschedule('send-notification-emails');`, com autorização); redeploy da versão anterior da função; o PM apaga `EMAIL_JOB_SECRET` e `email_job_secret`.

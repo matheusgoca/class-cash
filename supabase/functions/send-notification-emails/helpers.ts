@@ -1,13 +1,27 @@
 // supabase/functions/send-notification-emails/helpers.ts
 // Regras puras da Edge Function, sem imports de Deno (testáveis no Vitest).
 
-/** Compara o Authorization recebido com a chave de serviço, em tempo constante. */
-export function bearerMatches(header: string | null, key: string): boolean {
-  if (!header || !key || !header.startsWith('Bearer ')) return false;
-  const given = header.slice('Bearer '.length);
-  if (given.length !== key.length) return false;
+/** Tamanho mínimo do segredo do job (hex de 64 caracteres recomendado). Abaixo disso a função recusa tudo (falha fechada). */
+export const MIN_JOB_SECRET_LENGTH = 32;
+
+async function sha256(text: string): Promise<Uint8Array> {
+  return new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)));
+}
+
+/**
+ * Autentica o job (pg_cron via pg_net) pelo segredo dedicado EMAIL_JOB_SECRET, enviado no cabeçalho x-job-secret.
+ * Falha FECHADA: segredo configurado ausente ou com menos de MIN_JOB_SECRET_LENGTH caracteres, ou cabeçalho ausente = false.
+ * Compara o SHA-256 dos dois lados byte a byte, sem sair cedo (tempo constante, sem vazar nem o tamanho). Espaço e quebra de linha
+ * nas pontas são ignorados dos dois lados (o valor é hexadecimal).
+ */
+export async function jobAuthorized(header: string | null, secret: string | undefined | null): Promise<boolean> {
+  const configured = (secret ?? '').trim();
+  if (configured.length < MIN_JOB_SECRET_LENGTH) return false;
+  const given = (header ?? '').trim();
+  if (!given) return false;
+  const [a, b] = await Promise.all([sha256(given), sha256(configured)]);
   let diff = 0;
-  for (let i = 0; i < key.length; i++) diff |= given.charCodeAt(i) ^ key.charCodeAt(i);
+  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
   return diff === 0;
 }
 
