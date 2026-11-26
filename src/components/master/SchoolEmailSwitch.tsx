@@ -6,6 +6,12 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast';
 import { getFriendlyErrorMessage } from '@/lib/friendlyError';
 
+/** Retorno de set_school_email_enabled: `skipped` = itens da fila pulados ao desligar. */
+interface SetEmailResult {
+  email_enabled?: boolean;
+  skipped?: number;
+}
+
 interface SchoolEmailSwitchProps {
   schoolId: string;
   schoolName: string;
@@ -27,9 +33,10 @@ export function SchoolEmailSwitch({ schoolId, schoolName, enabled, onChanged }: 
   const apply = async () => {
     setLoading(true);
     try {
-      const { data, error } = await (supabase as any).rpc('set_school_email_enabled', { p_school_id: schoolId, p_enabled: turningOn });
+      // O RPC ainda não está nos tipos gerados do Supabase: o nome e os parâmetros vão com `as never` e o retorno é tipado aqui.
+      const { data, error } = await supabase.rpc('set_school_email_enabled' as never, { p_school_id: schoolId, p_enabled: turningOn } as never);
       if (error) throw error;
-      const skipped = Number(data?.skipped ?? 0);
+      const skipped = Number((data as SetEmailResult | null)?.skipped ?? 0);
       toast({
         title: turningOn ? 'E-mail ligado' : 'E-mail desligado',
         description: turningOn
@@ -38,8 +45,9 @@ export function SchoolEmailSwitch({ schoolId, schoolName, enabled, onChanged }: 
       });
       onChanged(turningOn);
       setConfirming(false);
-    } catch (error: any) {
-      const msg = error?.code === '42501' || /NOT_ALLOWED|suporte/i.test(error?.message ?? '')
+    } catch (error: unknown) {
+      const err = error as { code?: string; message?: string } | null;
+      const msg = err?.code === '42501' || /NOT_ALLOWED|suporte/i.test(err?.message ?? '')
         ? 'Somente o suporte Class Cash altera o e-mail de avisos.'
         : getFriendlyErrorMessage(error, 'Não foi possível alterar o e-mail de avisos.');
       toast({ title: 'Erro', description: msg, variant: 'destructive' });
