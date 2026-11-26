@@ -65,3 +65,11 @@ export function errorMessage(status: number, body: unknown): string {
       : JSON.stringify(body);
   return `HTTP ${status}: ${msg}`.slice(0, 500);
 }
+
+/**
+ * Interruptor de e-mail por escola (S6, bloco 1): o RPC email_may_send(outbox_id) é consultado imediatamente antes de cada envio.
+ * Falha fechada: só um `true` sem erro libera; erro, nulo ou qualquer outro valor NÃO envia (o item volta à fila do próprio claim).
+ */
+export function mayShip(res: { data: unknown; error: unknown } | undefined | null): boolean {
+  return !!res && !res.error && res.data === true;
+}

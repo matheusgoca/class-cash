@@ -7,6 +7,7 @@
 -- Como rodar (migrations ainda NÃO aplicadas): gerar um arquivo que troca a linha marcadora MIGRATION
 -- (sozinha na linha) pelo conteúdo de 20261119130100_email_outbox.sql seguido de 20261119130200_email_claim_rpcs.sql.
 -- Migrations já aplicadas: npx supabase@2.117.0 db query --linked -f supabase/tests/email_outbox_matrix.sql
+-- Requer a migration 20261126140000_school_email_switch.sql (S6 bloco 1): o setup liga as escolas de teste (email_enabled).
 -- Saída: uma linha por verificação; "ok" deve ser true em TODAS.
 
 begin;
@@ -72,6 +73,8 @@ begin
 
   insert into public.schools (name, owner_user_id) values ('Escola Teste S4a X', u_master) returning id into s_x;
   insert into public.schools (name, owner_user_id) values ('Escola Teste S4a Y', u_master) returning id into s_y;
+  -- S6 bloco 1: o freio por escola nasce desligado; estas escolas de teste precisam estar ligadas para o claim as enxergar
+  update public.schools set email_enabled = true where id in (s_x, s_y);
   update public.profiles set school_id = s_x where user_id in (u_admin, u_fin);
   delete from auth.mfa_factors where user_id in (u_admin, u_fin);
   delete from public.mfa_grace  where user_id in (u_admin, u_fin);

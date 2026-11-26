@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMasterAdmin } from "@/contexts/MasterAdminContext";
 import { useSchool } from "@/contexts/SchoolContext";
 import { getFriendlyErrorMessage } from "@/lib/friendlyError";
+import { SchoolEmailSwitch } from "@/components/master/SchoolEmailSwitch";
 
 interface PendingOwnerInvite {
   id: string;
@@ -38,6 +39,7 @@ interface SchoolRow {
   class_count: number;
   teacher_count: number;
   segments: string[];
+  email_enabled: boolean;
 }
 
 const PLAN_LABELS: Record<string, string> = {
@@ -104,7 +106,7 @@ export default function MasterAdmin() {
       // escola"), evitando ter que dar visibilidade cross-escola em
       // expenses/service_charges via RLS só pra um card aqui.
       const [schoolsRes, profilesRes, studentsRes, classesRes, teachersRes] = await Promise.all([
-        (supabase as any).from("schools").select("id, name, plan, status, created_at, owner_user_id, segments").order("created_at", { ascending: false }),
+        (supabase as any).from("schools").select("id, name, plan, status, created_at, owner_user_id, segments, email_enabled").order("created_at", { ascending: false }),
         (supabase as any).from("profiles").select("user_id, email"),
         (supabase as any).from("students").select("school_id").eq("status", "active"),
         (supabase as any).from("classes").select("school_id"),
@@ -138,6 +140,7 @@ export default function MasterAdmin() {
         class_count: classCount[s.id] || 0,
         teacher_count: teacherCount[s.id] || 0,
         segments: s.segments ?? [],
+        email_enabled: s.email_enabled === true,
       }));
 
       setSchools(rows);
@@ -357,6 +360,14 @@ export default function MasterAdmin() {
                 ) : (
                   <p className="text-xs text-muted-foreground italic">Sem segmento definido</p>
                 )}
+
+                {/* Row 2c: interruptor de e-mail por escola (S6 bloco 1; só o master vê esta tela e altera) */}
+                <SchoolEmailSwitch
+                  schoolId={school.id}
+                  schoolName={school.name}
+                  enabled={school.email_enabled}
+                  onChanged={(v) => setSchools((prev) => prev.map((x) => (x.id === school.id ? { ...x, email_enabled: v } : x)))}
+                />
 
                 <div className="border-t" />
 

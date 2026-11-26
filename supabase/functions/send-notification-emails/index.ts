@@ -4,7 +4,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildNotificationEmail } from "../_shared/notificationEmail.ts";
-import { bearerMatches, buildSendBody, errorMessage, isSendingEnabled, parseAllowlist, parseReplyTo } from "./helpers.ts";
+import { bearerMatches, buildSendBody, errorMessage, isSendingEnabled, mayShip, parseAllowlist, parseReplyTo } from "./helpers.ts";
 
 const BATCH = 40;
 const PAUSE_MS = 600; // limite do Resend: 2 requisições por segundo
@@ -50,6 +50,7 @@ serve(async (req) => {
 
   let sent = 0;
   let failed = 0;
+  let skipped = 0;
   const list = (items ?? []) as Array<Record<string, unknown>>;
 
   for (let i = 0; i < list.length; i++) {
@@ -58,6 +59,12 @@ serve(async (req) => {
       reference_date: string; offset_days: number; item_count: number;
       total_amount: number | null; details: Record<string, unknown>;
     };
+    // Interruptor por escola: a escola pode ter sido desligada depois da reivindicação. Falha fechada (erro = não envia).
+    // Se a escola foi desligada, o próprio RPC já marca o item como 'skipped'; senão ele fica 'sending' e o claim o retoma depois.
+    if (!mayShip(await supabase.rpc("email_may_send", { p_outbox_id: item.outbox_id }))) {
+      skipped++;
+      continue;
+    }
     if (i > 0) await sleep(PAUSE_MS);
 
     let status: "sent" | "failed" = "failed";
@@ -101,6 +108,6 @@ serve(async (req) => {
   }
 
   // Só contagens no log: nunca endereços de e-mail.
-  console.log(JSON.stringify({ claimed: list.length, sent, failed }));
-  return json({ claimed: list.length, sent, failed });
+  console.log(JSON.stringify({ claimed: list.length, sent, failed, skipped }));
+  return json({ claimed: list.length, sent, failed, skipped });
 });
