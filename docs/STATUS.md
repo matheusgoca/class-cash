@@ -85,6 +85,8 @@ Regras desta rodada: Pensar só leitura; matrizes em `BEGIN … ROLLBACK`; migra
 
 **PORTÃO OBRIGATÓRIO do e-mail (decisão de 25/11).** Sem interruptor por escola agora. **Antes de remover a `EMAIL_ALLOWLIST` e de abrir o e-mail para todas as escolas** é obrigatório ter um freio por escola (por exemplo `schools.email_enabled` + condição no `claim_notification_emails` + caso na `notifications_matrix.sql`) ou equivalente aprovado pelo PM. Até lá a allowlist fica definida em todas as fases (detalhe em `docs/EMAIL_GO_LIVE.md`).
 
+**Ensaio geral (25/11), relatório em `docs/ENSAIO_GERAL_2026-11-25.md`; matrizes `supabase/tests/ensaio_matrix.sql` (35/35) e `supabase/tests/reversao_matrix.sql` (18/18).** Reconciliação do dashboard: 0 divergências em 72 meses nas duas escolas. Bloqueios antes do cadastro real do Pensar: categorias de despesa (Pensar tem 0 e só o admin cria), estornar baixa, propagar edição de valor do contrato e trava de contrato ativo sobreposto (blocos B, C e D do S6b). O campo `primary_segment` **não existe mais** (removido em 17/11 pela migration `20261117123000`); a nota antiga de "ajustar em Configurações" estava errada.
+
 **Pendências abertas da S5:** (1) ~~item I: escolher A/B/C~~ (decidido: A; **concluído**, ver acima); (2) ~~guard de `/notificacoes`~~ (feito); freio por escola do e-mail: **decidido em 25/11 que não haverá agora**, ver o portão acima; (3) PM confirma domínio verificado e secrets do Resend; (4) `reply-to`/`List-Unsubscribe`, se desejados.
 
 ## Escolas em produção e regras de QA (25/11)
@@ -97,7 +99,6 @@ Regras desta rodada: Pensar só leitura; matrizes em `BEGIN … ROLLBACK`; migra
 
 - **Matrizes SQL** escolhem personagens por consulta, mas sempre dentro de `BEGIN … ROLLBACK`, e **nunca** com `COMMIT` no Pensar. A `renewal_matrix.sql` usa o master, o admin e o financeiro da escola do perfil do master (hoje a Colegio Teste), então não toca usuários do Pensar.
 - **Ordem do piloto de e-mail** (quando ligar a S4a): usuário do dono na Colegio Teste → Colégio Pensar → demais escolas. Antes de cada passo: conferir `notification_settings.confirmed_at` e as preferências de e-mail da escola (consulta acima), e usar `EMAIL_ALLOWLIST` na fase de teste.
-- **Pendência do dono:** o `primary_segment` do Pensar foi gravado por **backfill arbitrário**, não por escolha dele. O dono deve ajustá-lo em Configurações.
 
 ## Decisões do PM de 19/11 (ordem de execução; parar entre os blocos para confirmação)
 

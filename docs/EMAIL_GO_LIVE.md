@@ -154,9 +154,8 @@ Estado em 25/11: 3 usuários (1 admin, 2 financeiros), todos com e-mail confirma
 1. **Nada para avisar ainda.** Sem contratos/mensalidades/despesas o gerador não produz avisos, então o e-mail não teria o que enviar. O piloto só faz sentido depois de a escola começar a lançar dados (e isto se liga à decisão do **item I**: convém decidir o modelo do valor da mensalidade **antes** da primeira carga).
 2. **Preferências salvas:** cada um dos 3 usuários precisa abrir Notificações → Preferências, **confirmar** a tela e escolher os eventos com e-mail (padrão: tudo desligado). Sem `confirmed_at` nada sai.
 3. **Aviso prévio à família** (texto do PM): o que vão receber, de qual remetente, quando (a partir das 08:00), como desligar (link "Ajustar preferências" no rodapé), e quem procurar.
-4. **`primary_segment`** do Pensar foi gravado por backfill arbitrário: o dono ajusta em Configurações (pendência já registrada no STATUS).
-5. **Allowlist** com os e-mails da família na fase de piloto; só depois remover.
-6. **Ordem:** usuário do PM na Colegio Teste → Colégio Pensar → demais escolas (decisão de 25/11).
-7. **Confirmar com o dono** se o interruptor por escola (seção 2, "Lacuna") é desejado antes de abrir para o Pensar.
+4. **Allowlist** com os e-mails da família na fase de piloto; só depois remover.
+5. **Ordem:** usuário do PM na Colegio Teste → Colégio Pensar → demais escolas (decisão de 25/11).
+6. **Confirmar com o dono** se o interruptor por escola (seção 2, "Lacuna") é desejado antes de abrir para o Pensar.
 
 **DECISÃO:** só depois de o PM confirmar **domínio verificado e secrets configurados**, proponho o dia e a ordem do primeiro envio.

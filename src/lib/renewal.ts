@@ -101,7 +101,7 @@ export const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 export const applyAdjustment = (value: number, pct: number): number => round2(value * (1 + pct / 100));
 
-/** Espelha a coluna gerada contracts.final_amount (sem arredondar). */
+/** Espelha a coluna gerada contracts.final_amount; no banco ela vale round(..., 2) desde a migration 20261125130000 (item I), por isso quem grava mensalidade deve aplicar round2 ao resultado. */
 export const finalAmountOf = (monthly: number, discount: number | null | undefined): number =>
   monthly * (1 - (discount ?? 0) / 100);
 
