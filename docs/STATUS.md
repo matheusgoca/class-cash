@@ -141,6 +141,9 @@ Nada disso bloqueia o cadastro real do Pensar (os bloqueios viraram os blocos B,
 - **CHECKs no banco.** `contracts`: `discount` entre 0 e 100, `monthly_amount > 0` (bolsa é desconto de 100%, nunca valor 0), `end_date >= start_date`, `due_day` entre 1 e 28. O ensaio provou que o banco aceita desconto 120% (`final_amount` −200), valor 0 ou negativo, fim antes do início e vencimento 0 ou 45; o formulário trava só desconto e dia. Aplicar com backfill/dry-run (os dados atuais das 3 escolas passam).
 - **Baixa dupla no banco.** Resolvida pelo bloco D (trigger `tuitions_guard_payment`) quando a migration `20261126100000` for aplicada; até lá o banco sobrescreve `paid_date`.
 - **Gráfico de 6 meses x cartão "Receita Recebida".** O cartão soma serviços, o gráfico não (Teste: R$ 3.300 a 3.940 por mês de diferença). Decisão do PM (bloco F2).
+- **Baixa em lote** (selecionar várias mensalidades e confirmar) fica como item pequeno futuro, só se a baixa individual virar dor real.
+- **Cobrança, boleto, cartão e conciliação** ficam para uma versão avançada; a visão está guardada no Claude Project (`claude/ROADMAP_FUTURO_PAGAMENTOS.md`, não copiado para este repositório). A importação de pagamentos por planilha foi **descartada** (decisão do PM em 26/11); o histórico de 2026 do Pensar entrará depois por carga assistida (script único com dry-run), em standby até o PM ter a planilha.
+- **Criação direta de contratos pela API sem barreira de sobreposição** (e sem CHECKs): aceito por ora; trigger/constraint depois da limpeza de dados (bloco C2 valida só formulário, importação e RPCs).
 - **Mensalidades da Teste pagas com `final_amount = 0` e `amount > 0`** (6, de abril/maio): contam R$ 0 no Realizado. Dado de teste antigo; corrigir com o escape `app.allow_paid_edit` depois do bloco D.
 
 ## Setup em outra máquina
