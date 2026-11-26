@@ -115,7 +115,8 @@ select sc.name as escola, n.event, count(*) as avisos_elegiveis
   join public.schools sc on sc.id = n.school_id
   join public.notification_settings s on s.user_id = n.user_id and s.school_id = n.school_id
   join public.notification_preferences np on np.user_id = n.user_id and np.school_id = n.school_id and np.event = n.event
- where s.confirmed_at is not null and np.email and u.email_confirmed_at is not null
+ where sc.email_enabled                  -- interruptor por escola (S6 bloco 1): escola desligada nunca é reivindicada
+   and s.confirmed_at is not null and np.email and u.email_confirmed_at is not null
    and n.reference_date = (now() at time zone coalesce(s.timezone, 'America/Sao_Paulo'))::date
  group by sc.name, n.event
  order by sc.name, n.event;
@@ -132,6 +133,27 @@ select status, start_time
  where jobid = (select jobid from cron.job where jobname = 'send-notification-emails')
  order by start_time desc
  limit 5;
+
+-- 9. Estado do interruptor por escola (só a(s) escola(s) em piloto devem estar true)
+select name as escola, email_enabled, email_enabled_at::date as ligada_em
+  from public.schools
+ order by name;
+
+-- 10. A linha enviada é do usuário certo e tem id do provedor? Só verdadeiro/falso: nenhum e-mail ou id aparece.
+--     Troque <DIGEST> pelo hash de EMAIL_ALLOWLIST que o `supabase secrets list` mostra (é um hash, não o valor). Com UM só
+--     endereço na allowlist, o hash dela é o SHA-256 desse endereço em minúsculas; assim se prova que o destinatário é o esperado
+--     sem imprimir o endereço.
+select o.event, o.status,
+       (o.provider_message_id is not null)                                           as tem_id_do_provedor,
+       (p.is_master_admin is not true)                                               as destinatario_nao_master,
+       (encode(digest(lower(btrim(u.email)), 'sha256'), 'hex') = '<DIGEST>')         as destinatario_e_o_da_allowlist,
+       (o.sent_at at time zone coalesce(s.timezone, 'America/Sao_Paulo'))::time      as hora_local_do_envio
+  from public.email_outbox o
+  join auth.users u on u.id = o.user_id
+  left join public.profiles p on p.user_id = o.user_id and p.school_id = o.school_id
+  left join public.notification_settings s on s.user_id = o.user_id and s.school_id = o.school_id
+ where o.reference_date >= current_date - 1
+ order by o.updated_at desc;
 ```
 
 ## 4. Roteiro do primeiro teste (usuário do PM na Colegio Teste)
