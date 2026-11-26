@@ -47,12 +47,14 @@ begin
   update public.tuitions set status='paid', paid_date=date '2026-11-25', payment_method='pix', final_amount=1000 where id = t1;
 
   -- R1. estorno de baixa (o app nao oferece) como admin e como financeiro
-  v := pg_temp.run_as(adm, 'aal1', format($q$with u as (update public.tuitions set status='pending', paid_date=null, final_amount=null, payment_method=null where id = %L and school_id = %L returning 1) select count(*)::text from u$q$, t1::text, s::text));
-  perform pg_temp.rec('R1 estorno de baixa (volta a pendente, limpa data, valor final e forma) como ADMIN', v, '1');
+  v := pg_temp.run_as(adm, 'aal1', format($q$with u as (update public.tuitions set status='pending', paid_date=null where id = %L and school_id = %L returning 1) select count(*)::text from u$q$, t1::text, s::text));
+  perform pg_temp.rec('R1-0 reabrir por UPDATE direto é barrado (USE_REVERSAL); só o RPC estorna', case when v like 'ERR:%' then 'barrado' else v end, 'barrado');
+  v := pg_temp.run_as(adm, 'aal1', format($q$select public.reverse_tuition_payment(%L, %L)->>'id'$q$, s::text, t1::text));
+  perform pg_temp.rec('R1 estorno de baixa pelo RPC reverse_tuition_payment (volta a pendente, limpa data, valor final e forma) como ADMIN', v, t1::text);
   perform pg_temp.rec('R1b estado depois do estorno', (select status || '/' || coalesce(paid_date::text,'-') || '/' || coalesce(final_amount::text,'-') from public.tuitions where id = t1), 'pending/-/-');
   update public.tuitions set status='paid', paid_date=date '2026-11-25', payment_method='pix', final_amount=1000 where id = t1;
-  v := pg_temp.run_as(fin, 'aal1', format($q$with u as (update public.tuitions set status='pending', paid_date=null, final_amount=null, payment_method=null where id = %L and school_id = %L returning 1) select count(*)::text from u$q$, t1::text, s::text));
-  perform pg_temp.rec('R1c estorno de baixa como FINANCEIRO', v, '1');
+  v := pg_temp.run_as(fin, 'aal1', format($q$select public.reverse_tuition_payment(%L, %L)->>'id'$q$, s::text, t1::text));
+  perform pg_temp.rec('R1c estorno de baixa como FINANCEIRO', v, t1::text);
 
   -- R2. excluir contrato lancado errado (mensalidades primeiro, depois o contrato)
   v := pg_temp.run_as(adm, 'aal1', format($q$with d as (delete from public.contracts where id = %L and school_id = %L returning 1) select count(*)::text from d$q$, k1::text, s::text));

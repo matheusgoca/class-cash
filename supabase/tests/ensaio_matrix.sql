@@ -104,9 +104,9 @@ begin
   v := pg_temp.run_as(u_fin, 'aal1', format($q$with u as (update public.tuitions set status='paid', paid_date = date '2031-02-12', payment_method='dinheiro',
     final_amount = amount - coalesce(discount_applied,0) + coalesce(penalty_amount,0) where id = %L and school_id = %L returning 1) select count(*)::text from u$q$, t2, s));
   perform pg_temp.rec('2b baixa com multa de R$ 30 pelo financeiro', (select final_amount::text from public.tuitions where id = t2), '880.00');
-  -- LACUNA (Bloco D): baixa dupla é aceita e sobrescreve paid_date
+  -- Bloco D (migration 20261126100000 aplicada): baixa dupla é barrada pelo banco e a paid_date original fica
   v := pg_temp.run_as(u_adm, 'aal1', format($q$with u as (update public.tuitions set status='paid', paid_date = date '2031-03-01', final_amount = amount where id = %L and school_id = %L returning 1) select count(*)::text from u$q$, t2, s));
-  perform pg_temp.rec('LACUNA (Bloco D) 2c baixa dupla e aceita pelo banco e sobrescreve paid_date', (select paid_date::text from public.tuitions where id = t2), '2031-03-01');
+  perform pg_temp.rec('2c baixa dupla é barrada (ALREADY_PAID) e a paid_date original é preservada', (select paid_date::text from public.tuitions where id = t2), '2031-02-12');
 
   -- ===== 3. Edição de valor (item I)
   v := pg_temp.run_as(u_adm, 'aal1', format($q$with u as (update public.contracts set monthly_amount = 1100 where id = %L and school_id = %L returning 1) select count(*)::text from u$q$, k_a, s));
