@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { getFriendlyErrorMessage } from '@/lib/friendlyError';
-import { DollarSign, Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, School } from 'lucide-react';
 
 type View = 'auth' | 'set-password' | 'forgot';
 
@@ -183,7 +183,7 @@ const Auth = () => {
     <div className="hidden lg:flex lg:w-1/2 bg-primary flex-col items-center justify-center p-12 text-primary-foreground">
       <div className="max-w-sm text-center space-y-6">
         <div className="flex items-center justify-center w-20 h-20 bg-white/10 rounded-2xl mx-auto">
-          <DollarSign className="h-10 w-10" />
+          <School className="h-10 w-10" />
         </div>
         <div>
           <h1 className="text-4xl font-bold tracking-tight">Class Cash</h1>
@@ -210,8 +210,8 @@ const Auth = () => {
 
   const mobileLogo = (
     <div className="flex lg:hidden items-center gap-3 justify-center">
-      <div className="flex items-center justify-center w-10 h-10 bg-primary rounded-xl">
-        <DollarSign className="h-5 w-5 text-primary-foreground" />
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+        <School className="h-4 w-4" />
       </div>
       <span className="text-2xl font-bold">Class Cash</span>
     </div>
