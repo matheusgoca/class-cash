@@ -112,6 +112,7 @@ serve(async (req) => {
     const { error: inviteError } = await inviteClient.auth.admin.inviteUserByEmail(email, {
       redirectTo: authRedirectUrl(Deno.env.get("APP_URL")),
       data: {
+        school_name, // nome da escola nova (o mesmo que o template do convite usa)
         pending_school_name: school_name,
         pending_school_segments: segments,
         pending_school_plan: plan ?? "starter",
