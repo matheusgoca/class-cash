@@ -158,6 +158,16 @@ Nada disso bloqueia o cadastro real do Pensar (os bloqueios viraram os blocos B,
 - **Domínios (26/11, roteamento por host):** (1) **metadados da LP**: `index.html` ainda cita `class-cash-tan.vercel.app` em `og:url` e `og:image`, e a LP mostra o e-mail pessoal do PM como contato (`Landing.tsx`); trocar por domínio e contato do produto. (2) **Links de convite fixos na Vercel**: `invite-user` e `invite-school-owner` usam `redirectTo: https://class-cash-tan.vercel.app/auth` fixo (e o padrão de `APP_URL` do e-mail é o mesmo); funcionam, mas deveriam apontar para `app.classcash.com.br` quando o PM decidir. (3) **`www.classcash.com.br` sem resposta** (DNS ou certificado; diagnóstico de 26/11). Ver também: Supabase Auth, URL Configuration (Redirect URLs e Site URL precisam incluir `https://app.classcash.com.br`; conferência do PM no painel).
 - **Mensalidades da Teste pagas com `final_amount = 0` e `amount > 0`** (6, de abril/maio): contam R$ 0 no Realizado. Dado de teste antigo; corrigir com o escape `app.allow_paid_edit` depois do bloco D.
 
+## Estado ao fim de 26/11 e identidade visual (para desenhar os e-mails)
+- **Em produção:** e-mail de aviso ligado só na Colegio Teste (Pensar e Estrela com `email_enabled=false`); função `send-notification-emails` com o layout centralizado (#59); job horário respondendo 200 (disparo das 20:00 UTC: `claimed:1, sent:1, failed:0`, 17:00 locais, sem duplicidade).
+- **PR aberto:** #60 (convites derivados de `APP_URL`), **sem merge e sem deploy**. Antes do deploy, o PM confere no Supabase Auth as Redirect URLs (`https://app.classcash.com.br/auth`, mantendo a da Vercel). Roteiro de teste na descrição do PR.
+- **Identidade visual (levantamento somente leitura):**
+  - Primária teal `173 64% 26%` (hex **#186E64**, o do favicon); destaque terracota `21 66% 40%` (moderação); texto `222.2 84% 4.9%`; muted `215.4 16.3% 46.9%`; borda `214.3 31.8% 91.4%`; sucesso `142 71% 45%`, atenção `38 92% 50%`, atraso `0 73% 57%`, pendente `210 100% 56%`. Fonte: pilha padrão do Tailwind (nada carregado); logo e og-image em Arial. Raio base 12px (`--radius: 0.75rem`), cartão `shadow-sm`, botão `rounded-md`.
+  - Logo: quadrado arredondado teal com "$" branco (`public/favicon.svg`), só ícone, sem versão escura.
+  - Tom: direto, "sua escola", frases curtas (ex.: "Saiba quanto sua escola realmente ganha, turma por turma."; botões "Conversar com a gente", "Ver cobranças").
+  - O e-mail atual é todo cinza zinc (`#18181b` no botão, `#f4f4f5` de fundo, Arial) e **não usa a marca**.
+- **Dívidas novas:** `public/og-image.png` **não existe** (o `index.html` o referencia; o SVG não serve de preview social); falta um **PNG do logo** em URL pública para o cabeçalho dos e-mails (Gmail/Outlook não renderizam SVG com segurança). `List-Unsubscribe` segue em backlog (ver acima).
+
 ## Setup em outra máquina
 
 ```bash
