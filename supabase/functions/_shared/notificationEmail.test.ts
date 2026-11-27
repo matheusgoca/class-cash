@@ -66,4 +66,50 @@ describe('buildNotificationEmail', () => {
     expect(m.html).not.toContain('<b>X</b>');
     expect(m.html).toContain('Escola &lt;b&gt;X&lt;/b&gt;');
   });
+
+  // Layout (Gmail desktop mostrava o cartão deslocado à direita com faixa cinza à esquerda): regras de compatibilidade.
+  describe('layout compatível com clientes de e-mail', () => {
+    const html = () => buildNotificationEmail(
+      { event: 'tuition_overdue', reference_date: '2031-03-10', offset_days: 5, item_count: 3, total_amount: 100, details: { class_count: 1 } } as never,
+      { appUrl: 'https://app.exemplo.com.br', schoolName: 'Escola Exemplo' },
+    ).html;
+    const tags = (h: string, name: string) => h.match(new RegExp(String.raw`<${name}[^>]*>`, 'g')) ?? [];
+
+    it('nenhum <table> usa padding no estilo (padding de table soma à largura de 100% e desloca o cartão)', () => {
+      const tables = tags(html(), 'table');
+      expect(tables.length).toBeGreaterThanOrEqual(3); // não vazio: externa, cartão e conteúdo
+      for (const t of tables) expect(t.replace(/cellpadding="\d+"/g, '')).not.toMatch(/padding/i);
+    });
+
+    it('o cartão é uma tabela centralizada de largura limitada: width fixo no atributo (Outlook), fluida e max-width no estilo (Gmail e celular), align center e margin auto', () => {
+      const card = tags(html(), 'table').filter((t) => /max-width:\s*560px/.test(t));
+      expect(card).toHaveLength(1);
+      expect(card[0]).toContain('width="560"');
+      expect(card[0]).toContain('align="center"');
+      expect(card[0]).toMatch(/width:\s*100%/);
+      expect(card[0]).toMatch(/margin:\s*0 auto/);
+    });
+
+    it('a tabela externa preenche a largura toda com o fundo cinza e centraliza o cartão no td (com o padding no td)', () => {
+      const h = html();
+      const outer = tags(h, 'table')[0];
+      expect(outer).toContain('width="100%"');
+      expect(outer).toMatch(/background:\s*#f4f4f5/);
+      expect(h).toMatch(/<td align="center" style="[^"]*padding:\s*24px 12px/);
+    });
+
+    it('tem fundo declarado também por atributo (bgcolor) e o meta viewport', () => {
+      const h = html();
+      expect(h).toContain('bgcolor="#f4f4f5"');
+      expect(h).toContain('bgcolor="#ffffff"');
+      expect(h).toContain('name="viewport"');
+    });
+
+    it('o conteúdo não perdeu nada: título, botão e rodapé continuam no HTML', () => {
+      const h = html();
+      expect(h).toContain('Ver cobranças');
+      expect(h).toContain('Ajustar preferências');
+      expect(h).toContain('Escola Exemplo');
+    });
+  });
 });
