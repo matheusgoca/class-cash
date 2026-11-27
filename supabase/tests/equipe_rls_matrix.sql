@@ -126,7 +126,7 @@ begin
   perform pg_temp.rec(d, 'E8 admin Pensar: remove papel de usuário da Teste', pg_temp.run_w(pa::uuid,'aal1','delete from public.user_roles where user_id='''||a1||''''), 'BLOQ');
   perform pg_temp.rec(d, 'E9 admin Pensar: edita perfil da Teste', pg_temp.run_w(pa::uuid,'aal1','update public.profiles set full_name=''x'' where school_id='''||tst||''''), 'BLOQ');
   perform pg_temp.rec(d, 'E10 admin Pensar: remove perfil da Teste', pg_temp.run_w(pa::uuid,'aal1','delete from public.profiles where school_id='''||tst||''''), 'BLOQ');
-  perform pg_temp.rec(d, 'E11 admin Pensar: altera convite da Teste (bloqueado: a policy de UPDATE consulta auth.users)', pg_temp.run_w(pa::uuid,'aal1','update public.invitations set status=''expired'' where school_id='''||tst||''''), 'ERR:42501');
+  perform pg_temp.rec(d, 'E11 admin Pensar: altera convite da Teste (bloqueado)', pg_temp.run_w(pa::uuid,'aal1','update public.invitations set status=''expired'' where school_id='''||tst||''''), 'ERR:42501');
   perform pg_temp.rec(d, 'E12 admin Pensar: remove convite da Teste', pg_temp.run_w(pa::uuid,'aal1','delete from public.invitations where school_id='''||tst||''''), 'BLOQ');
   perform pg_temp.rec(d, 'E13 admin Pensar: cria convite na Teste', pg_temp.run_w(pa::uuid,'aal1','insert into public.invitations (email, role, school_id, status) values (''z@z.com'',''admin'','''||tst||''',''pending'')'), 'ERR:42501');
   perform pg_temp.rec(d, 'E14 admin Pensar: altera o próprio school_id', pg_temp.run_w(pa::uuid,'aal1','update public.profiles set school_id='''||tst||''' where user_id='''||pa||''''), 'BLOQ');
