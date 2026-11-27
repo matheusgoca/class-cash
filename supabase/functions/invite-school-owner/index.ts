@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { authRedirectUrl } from "../_shared/appUrl.ts";
 
 // Só a origem real do app — nunca "*". Cada função já valida o Bearer token
 // internamente, mas CORS aberto facilita phishing/cópia do endpoint por site
@@ -104,7 +105,7 @@ serve(async (req) => {
 
     // Embed school data in invite metadata — Onboarding will auto-create the school on first login
     const { error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-      redirectTo: "https://class-cash-tan.vercel.app/auth",
+      redirectTo: authRedirectUrl(Deno.env.get("APP_URL")),
       data: {
         pending_school_name: school_name,
         pending_school_segments: segments,
