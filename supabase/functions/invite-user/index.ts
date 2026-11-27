@@ -6,6 +6,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // de terceiro.
 const ALLOWED_ORIGINS = [
   "https://class-cash-tan.vercel.app",
+  "https://app.classcash.com.br",
   "http://localhost:8080",
   "http://localhost:8081",
 ];
