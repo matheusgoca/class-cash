@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { getFriendlyErrorMessage } from "@/lib/friendlyError";
+import { callEdgeFunction, callInviteFunction } from "@/lib/edgeFunctionCall";
 import { UserPlus, Users, RefreshCw, Mail, Pencil, Trash2 } from "lucide-react";
 import { MfaRecoveryButton } from "@/components/settings/MfaRecoveryButton";
 import { format } from "date-fns";
@@ -49,21 +50,6 @@ const roleBadge = (role: string) => {
     default:          return <Badge variant="secondary">{role}</Badge>;
   }
 };
-
-async function callInviteFunction(payload: object, accessToken: string) {
-  return fetch(
-    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/invite-user`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${accessToken}`,
-        "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-      },
-      body: JSON.stringify(payload),
-    }
-  );
-}
 
 export default function Team() {
   const { toast } = useToast();
@@ -166,46 +152,56 @@ export default function Team() {
   const handleInvite = async () => {
     if (!inviteEmail || !schoolId) return;
     setSubmitting(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    const res = await callInviteFunction(
-      { email: inviteEmail, role: inviteRole, school_id: schoolId },
-      session?.access_token ?? ""
-    );
-    const json = await res.json();
-    if (!res.ok) {
-      toast({ title: "Erro", description: json.error, variant: "destructive" });
-    } else {
-      toast({ title: "Convite enviado!", description: `Email enviado para ${inviteEmail}.` });
-      closeModal();
-      fetchInvitations();
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await callInviteFunction(
+        "invite-user",
+        { email: inviteEmail, role: inviteRole, school_id: schoolId },
+        session?.access_token ?? ""
+      );
+      if (!res.ok) {
+        toast({ title: "Erro", description: res.message, variant: "destructive" });
+      } else {
+        toast({ title: "Convite enviado!", description: `Email enviado para ${inviteEmail}.` });
+        closeModal();
+        fetchInvitations();
+      }
+    } catch {
+      toast({ title: "Erro", description: "Não foi possível enviar o convite. Tente novamente.", variant: "destructive" });
+    } finally {
+      setSubmitting(false);
     }
-    setSubmitting(false);
   };
 
   // ── Reenviar convite ──────────────────────────────────────────
   const handleResend = async (invite: Invitation) => {
     setResending(invite.id);
-    // Deleta convite antigo antes de tentar reenviar
-    await (supabase as any).from("invitations").delete().eq("id", invite.id);
-    const { data: { session } } = await supabase.auth.getSession();
-    const res = await callInviteFunction(
-      { email: invite.email, role: invite.role, school_id: schoolId },
-      session?.access_token ?? ""
-    );
-    const json = await res.json();
+    try {
+      // Deleta convite antigo antes de tentar reenviar
+      await (supabase as any).from("invitations").delete().eq("id", invite.id);
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await callInviteFunction(
+        "invite-user",
+        { email: invite.email, role: invite.role, school_id: schoolId },
+        session?.access_token ?? ""
+      );
 
-    if (!res.ok) {
-      if (json.error === "user_exists") {
-        toast({ title: "Usuário já possui conta", description: json.message });
-        fetchInvitations();
+      if (!res.ok) {
+        if (res.code === "user_exists") {
+          toast({ title: "Usuário já possui conta", description: res.message });
+        } else {
+          toast({ title: "Erro ao reenviar", description: res.message, variant: "destructive" });
+        }
       } else {
-        toast({ title: "Erro ao reenviar", description: json.error, variant: "destructive" });
+        toast({ title: "Convite reenviado!", description: `Novo link enviado para ${invite.email}.` });
       }
-    } else {
-      toast({ title: "Convite reenviado!", description: `Novo link enviado para ${invite.email}.` });
+    } catch {
+      toast({ title: "Erro ao reenviar", description: "Não foi possível reenviar o convite. Tente novamente.", variant: "destructive" });
+    } finally {
+      // o convite antigo foi apagado acima: recarrega a lista em qualquer desfecho
       fetchInvitations();
+      setResending(null);
     }
-    setResending(null);
   };
 
   // ── Editar role ───────────────────────────────────────────────
@@ -246,30 +242,25 @@ export default function Team() {
   const handleRemove = async () => {
     if (!selectedMember || !schoolId) return;
     setSubmitting(true);
-
-    const { data: { session } } = await supabase.auth.getSession();
-    const res = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/remove-user`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session?.access_token}`,
-          "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        },
-        body: JSON.stringify({ user_id: selectedMember.user_id, school_id: schoolId }),
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await callEdgeFunction(
+        "remove-user",
+        { user_id: selectedMember.user_id, school_id: schoolId },
+        session?.access_token ?? ""
+      );
+      if (!res.ok) {
+        toast({ title: "Erro", description: res.message, variant: "destructive" });
+      } else {
+        toast({ title: "Usuário removido", description: `${selectedMember.full_name} foi excluído do sistema.` });
+        closeModal();
+        fetchMembers();
       }
-    );
-
-    const json = await res.json();
-    if (!res.ok) {
-      toast({ title: "Erro", description: json.error, variant: "destructive" });
-    } else {
-      toast({ title: "Usuário removido", description: `${selectedMember.full_name} foi excluído do sistema.` });
-      closeModal();
-      fetchMembers();
+    } catch {
+      toast({ title: "Erro", description: "Não foi possível remover o usuário. Tente novamente.", variant: "destructive" });
+    } finally {
+      setSubmitting(false);
     }
-    setSubmitting(false);
   };
 
   const fmt = (d: string) => format(new Date(d), "dd/MM/yyyy", { locale: ptBR });
