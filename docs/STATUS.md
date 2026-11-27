@@ -205,3 +205,10 @@ npm install
 - Escrita em produção (`db push`, DML, deploy de Edge Function) só com autorização explícita, mostrando o `--dry-run` antes.
 - Recarregar a página perde a escola que o master está visualizando (volta ao `/master`) — comportamento antigo; navegar pela interface.
 - Master admin precisa de 2FA sempre (Fase 3). Recuperação do master: remover o fator no painel do Supabase (ver `CLAUDE.md`).
+
+## Endurecimento de RLS e remoção de membros (27/11)
+
+- Migration `20261127200000`: triggers em `profiles` e `user_roles` (o cliente não altera `is_master_admin`, `user_id` nem `school_id` já definido; o owner não perde o admin; a escola não fica sem admin). Não afetam service role, funções `SECURITY DEFINER` nem cascatas. Reversão: `docs/db/reversao_endurecimento_rls_profiles_user_roles.sql`.
+- Migration `20261127210000`: o admin vê perfis e papéis dos colegas da própria escola (tela Equipe), sem o perfil master e respeitando o gate de 2FA. Reversão: `docs/db/reversao_equipe_rls_admin_ve_colegas.sql`.
+- `remove-user`: a autorização usa a escola do perfil do alvo (`supabase/functions/remove-user/authz.ts`), nega alvo master, owner, o próprio usuário e o último admin, e exige aal2 quando a escola exige 2FA.
+- Matrizes: `supabase/tests/hardening_profiles_roles_matrix.sql` e `supabase/tests/equipe_rls_matrix.sql`; snapshot das políticas anteriores em `docs/db/`. Dívida: o histórico de migrations não reflete as políticas RLS das demais tabelas (drift).

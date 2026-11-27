@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { jwtAal } from "../reset-user-mfa/authz.ts";
+import { authorizeRemoval } from "./authz.ts";
 
 // Só a origem real do app — nunca "*". Cada função já valida o Bearer token
 // internamente, mas CORS aberto facilita phishing/cópia do endpoint por site
@@ -20,18 +22,20 @@ function buildCorsHeaders(req: Request) {
   };
 }
 
+// Remove um membro (papel, perfil e conta). A decisão de QUEM pode remover QUEM está em authz.ts (coberta por
+// testes) e usa SEMPRE a escola do perfil do alvo — o school_id do corpo só é conferido, nunca decide.
 serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  const fail = (error: string, status: number) => Response.json({ error }, { status, headers: corsHeaders });
 
   try {
-    const { user_id, school_id } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const userId: unknown = body?.user_id;
+    const claimedSchoolId: unknown = body?.school_id;
 
-    if (!user_id || !school_id) {
-      return Response.json(
-        { error: "user_id e school_id são obrigatórios" },
-        { status: 400, headers: corsHeaders }
-      );
+    if (typeof userId !== "string" || userId.length === 0) {
+      return fail("user_id é obrigatório", 400);
     }
 
     const supabaseAdmin = createClient(
@@ -42,38 +46,17 @@ serve(async (req) => {
 
     // Verifica quem está chamando
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return Response.json({ error: "Não autorizado" }, { status: 401, headers: corsHeaders });
-    }
+    if (!authHeader) return fail("Não autorizado", 401);
 
     const token = authHeader.replace("Bearer ", "");
     const { data: { user: caller }, error: authError } = await supabaseAdmin.auth.getUser(token);
-    if (authError || !caller) {
-      return Response.json({ error: "Não autorizado" }, { status: 401, headers: corsHeaders });
-    }
+    if (authError || !caller) return fail("Não autorizado", 401);
 
-    // Não pode remover a si mesmo
-    if (caller.id === user_id) {
-      return Response.json({ error: "Você não pode remover a si mesmo." }, { status: 403, headers: corsHeaders });
-    }
-
-    // Verifica se o alvo é o owner da escola
-    const { data: school } = await supabaseAdmin
-      .from("schools")
-      .select("owner_user_id")
-      .eq("id", school_id)
-      .single();
-
-    if (school?.owner_user_id === user_id) {
-      return Response.json({ error: "O owner da escola não pode ser removido." }, { status: 403, headers: corsHeaders });
-    }
-
-    // Verifica que quem chama é admin, owner da escola, ou master admin
     const { data: callerProfile } = await supabaseAdmin
       .from("profiles")
       .select("school_id, is_master_admin")
       .eq("user_id", caller.id)
-      .single();
+      .maybeSingle();
 
     const { data: callerRole } = await supabaseAdmin
       .from("user_roles")
@@ -82,34 +65,78 @@ serve(async (req) => {
       .eq("role", "admin")
       .maybeSingle();
 
-    const isMasterAdmin = !!callerProfile?.is_master_admin;
-    const isOwner = school?.owner_user_id === caller.id;
-    const isAdmin = !!callerRole && callerProfile?.school_id === school_id;
+    // Alvo: a escola vem do PERFIL DELE, nunca do corpo da requisição.
+    const { data: targetProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("school_id, is_master_admin")
+      .eq("user_id", userId)
+      .maybeSingle();
 
-    if (!isMasterAdmin && !isOwner && !isAdmin) {
-      return Response.json(
-        { error: "Apenas admins podem remover membros." },
-        { status: 403, headers: corsHeaders }
-      );
+    if (typeof claimedSchoolId === "string" && targetProfile && targetProfile.school_id !== claimedSchoolId) {
+      return fail("O usuário não pertence à escola informada.", 400);
     }
 
+    const { data: targetRole } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle();
+
+    const { data: school } = targetProfile?.school_id
+      ? await supabaseAdmin.from("schools").select("owner_user_id, require_2fa").eq("id", targetProfile.school_id).maybeSingle()
+      : { data: null };
+
+    // Quantos OUTROS admins a escola do alvo tem
+    let otherAdmins = 0;
+    if (targetProfile?.school_id) {
+      const { data: colleagues } = await supabaseAdmin
+        .from("profiles")
+        .select("user_id")
+        .eq("school_id", targetProfile.school_id)
+        .neq("user_id", userId);
+      const ids = (colleagues ?? []).map((c: { user_id: string }) => c.user_id);
+      if (ids.length > 0) {
+        const { count } = await supabaseAdmin
+          .from("user_roles")
+          .select("user_id", { count: "exact", head: true })
+          .in("user_id", ids)
+          .eq("role", "admin");
+        otherAdmins = count ?? 0;
+      }
+    }
+
+    const decision = authorizeRemoval({
+      callerId: caller.id,
+      targetId: userId,
+      callerAal: jwtAal(token),
+      caller: {
+        isMaster: !!callerProfile?.is_master_admin,
+        schoolId: callerProfile?.school_id ?? null,
+        isAdminRole: !!callerRole,
+      },
+      target: targetProfile
+        ? { schoolId: targetProfile.school_id ?? null, isMaster: !!targetProfile.is_master_admin, isAdminRole: !!targetRole }
+        : null,
+      school: school ? { ownerUserId: school.owner_user_id ?? null, require2fa: !!school.require_2fa } : null,
+      otherAdmins,
+    });
+    if (!decision.ok) return fail(decision.error, decision.status);
+
     // 1. Remove roles
-    await supabaseAdmin.from("user_roles").delete().eq("user_id", user_id);
+    await supabaseAdmin.from("user_roles").delete().eq("user_id", userId);
 
     // 2. Remove profile
-    await supabaseAdmin.from("profiles").delete().eq("user_id", user_id);
+    await supabaseAdmin.from("profiles").delete().eq("user_id", userId);
 
     // 3. Deleta do Auth
-    const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user_id);
+    const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
     if (deleteError) throw deleteError;
 
     return Response.json({ success: true }, { headers: corsHeaders });
-
-  } catch (err: any) {
-    console.error("remove-user error:", err);
-    return Response.json(
-      { error: err.message ?? "Erro interno" },
-      { status: 500, headers: corsHeaders }
-    );
+  } catch (err) {
+    // Nunca devolver nem logar corpo/tokens; só o código do erro.
+    console.error("remove-user error:", (err as { code?: string })?.code ?? "erro");
+    return fail("Erro interno ao remover o usuário.", 500);
   }
 });
