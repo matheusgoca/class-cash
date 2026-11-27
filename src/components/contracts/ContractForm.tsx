@@ -91,12 +91,14 @@ export function ContractForm({ contract, onSubmit, onCancel }: ContractFormProps
   });
 
   const watchStartDate    = watch("start_date");
-  const watchMonthly      = watch("monthly_amount") ?? 0;
-  const watchDiscount     = watch("discount") ?? 0;
+  // Campo vazio ou inválido chega como NaN (valueAsNumber): trata como 0 para a prévia nunca mostrar "R$ NaN".
+  const finiteOrZero      = (n: unknown) => (typeof n === "number" && Number.isFinite(n) ? n : 0);
+  const watchMonthly      = finiteOrZero(watch("monthly_amount"));
+  const watchDiscount     = finiteOrZero(watch("discount"));
   const previewFinalValue = watchMonthly * (1 - watchDiscount / 100);
 
   const fmt = (v: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number.isFinite(Number(v)) ? v : 0);
 
   useEffect(() => {
     fetchStudents();
