@@ -170,6 +170,12 @@ Nada disso bloqueia o cadastro real do Pensar (os bloqueios viraram os blocos B,
   - O e-mail atual é todo cinza zinc (`#18181b` no botão, `#f4f4f5` de fundo, Arial) e **não usa a marca**.
 - **Dívidas novas:** `public/og-image.png` **não existe** (o `index.html` o referencia; o SVG não serve de preview social); falta um **PNG do logo** em URL pública para o cabeçalho dos e-mails (Gmail/Outlook não renderizam SVG com segurança). `List-Unsubscribe` segue em backlog (ver acima).
 
+## Domínio único do app e convites (27/11)
+- **Causa do convite travado em "Enviando":** o app foi aberto em `classcash.com.br/equipe`; essa origem não está no CORS das Edge Functions (de propósito), o navegador bloqueou o POST e o front, sem `catch`, ficou parado.
+- **Regra:** em `classcash.com.br` e `www.classcash.com.br`, só `/`, `/privacidade` e `/termos` ficam na LP; qualquer outra rota vai para `https://app.classcash.com.br` com o mesmo caminho, query e hash (`HostGate`, `appRedirectTarget` em `src/lib/hostRouting.ts`). Previews, localhost e os hosts do app não mudam. `classcash.com.br` **não** entra no CORS.
+- **Chamadas às funções:** `src/lib/edgeFunctionCall.ts` (timeout de 30 s e erro de rede com mensagem em português); `invite-user` e `invite-school-owner` registram a chegada (método e origem), o início e o resultado do `inviteUserByEmail` (status, duração, só o domínio do e-mail), esperam no máximo 20 s e respondem 504 `invite_timeout`.
+- **Ainda aberto:** o SMTP padrão do Auth (limite baixo e só para membros da organização): configurar SMTP próprio (Resend) em Authentication, SMTP Settings.
+
 ## Setup em outra máquina
 
 ```bash
