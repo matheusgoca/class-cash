@@ -1,6 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authRedirectUrl } from "../_shared/appUrl.ts";
+import {
+  INVITE_TIMEOUT_CODE, INVITE_TIMEOUT_MESSAGE, INVITE_TIMEOUT_MS,
+  logInviteResult, logInviteStart, logRequest, makeReply, timeoutFetch,
+} from "../_shared/inviteGuard.ts";
 
 // Só a origem real do app — nunca "*". Cada função já valida o Bearer token
 // internamente, mas CORS aberto facilita phishing/cópia do endpoint por site
@@ -22,17 +26,18 @@ function buildCorsHeaders(req: Request) {
 }
 
 serve(async (req) => {
+  // Primeira coisa: registra a chegada (método e origem; sem e-mail, sem token).
+  logRequest("invite-school-owner", req, ALLOWED_ORIGINS);
   const corsHeaders = buildCorsHeaders(req);
+  // Toda resposta passa por reply: CORS correto e o status devolvido fica no log.
+  const reply = makeReply("invite-school-owner", corsHeaders);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
     const { email, school_name, segments, plan } = await req.json();
 
     if (!email || !school_name || !Array.isArray(segments) || segments.length === 0) {
-      return Response.json(
-        { error: "email, school_name e segments são obrigatórios" },
-        { status: 400, headers: corsHeaders },
-      );
+      return reply({ error: "email, school_name e segments são obrigatórios" }, 400);
     }
 
     const supabaseAdmin = createClient(
@@ -44,13 +49,13 @@ serve(async (req) => {
     // Validate caller is master admin
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return Response.json({ error: "Não autorizado" }, { status: 401, headers: corsHeaders });
+      return reply({ error: "Não autorizado" }, 401);
     }
 
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
     if (authError || !user) {
-      return Response.json({ error: "Não autorizado" }, { status: 401, headers: corsHeaders });
+      return reply({ error: "Não autorizado" }, 401);
     }
 
     const { data: profile } = await supabaseAdmin
@@ -60,10 +65,7 @@ serve(async (req) => {
       .single();
 
     if (!profile?.is_master_admin) {
-      return Response.json(
-        { error: "Apenas master admin pode convidar donos de escola" },
-        { status: 403, headers: corsHeaders },
-      );
+      return reply({ error: "Apenas master admin pode convidar donos de escola" }, 403);
     }
 
     // Verifica se o email já existe em auth.users ANTES de tentar o convite
@@ -81,10 +83,7 @@ serve(async (req) => {
         .eq("role", "owner")
         .eq("status", "pending");
 
-      return Response.json(
-        { error: "user_exists", message: "Este e-mail já possui conta no Class Cash." },
-        { status: 409, headers: corsHeaders },
-      );
+      return reply({ error: "user_exists", message: "Este e-mail já possui conta no Class Cash." }, 409);
     }
 
     // Convite de dono já pendente para esse email?
@@ -97,14 +96,20 @@ serve(async (req) => {
       .maybeSingle();
 
     if (existingInvite) {
-      return Response.json(
-        { error: "invite_pending", message: "Já existe um convite pendente para este e-mail." },
-        { status: 409, headers: corsHeaders },
-      );
+      return reply({ error: "invite_pending", message: "Já existe um convite pendente para este e-mail." }, 409);
     }
 
-    // Embed school data in invite metadata — Onboarding will auto-create the school on first login
-    const { error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+    // Embed school data in invite metadata — Onboarding will auto-create the school on first login.
+    // Cliente dedicado com prazo de 20 s: se o SMTP do Auth pendurar, cancela a requisição e responde 504.
+    const guard = timeoutFetch(INVITE_TIMEOUT_MS);
+    const inviteClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      { auth: { autoRefreshToken: false, persistSession: false }, global: { fetch: guard.fetch } },
+    );
+    logInviteStart("invite-school-owner", email);
+    const inviteStartedAt = Date.now();
+    const { error: inviteError } = await inviteClient.auth.admin.inviteUserByEmail(email, {
       redirectTo: authRedirectUrl(Deno.env.get("APP_URL")),
       data: {
         pending_school_name: school_name,
@@ -112,10 +117,22 @@ serve(async (req) => {
         pending_school_plan: plan ?? "starter",
       },
     });
+    const inviteMs = Date.now() - inviteStartedAt;
+
+    if (guard.timedOut()) {
+      logInviteResult("invite-school-owner", { email, ok: false, status: 504, ms: inviteMs, timeout: true });
+      return reply({ error: INVITE_TIMEOUT_CODE, message: INVITE_TIMEOUT_MESSAGE }, 504);
+    }
 
     if (inviteError) {
-      return Response.json({ error: inviteError.message }, { status: 400, headers: corsHeaders });
+      const authErr = inviteError as { status?: number; code?: string; name: string };
+      logInviteResult("invite-school-owner", {
+        email, ok: false, status: authErr.status ?? 400, ms: inviteMs,
+        codigo: authErr.code ?? authErr.name,
+      });
+      return reply({ error: inviteError.message }, 400);
     }
+    logInviteResult("invite-school-owner", { email, ok: true, status: 200, ms: inviteMs });
 
     // Registra o convite para o Painel Master poder ver/reenviar
     const { error: insertError } = await supabaseAdmin
@@ -133,12 +150,9 @@ serve(async (req) => {
 
     if (insertError) throw insertError;
 
-    return Response.json({ success: true }, { headers: corsHeaders });
+    return reply({ success: true });
   } catch (err: any) {
     console.error("invite-school-owner error:", err);
-    return Response.json(
-      { error: err.message ?? "Erro interno" },
-      { status: 500, headers: corsHeaders },
-    );
+    return reply({ error: err.message ?? "Erro interno" }, 500);
   }
 });
