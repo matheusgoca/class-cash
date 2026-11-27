@@ -89,7 +89,7 @@ export function RenegotiationModal({
   const totalRenegotiated = parsedInstallmentAmount * parsedInstallments;
 
   const formatCurrency = (v: number) =>
-    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number.isFinite(Number(v)) ? v : 0);
 
   const errors: string[] = [];
   if (parsedInstallmentAmount <= 0) errors.push("Informe o valor por parcela.");

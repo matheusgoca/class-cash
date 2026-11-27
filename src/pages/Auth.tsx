@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -27,15 +26,11 @@ const Auth = () => {
   const flowKind = useRef<'invite' | 'recovery' | null>(null);
   // Toggle de visibilidade de senha
   const [showSignInPwd, setShowSignInPwd]   = useState(false);
-  const [showSignUpPwd, setShowSignUpPwd]   = useState(false);
   const [showNewPwd, setShowNewPwd]         = useState(false);
   const [showConfirmPwd, setShowConfirmPwd] = useState(false);
 
-  const { signIn, signUp, user } = useAuth();
+  const { signIn, user } = useAuth();
   const navigate = useNavigate();
-
-  // Abre direto na aba de cadastro quando vem de um CTA "criar conta" (?mode=signup)
-  const initialTab = new URLSearchParams(window.location.search).get('mode') === 'signup' ? 'signup' : 'signin';
 
   // Detecta type=invite ou type=recovery no hash — guarda tokens e mostra
   // formulário de nova senha SEM criar sessão ainda
@@ -159,22 +154,6 @@ const Auth = () => {
     );
     if (error) setError(getFriendlyErrorMessage(error));
     else navigate('/');
-    setLoading(false);
-  };
-
-  const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    setSuccess(null);
-    const formData = new FormData(e.currentTarget);
-    const { error } = await signUp(
-      formData.get('email') as string,
-      formData.get('password') as string,
-      formData.get('fullName') as string,
-    );
-    if (error) setError(getFriendlyErrorMessage(error));
-    else setSuccess('Conta criada com sucesso! Verifique seu email para confirmar.');
     setLoading(false);
   };
 
@@ -360,90 +339,51 @@ const Auth = () => {
           {mobileLogo}
           <div>
             <h2 className="text-2xl font-bold tracking-tight">Acesso ao sistema</h2>
-            <p className="text-muted-foreground mt-1">Entre com sua conta ou crie uma nova</p>
+            <p className="text-muted-foreground mt-1">Entre com sua conta</p>
           </div>
-          <Tabs defaultValue={initialTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="signin">Entrar</TabsTrigger>
-              <TabsTrigger value="signup">Cadastrar</TabsTrigger>
-            </TabsList>
-            <TabsContent value="signin">
-              <form onSubmit={handleSignIn} className="space-y-4 mt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signin-email">Email</Label>
-                  <Input id="signin-email" name="email" type="email" placeholder="seu@email.com" required disabled={loading} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signin-password">Senha</Label>
-                  <div className="relative">
-                    <Input
-                      id="signin-password"
-                      name="password"
-                      type={showSignInPwd ? 'text' : 'password'}
-                      placeholder="Sua senha"
-                      required
-                      disabled={loading}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowSignInPwd(!showSignInPwd)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      tabIndex={-1}
-                    >
-                      {showSignInPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? 'Entrando...' : 'Entrar'}
-                </Button>
+          <form onSubmit={handleSignIn} className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label htmlFor="signin-email">Email</Label>
+              <Input id="signin-email" name="email" type="email" placeholder="seu@email.com" required disabled={loading} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="signin-password">Senha</Label>
+              <div className="relative">
+                <Input
+                  id="signin-password"
+                  name="password"
+                  type={showSignInPwd ? 'text' : 'password'}
+                  placeholder="Sua senha"
+                  required
+                  disabled={loading}
+                />
                 <button
                   type="button"
-                  className="w-full text-sm text-muted-foreground hover:text-foreground text-center"
-                  onClick={() => { setView('forgot'); setError(null); setSuccess(null); }}
+                  onClick={() => setShowSignInPwd(!showSignInPwd)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
                 >
-                  Esqueci minha senha
+                  {showSignInPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
-              </form>
-            </TabsContent>
-            <TabsContent value="signup">
-              <form onSubmit={handleSignUp} className="space-y-4 mt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signup-name">Nome Completo</Label>
-                  <Input id="signup-name" name="fullName" type="text" placeholder="Seu nome completo" required disabled={loading} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
-                  <Input id="signup-email" name="email" type="email" placeholder="seu@email.com" required disabled={loading} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password">Senha</Label>
-                  <div className="relative">
-                    <Input
-                      id="signup-password"
-                      name="password"
-                      type={showSignUpPwd ? 'text' : 'password'}
-                      placeholder="Crie uma senha (mín. 6 caracteres)"
-                      required
-                      disabled={loading}
-                      minLength={6}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowSignUpPwd(!showSignUpPwd)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      tabIndex={-1}
-                    >
-                      {showSignUpPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? 'Criando conta...' : 'Criar conta'}
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
+              </div>
+            </div>
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? 'Entrando...' : 'Entrar'}
+            </Button>
+            <button
+              type="button"
+              className="w-full text-sm text-muted-foreground hover:text-foreground text-center"
+              onClick={() => { setView('forgot'); setError(null); setSuccess(null); }}
+            >
+              Esqueci minha senha
+            </button>
+          </form>
+          <p className="text-center text-xs text-muted-foreground">
+            Acesso por convite. Precisa de acesso?{' '}
+            <a href="mailto:contato@classcash.com.br" className="underline underline-offset-2 hover:text-foreground">
+              contato@classcash.com.br
+            </a>
+          </p>
           {error && (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>

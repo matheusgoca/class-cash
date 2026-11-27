@@ -88,7 +88,7 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
       currency: "BRL",
-    }).format(value);
+    }).format(Number.isFinite(Number(value)) ? value : 0);
   };
 
   // Parse YYYY-MM-DD as local time to avoid UTC offset shifting the day
@@ -146,7 +146,7 @@ export function TuitionTable({ data, loading, onEdit, onRefresh, onRenegotiate, 
           const r = tuition.renegotiations;
           const dateLabel = format(new Date(r.created_at), "dd/MM/yyyy", { locale: ptBR });
           const fmtCurrency = (v: number) =>
-            new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+            new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number.isFinite(Number(v)) ? v : 0);
           return (
             <TooltipProvider>
               <Tooltip>

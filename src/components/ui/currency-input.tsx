@@ -27,7 +27,7 @@ function formatBRL(value: number): string {
 // naturally produces an empty digit string, which maps to `undefined`.
 export const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputProps>(
   ({ value, onChange, className, placeholder, ...props }, ref) => {
-    const displayValue = value === undefined || value === null ? "" : formatBRL(value)
+    const displayValue = value === undefined || value === null || !Number.isFinite(value) ? "" : formatBRL(value)
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const digitsOnly = e.target.value.replace(/\D/g, "")

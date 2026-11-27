@@ -66,7 +66,7 @@ export function ExpenseTable({
   }, [data]);
 
   const formatCurrency = (value: number) =>
-    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
+    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number.isFinite(Number(value)) ? value : 0);
 
   const formatDate = (date: string) => format(parseLocalDate(date), "dd/MM/yyyy", { locale: ptBR });
 
