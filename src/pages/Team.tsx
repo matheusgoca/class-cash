@@ -103,15 +103,14 @@ export default function Team() {
     const roleMap: Record<string, string> = {};
     (roles || []).forEach((r: any) => { roleMap[r.user_id] = r.role; });
 
-    // Exclui só o usuário logado (já sabe que está aqui). O owner aparece na
-    // lista com role "owner" — sempre, mesmo que por algum motivo falte o
+    // O usuário logado aparece na lista (com o selo "Você" e sem ações). O owner
+    // aparece com role "owner" — sempre, mesmo que por algum motivo falte o
     // registro dele em user_roles (não deveria, mas já vimos esse tipo de
     // inconsistência acontecer num convite que falhou parcialmente).
     // Demais membros só aparecem se tiverem role em user_roles.
     setMembers(
       (profiles || [])
-        .filter((p: any) => p.user_id !== user?.id)
-        .filter((p: any) => p.user_id === ownerUserId || roleMap[p.user_id] !== undefined)
+        .filter((p: any) => p.user_id === user?.id || p.user_id === ownerUserId || roleMap[p.user_id] !== undefined)
         .map((p: any) => ({
           user_id: p.user_id,
           full_name: p.full_name || "—",
@@ -294,7 +293,7 @@ export default function Team() {
             </div>
           ) : members.length === 0 ? (
             <p className="text-center py-8 text-muted-foreground">
-              Nenhum membro além de você. Convide alguém!
+              Nenhum membro encontrado.
             </p>
           ) : (
             <div className="rounded-md border overflow-x-auto">
@@ -311,12 +310,17 @@ export default function Team() {
                 <TableBody>
                   {members.map((m) => (
                     <TableRow key={m.user_id}>
-                      <TableCell className="font-medium">{m.full_name}</TableCell>
+                      <TableCell className="font-medium">
+                        <span className="inline-flex items-center gap-2">
+                          {m.full_name}
+                          {m.user_id === user?.id && <Badge variant="outline">Você</Badge>}
+                        </span>
+                      </TableCell>
                       <TableCell>{m.email}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           {roleBadge(m.role)}
-                          {m.role !== "owner" && (
+                          {m.role !== "owner" && m.user_id !== user?.id && (
                             <button
                               onClick={() => openEditRole(m)}
                               className="text-muted-foreground hover:text-foreground transition-colors"
@@ -332,11 +336,13 @@ export default function Team() {
                         <div className="flex items-center gap-1">
                           {/* Recuperação de 2FA vale para todos, inclusive o owner
                               (quem perde o celular precisa de outro admin). */}
-                          <MfaRecoveryButton userId={m.user_id} fullName={m.full_name} />
+                          {m.user_id !== user?.id && (
+                            <MfaRecoveryButton userId={m.user_id} fullName={m.full_name} />
+                          )}
                           {/* Owner não pode ser editado/removido por aqui — é
                               dono da escola (schools.owner_user_id), não um
                               vínculo comum de user_roles. */}
-                          {m.role !== "owner" && (
+                          {m.role !== "owner" && m.user_id !== user?.id && (
                             <Button
                               size="sm"
                               variant="ghost"
@@ -354,6 +360,9 @@ export default function Team() {
                 </TableBody>
               </Table>
             </div>
+          )}
+          {!loadingMembers && members.length === 1 && members[0].user_id === user?.id && (
+            <p className="text-sm text-muted-foreground pt-3">Você é o único membro por enquanto. Convide alguém!</p>
           )}
         </CardContent>
       </Card>
