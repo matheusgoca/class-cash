@@ -24,6 +24,7 @@ import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
 import { RootRoute } from "./components/RootRoute";
+import { HostGate } from "./components/HostGate";
 import NotFound from "./pages/NotFound";
 import AdminSyncTuitions from "./pages/AdminSyncTuitions";
 import MasterAdmin from "./pages/MasterAdmin";
@@ -42,6 +43,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <HostGate>
       <BrowserRouter>
         <ThemeProvider defaultTheme="light" storageKey="lovable-ui-theme">
           <AuthProvider>
@@ -259,6 +261,7 @@ const App = () => (
           </AuthProvider>
         </ThemeProvider>
       </BrowserRouter>
+      </HostGate>
     </TooltipProvider>
   </QueryClientProvider>
 );

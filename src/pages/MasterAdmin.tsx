@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMasterAdmin } from "@/contexts/MasterAdminContext";
 import { useSchool } from "@/contexts/SchoolContext";
 import { getFriendlyErrorMessage } from "@/lib/friendlyError";
+import { callInviteFunction } from "@/lib/edgeFunctionCall";
 import { SchoolEmailSwitch } from "@/components/master/SchoolEmailSwitch";
 
 interface PendingOwnerInvite {
@@ -191,17 +192,19 @@ export default function MasterAdmin() {
     }
     setCreating(true);
     try {
-      const { data, error } = await supabase.functions.invoke('invite-school-owner', {
-        body: {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await callInviteFunction(
+        'invite-school-owner',
+        {
           email:       createForm.ownerEmail.trim().toLowerCase(),
           school_name: createForm.name.trim(),
           segments:    createForm.segments,
           plan:        createForm.plan,
         },
-      });
+        session?.access_token ?? '',
+      );
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.message || data.error);
+      if (!res.ok) throw new Error(res.message);
 
       toast({
         title: 'Convite enviado!',
@@ -224,17 +227,19 @@ export default function MasterAdmin() {
       // à tabela invitations (bypassa o RLS de school_id, que não existe ainda aqui)
       await (supabase as any).from('invitations').delete().eq('id', invite.id);
 
-      const { data, error } = await supabase.functions.invoke('invite-school-owner', {
-        body: {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await callInviteFunction(
+        'invite-school-owner',
+        {
           email:       invite.email,
           school_name: invite.pending_school_name,
           segments:    invite.pending_school_segments ?? [],
           plan:        invite.pending_school_plan,
         },
-      });
+        session?.access_token ?? '',
+      );
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.message || data.error);
+      if (!res.ok) throw new Error(res.message);
 
       toast({ title: 'Convite reenviado!', description: `Novo link enviado para ${invite.email}.` });
       fetchPendingInvites();
