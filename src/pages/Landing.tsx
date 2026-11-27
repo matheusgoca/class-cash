@@ -20,7 +20,7 @@ import {
   X,
 } from "lucide-react";
 
-const CONTACT_MAILTO = "mailto:matheusgoca@gmail.com?subject=Quero%20conhecer%20o%20Class%20Cash";
+const CONTACT_MAILTO = "mailto:contato@classcash.com.br?subject=Quero%20conhecer%20o%20Class%20Cash";
 
 // ─── Navbar ───────────────────────────────────────────────────────────────────
 function Navbar() {
@@ -349,7 +349,7 @@ function Footer() {
       <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-3 text-sm">
         <span>Class Cash · gestão financeira para escolas</span>
         <div className="flex items-center gap-4">
-          <a href="mailto:matheusgoca@gmail.com" className="hover:text-background dark:hover:text-foreground transition-colors">Contato</a>
+          <a href="mailto:contato@classcash.com.br" className="hover:text-background dark:hover:text-foreground transition-colors">Contato</a>
           <Link to="/termos" className="hover:text-background dark:hover:text-foreground transition-colors">Termos</Link>
           <Link to="/privacidade" className="hover:text-background dark:hover:text-foreground transition-colors">Privacidade</Link>
         </div>
