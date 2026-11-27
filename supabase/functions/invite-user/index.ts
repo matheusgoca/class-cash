@@ -1,6 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authRedirectUrl } from "../_shared/appUrl.ts";
+import {
+  INVITE_TIMEOUT_CODE, INVITE_TIMEOUT_MESSAGE, INVITE_TIMEOUT_MS,
+  logInviteResult, logInviteStart, logRequest, makeReply, timeoutFetch,
+} from "../_shared/inviteGuard.ts";
 
 // Só a origem real do app — nunca "*". Cada função já valida o Bearer token
 // internamente, mas CORS aberto facilita phishing/cópia do endpoint por site
@@ -22,20 +26,21 @@ function buildCorsHeaders(req: Request) {
 }
 
 serve(async (req) => {
+  // Primeira coisa: registra a chegada (método e origem; sem e-mail, sem token).
+  logRequest("invite-user", req, ALLOWED_ORIGINS);
   const corsHeaders = buildCorsHeaders(req);
+  // Toda resposta passa por reply: CORS correto e o status devolvido fica no log.
+  const reply = makeReply("invite-user", corsHeaders);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
     const { email, role, school_id } = await req.json();
 
     if (!email || !role || !school_id) {
-      return Response.json(
-        { error: "email, role e school_id são obrigatórios" },
-        { status: 400, headers: corsHeaders }
-      );
+      return reply({ error: "email, role e school_id são obrigatórios" }, 400);
     }
     if (!["admin", "financial"].includes(role)) {
-      return Response.json({ error: "Role inválida" }, { status: 400, headers: corsHeaders });
+      return reply({ error: "Role inválida" }, 400);
     }
 
     const supabaseAdmin = createClient(
@@ -47,14 +52,14 @@ serve(async (req) => {
     // Valida que quem chama é admin ou owner da escola
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return Response.json({ error: "Não autorizado" }, { status: 401, headers: corsHeaders });
+      return reply({ error: "Não autorizado" }, 401);
     }
 
     // Usa o admin client para verificar o JWT do usuário — evita criar segundo client com anon key
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
     if (authError || !user) {
-      return Response.json({ error: "Não autorizado" }, { status: 401, headers: corsHeaders });
+      return reply({ error: "Não autorizado" }, 401);
     }
 
     const { data: profile } = await supabaseAdmin
@@ -84,10 +89,7 @@ serve(async (req) => {
     const isAdmin = !!roleRow && profile?.school_id === school_id;
 
     if (!isMasterAdmin && !isOwner && !isAdmin) {
-      return Response.json(
-        { error: "Apenas admins podem convidar membros" },
-        { status: 403, headers: corsHeaders }
-      );
+      return reply({ error: "Apenas admins podem convidar membros" }, 403);
     }
 
     // Verifica se o email já existe em auth.users ANTES de tentar o convite
@@ -105,9 +107,9 @@ serve(async (req) => {
         .eq("school_id", school_id)
         .eq("status", "pending");
 
-      return Response.json(
+      return reply(
         { error: "user_exists", message: "Este usuário já possui conta. Use 'Adicionar membro existente'." },
-        { status: 409, headers: corsHeaders }
+        409
       );
     }
 
@@ -121,20 +123,38 @@ serve(async (req) => {
       .maybeSingle();
 
     if (existing) {
-      return Response.json(
-        { error: "Já existe um convite pendente para este email" },
-        { status: 409, headers: corsHeaders }
-      );
+      return reply({ error: "Já existe um convite pendente para este email" }, 409);
     }
 
-    // Envia convite via Supabase Auth
-    const { error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+    // Envia convite via Supabase Auth. Cliente dedicado com prazo de 20 s: se o SMTP do Auth pendurar,
+    // a requisição é cancelada e respondemos 504 (antes o front ficava em "Enviando" para sempre).
+    const guard = timeoutFetch(INVITE_TIMEOUT_MS);
+    const inviteClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      { auth: { autoRefreshToken: false, persistSession: false }, global: { fetch: guard.fetch } }
+    );
+    logInviteStart("invite-user", email);
+    const inviteStartedAt = Date.now();
+    const { error: inviteError } = await inviteClient.auth.admin.inviteUserByEmail(email, {
       redirectTo: authRedirectUrl(Deno.env.get("APP_URL")),
     });
+    const inviteMs = Date.now() - inviteStartedAt;
+
+    if (guard.timedOut()) {
+      logInviteResult("invite-user", { email, ok: false, status: 504, ms: inviteMs, timeout: true });
+      return reply({ error: INVITE_TIMEOUT_CODE, message: INVITE_TIMEOUT_MESSAGE }, 504);
+    }
 
     if (inviteError) {
-      return Response.json({ error: inviteError.message }, { status: 400, headers: corsHeaders });
+      const authErr = inviteError as { status?: number; code?: string; name: string };
+      logInviteResult("invite-user", {
+        email, ok: false, status: authErr.status ?? 400, ms: inviteMs,
+        codigo: authErr.code ?? authErr.name,
+      });
+      return reply({ error: inviteError.message }, 400);
     }
+    logInviteResult("invite-user", { email, ok: true, status: 200, ms: inviteMs });
 
     // Registra convite
     const { error: insertError } = await supabaseAdmin
@@ -143,13 +163,10 @@ serve(async (req) => {
 
     if (insertError) throw insertError;
 
-    return Response.json({ success: true }, { headers: corsHeaders });
+    return reply({ success: true });
 
   } catch (err: any) {
     console.error("invite-user error:", err);
-    return Response.json(
-      { error: err.message ?? "Erro interno" },
-      { status: 500, headers: corsHeaders }
-    );
+    return reply({ error: err.message ?? "Erro interno" }, 500);
   }
 });
