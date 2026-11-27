@@ -8,7 +8,7 @@ import { buildSendBody, errorMessage, isSendingEnabled, jobAuthorized, mayShip, 
 
 const BATCH = 40;
 const PAUSE_MS = 600; // limite do Resend: 2 requisições por segundo
-const DEFAULT_APP_URL = "https://class-cash-tan.vercel.app";
+const DEFAULT_APP_URL = "https://app.classcash.com.br";
 
 type RpcResult = { data: unknown; error: unknown };
 export interface SupabaseLike {
