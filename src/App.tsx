@@ -2,17 +2,15 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { MasterAdminProvider } from "./contexts/MasterAdminContext";
-import { useMasterAdmin } from "./contexts/MasterAdminContext";
 import { SchoolProvider } from "./contexts/SchoolContext";
 import { MfaGateProvider } from "./contexts/MfaGateContext";
 import { ThemeProvider } from "./contexts/ThemeProvider";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Renewal from "./pages/Renewal";
 import { Layout } from "@/components/layout/Layout";
-import { useAuth } from "./contexts/AuthContext";
 import Index from "./pages/Index";
 import Students from "./pages/Students";
 import Teachers from "./pages/Teachers";
@@ -25,7 +23,7 @@ import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
-import Landing from "./pages/Landing";
+import { RootRoute } from "./components/RootRoute";
 import NotFound from "./pages/NotFound";
 import AdminSyncTuitions from "./pages/AdminSyncTuitions";
 import MasterAdmin from "./pages/MasterAdmin";
@@ -38,15 +36,6 @@ import NotificationPreferences from "./pages/NotificationPreferences";
 import { PrivacyPolicy, TermsOfUse } from "./pages/Legal";
 
 const queryClient = new QueryClient();
-
-// Rota raiz: landing para visitantes, /master para master admin, /dashboard para demais
-function RootRoute() {
-  const { user, loading } = useAuth();
-  const { isMasterAdmin } = useMasterAdmin();
-  if (loading) return null;
-  if (user) return <Navigate to={isMasterAdmin ? "/master" : "/dashboard"} replace />;
-  return <Landing />;
-}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
