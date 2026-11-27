@@ -72,7 +72,7 @@ serve(async (req) => {
     // school_id — isso dava match pra qualquer membro da escola, não só o owner)
     const { data: targetSchool } = await supabaseAdmin
       .from("schools")
-      .select("owner_user_id")
+      .select("owner_user_id, name")
       .eq("id", school_id)
       .single();
 
@@ -138,6 +138,8 @@ serve(async (req) => {
     const inviteStartedAt = Date.now();
     const { error: inviteError } = await inviteClient.auth.admin.inviteUserByEmail(email, {
       redirectTo: authRedirectUrl(Deno.env.get("APP_URL")),
+      // Só o nome da escola (usado pelo template do convite); nada de dados pessoais.
+      data: { school_name: targetSchool?.name ?? "" },
     });
     const inviteMs = Date.now() - inviteStartedAt;
 

@@ -151,6 +151,8 @@ describe('as duas funções de convite usam o guarda em todo caminho', () => {
       // log do início e do resultado do convite
       expect(s).toContain(`logInviteStart("${name}", email)`);
       expect((s.match(new RegExp(`logInviteResult\\("${name}"`, 'g')) ?? []).length).toBe(3);
+      // o convite leva só o nome da escola como user_metadata (template do Supabase)
+      expect(s).toMatch(/data: \{[^}]*school_name/);
       // e-mail nunca é interpolado em log novo
       expect(s).not.toMatch(/console\.log\([^)]*email/);
     });

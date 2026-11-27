@@ -120,6 +120,7 @@ export function buildNotificationEmail(item: EmailItem, ctx: EmailContext): Buil
   const school = oneLine(ctx.schoolName);
   const subject = oneLine(v.title);
   const footer = 'Você recebe este e-mail porque ativou avisos por e-mail no Class Cash.';
+  const contact = 'Dúvidas? Escreva para contato@classcash.com.br';
 
   const text = [
     school,
@@ -130,6 +131,7 @@ export function buildNotificationEmail(item: EmailItem, ctx: EmailContext): Buil
     `${v.actionLabel}: ${actionUrl}`,
     '',
     footer,
+    contact,
     `Ajustar preferências: ${prefsUrl}`,
   ].join('\n');
 
@@ -188,6 +190,7 @@ export function buildNotificationEmail(item: EmailItem, ctx: EmailContext): Buil
                 <tr><td style="font-size:14px;line-height:1.5;color:#64748B;padding-bottom:24px;">${escapeHtml(help)}</td></tr>
                 <tr><td style="font-size:12px;line-height:1.5;color:#64748B;border-top:1px solid #E2E8F0;padding-top:16px;">
                   ${escapeHtml(footer)}<br>
+                  ${escapeHtml(contact)}<br>
                   <a href="${escapeHtml(prefsUrl)}" style="color:#186E64;text-decoration:underline;">Ajustar preferências</a>
                 </td></tr>
               </table>

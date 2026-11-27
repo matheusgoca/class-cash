@@ -26,6 +26,9 @@ describe('buildNotificationEmail', () => {
     expect(m.html).toContain('Você recebe este e-mail porque ativou avisos por e-mail');
     expect(m.text).toContain('Ver cobranças: https://app.exemplo.com.br/mensalidades?status=overdue');
     expect(m.text).toContain('Ajustar preferências: https://app.exemplo.com.br/notificacoes/preferencias');
+    expect(m.text).toContain('Dúvidas? Escreva para contato@classcash.com.br\nAjustar preferências');
+    expect(m.html).toContain('Dúvidas? Escreva para contato@classcash.com.br');
+    expect(m.html.indexOf('Dúvidas?')).toBeLessThan(m.html.indexOf('Ajustar preferências</a>'));
     expect(m.text).toMatch(/em atraso, em 3 turmas\./);
   });
 
