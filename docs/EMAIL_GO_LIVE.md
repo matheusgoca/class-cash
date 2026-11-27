@@ -1,6 +1,6 @@
 # E-mail por evento (S4a): preparação do go-live
 
-**Data:** 2026-11-25 (S5, Bloco 3). **Estado:** construído e **desligado**; nada foi enviado nem configurado nesta rodada.
+**Data:** 2026-11-25 (S5, Bloco 3). **Estado (atualizado em 26/11, noite):** **em produção na Colegio Teste** (primeiro envio real feito); Estrela e Pensar seguem **desligadas**. Ver a seção 8 para o estado, o DNS, a entregabilidade e o que falta antes do Pensar.
 **Regra:** nenhuma chave, token ou secret passa por chat, commit ou PR. Este documento só traz **nomes**; os valores são digitados pelo dono no painel do Supabase.
 
 ## 1. Secrets e variáveis
@@ -234,3 +234,25 @@ Estado em 25/11: 3 usuários (1 admin, 2 financeiros), todos com e-mail confirma
 **Rotação: a cada 6 meses** (ou na hora, se houver suspeita de vazamento). Gere um valor novo e troque **os dois lados** (secret da função e Vault); entre uma troca e outra o job recebe 401, que é inofensivo. Depois confira em leitura que o hash dos dois bate e que o disparo seguinte volta a `skipped: disabled` (ou ao envio, se já estiver ligado). Anote a data da troca no STATUS.
 
 **Rollback.** Migration que volta o comando antigo (ou `select cron.unschedule('send-notification-emails');`, com autorização); redeploy da versão anterior da função; o PM apaga `EMAIL_JOB_SECRET` e `email_job_secret`.
+
+## 8. Go-live na Colegio Teste: estado, DNS e pendências (26/11/2026, noite)
+
+**Estado em produção.** Interruptor por escola ligado **só na Colegio Teste**; Estrela e Pensar seguem `email_enabled = false`. Segredo dedicado do job funcionando (seção 7); `EMAIL_SENDING_ENABLED` ligado; `EMAIL_ALLOWLIST` com **1 único endereço** (o usuário de teste). O `service_role_key` do Vault foi apagado pelo PM.
+
+**Primeiro envio real (20:00 UTC = 17:00 em Brasília).** Resposta da função 200 com `{"claimed":1,"sent":1,"failed":0,"skipped":0}`; fila com 1 linha `sent` (1 tentativa, id do provedor presente), destinatário = o da allowlist e não o master, **0 falhas, 0 duplicidades**, horário local depois das 08:00. Evento: `tuition_overdue` (aviso natural do dia, sem forçar nenhuma linha).
+
+**DNS: agora na Vercel.** O DNS de `classcash.com.br` passou para a Vercel (`ns1.vercel-dns.com` e `ns2.vercel-dns.com`). Os registros do e-mail **vivem na zona da Vercel, não mais no Registro.br**: Resend (`CNAME send.avisos`, `CNAME rsend.avisos`, `TXT resend._domainkey.avisos`) e DMARC (`_dmarc`, `p=none`). **Quem for mexer em DNS deve usar a Vercel** (Registro.br só aponta os servidores de nome).
+
+**Endereços oficiais.** App: `https://app.classcash.com.br`. Landing: na raiz (`classcash.com.br`) e no `www`. Roteamento por host (#57) e CORS das 5 funções (#56) estão em produção. `APP_URL` (secret da função) e o Site URL do Supabase apontam para o domínio novo. Remetente dos avisos: `avisos@avisos.classcash.com.br`.
+
+**Entregabilidade: atenção.** O primeiro e-mail **caiu no spam** na conta corporativa de teste (cabeçalhos: SPF `NONE`, DKIM com `amazonses.com`, DMARC `FAIL`). Causa provável: o domínio de envio ainda não está roteado pelo Resend Forge (só depois de reputação), então o SPF/DKIM não alinham com o domínio `From`. **Plano:** reavaliar em alguns dias com os cabeçalhos de um e-mail **novo**; se em 1 a 2 semanas não mudar, abrir chamado no suporte do Resend. **Tracking do Resend não foi ativado, de propósito** (sem pixel nem reescrita de links).
+
+**Antes de ligar o Pensar (decisões e ações):**
+1. **Decidir o tratamento da `EMAIL_ALLOWLIST`**: hoje, com 1 endereço, ela bloqueia qualquer outro destinatário (é o que protege o piloto, mas impede o Pensar). Opções a decidir pelo PM: ampliar a lista só com os e-mails do owner e do financeiro durante o piloto do Pensar, e remover só depois do piloto (passo 5 da seção 6).
+2. Pedir ao **financeiro e ao owner** do Pensar que adicionem `avisos@avisos.classcash.com.br` aos contatos (reduz o risco de spam, enquanto a reputação do domínio não se forma).
+3. O dono do Pensar confirma as preferências; só então o master liga a escola no painel (seção 6).
+
+**Pendências do PM (fora do código):**
+- Tornar **"CI / checks" obrigatório na `main`** (GitHub, Settings, Branches).
+- **Confirmar o redirecionamento do `www` para a raiz** (ou que o `www` abre a LP).
+- **Conferir no Resend o valor do TXT `resend._domainkey.avisos`** contra o que está na zona da Vercel (a verificação do domínio no painel deve estar "Verified").
