@@ -50,7 +50,7 @@ export const TeacherTable: React.FC<TeacherTableProps> = ({
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
       currency: "BRL",
-    }).format(value);
+    }).format(Number.isFinite(Number(value)) ? value : 0);
   };
 
   return (

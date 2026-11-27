@@ -58,10 +58,12 @@ export function getTuitionValue(tuition: {
  * @returns Formatted currency string
  */
 export function formatCurrency(value: number): string {
+  // NaN, Infinity, null ou undefined viram R$ 0,00 (nunca "R$ NaN").
+  const safe = Number.isFinite(Number(value)) && value !== null ? value : 0;
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
-  }).format(value);
+  }).format(safe);
 }
 
 /**

@@ -144,7 +144,7 @@ export function AddServiceChargeDialog({
   };
 
   const fmt = (v: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number.isFinite(Number(v)) ? v : 0);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

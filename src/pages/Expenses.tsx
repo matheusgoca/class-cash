@@ -224,7 +224,7 @@ const Expenses = () => {
   });
 
   const formatCurrency = (value: number) =>
-    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
+    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number.isFinite(Number(value)) ? value : 0);
 
   const summary = scopedExpenses.reduce(
     (acc, e) => {
