@@ -212,3 +212,9 @@ npm install
 - Migration `20261127210000`: o admin vê perfis e papéis dos colegas da própria escola (tela Equipe), sem o perfil master e respeitando o gate de 2FA. Reversão: `docs/db/reversao_equipe_rls_admin_ve_colegas.sql`.
 - `remove-user`: a autorização usa a escola do perfil do alvo (`supabase/functions/remove-user/authz.ts`), nega alvo master, owner, o próprio usuário e o último admin, e exige aal2 quando a escola exige 2FA.
 - Matrizes: `supabase/tests/hardening_profiles_roles_matrix.sql` e `supabase/tests/equipe_rls_matrix.sql`; snapshot das políticas anteriores em `docs/db/`. Dívida: o histórico de migrations não reflete as políticas RLS das demais tabelas (drift).
+
+## Endurecimento de grants, validações de escola e auditoria (27/11, rodada 3)
+
+- Migration `20261128100000`: permissões de EXECUTE das funções `SECURITY DEFINER` do schema `public` (anon/public só onde as políticas de RLS precisam), validação de escola em `import_enrollment`, `created_by` da renegociação derivado de `auth.uid()`, auditoria de `profiles` em `audit_logs` e políticas de `invitations` restritas ao admin da escola (ou master). Reversão: `docs/db/reversao_rodada3.sql`.
+- Migration `20261128110000`: permissões padrão de funções novas criadas pelo `postgres` (sem EXECUTE para public/anon; authenticated e service_role mantidos). Reversão: `docs/db/reversao_default_privileges_funcoes.sql`. **Função nova que precise ser chamada sem login deve receber o `grant` explícito na migration que a cria.**
+- Matrizes: `supabase/tests/rodada3_matrix.sql` e `supabase/tests/default_privileges_matrix.sql` (BEGIN/ROLLBACK).
