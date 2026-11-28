@@ -1,6 +1,12 @@
 # Status do projeto — passagem de bastão
 
-**Atualizado em:** 2026-11-25 (S5: item I concluído em produção, `main` em `347b1c5`; diagnósticos do sino com o master e do go-live do e-mail). Atualize este arquivo ao final de cada sessão: ele é o que permite continuar em outra máquina, porque a memória local do Claude não vai junto com o git.
+**Atualizado em:** 2026-11-27 (endurecimento de RLS e rodada 3 em produção; PR #69 de correções de UI mergeado, `main` em `6737136`). Atualize este arquivo ao final de cada sessão: ele é o que permite continuar em outra máquina, porque a memória local do Claude não vai junto com o git.
+
+## Fim de 27/11: o que ficou para a próxima sessão
+
+- ✅ PR #69 mergeado: valores monetários sem "R$ NaN", login só por convite (aba Cadastrar removida) e linha do próprio usuário na Equipe com selo "Você". Suíte 551, tsc 6, eslint 264.
+- **Decisão de produto pendente:** card "Saúde das Turmas" do Dashboard (`ClassHealthCards.tsx`). O código calcula Receita (pago em 12 meses), "possível" (capacidade × mensalidade base da turma) e "Receita potencial" (pago do mês ÷ possível); a definição de produto é outra (contratos ativos, ticket real, vagas ociosas). Implementar só com o OK do PO.
+- Item A (redirecionamento do domínio raiz com sessão) ainda sem PR; teste real do convite pelo PM; SMTP próprio no Auth; template do convite com `{{ .Data.school_name }}`.
 
 ## Onde estamos
 
